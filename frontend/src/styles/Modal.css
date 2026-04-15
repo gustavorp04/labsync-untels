@@ -1,0 +1,78 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 340px;
+  border: 0.5px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.modal-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+}
+
+.modal-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: none;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background: #f9fafb;
+}
+
+.btn-send {
+  flex: 1;
+  padding: 10px;
+  background: #1a1f2e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-send:hover {
+  opacity: 0.85;
+}
+
+.success-msg {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #166534;
+  text-align: center;
+}

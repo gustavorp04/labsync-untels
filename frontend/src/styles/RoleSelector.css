@@ -1,0 +1,53 @@
+.role-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.role-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.role-btn:hover {
+  border-color: #544ade;
+}
+
+.role-btn.active {
+  background: #1a1f2e;
+  border-color: #7e4ade;
+}
+
+.role-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.role-btn.active .role-icon {
+  background: #974ade;
+}
+
+.role-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.role-btn.active .role-label {
+  color: #fff;
+}
