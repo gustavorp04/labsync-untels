@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from reservas.views import login, forgot_password, reset_password
+from reservas.views import login, forgot_password, reset_password, verify_token
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +24,5 @@ urlpatterns = [
     path('api/login/', login),
     path('api/forgot-password/', forgot_password),
     path("api/reset-password/", reset_password), 
+    path("api/verify-token/", verify_token),
 ]

@@ -1,80 +1,89 @@
-import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-import "../../styles/ResetPassword.css";
+import React, { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import authService from '../../services/auth';
+import '../../styles/ResetPassword.css';
 
-function ResetPassword() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+const ResetPassword = () => {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const token = searchParams.get('token');
 
-  const navigate = useNavigate();
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState("");
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
 
-  const handleReset = async () => {
-    if (!password || !confirm) {
-      setMessage("Completa todos los campos");
-      return;
-    }
+        if (password !== confirmPassword) {
+            setError("Las contraseñas no coinciden.");
+            return;
+        }
 
-    if (password !== confirm) {
-      setMessage("Las contraseñas no coinciden");
-      return;
-    }
+        try {
+            await authService.resetPassword(token, password);
+            setSuccess("Contraseña actualizada con éxito.");
+            setTimeout(() => navigate('/login'), 2000);
+        } catch (err) {
+            const backendError = err.response?.data?.error;
+            
+            if (Array.isArray(backendError)) {
+                setError(backendError.join(" / "));
+            } else {
+                setError(backendError || "Error al procesar el cambio.");
+            }
+        }
+    };
 
-    try {
-      await axios.post("http://localhost:8000/api/reset-password/", {
-        token,
-        password,
-      });
+    return (
+        <div className="reset-page">
+            <div className="reset-card">
+                <h2 className="reset-title">Nueva Contraseña</h2>
+                <p className="reset-subtitle">Define tu nueva clave de acceso.</p>
 
-      setMessage("✓ Contraseña actualizada correctamente");
+                <form onSubmit={handleSubmit}>
+                    <input
+                        className="reset-input"
+                        type="password"
+                        placeholder="Nueva contraseña"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                    <input
+                        className="reset-input"
+                        type="password"
+                        placeholder="Confirmar contraseña"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                    />
 
-      setTimeout(() => {
-        navigate("/");
-      }, 2000);
+                    {error && (
+                        <div style={{ 
+                            backgroundColor: '#fee2e2', 
+                            color: '#dc2626', 
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            fontSize: '12px',
+                            marginBottom: '15px',
+                            textAlign: 'left',
+                            border: '1px solid #fca5a5',
+                            lineHeight: '1.4'
+                        }}>
+                            {error}
+                        </div>
+                    )}
 
-    } catch (err) {
-      setMessage(err.response?.data?.error || "Error al cambiar contraseña");
-    }
-  };
+                    {success && <p className="reset-msg">{success}</p>}
 
-  return (
-    <div className="reset-page">
-      <div className="reset-card">
-
-        <h2 className="reset-title">Restablecer contraseña</h2>
-
-        <p className="reset-subtitle">
-          Ingresa tu nueva contraseña para continuar
-        </p>
-
-        <input
-          className="reset-input"
-          type="password"
-          placeholder="Nueva contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <input
-          className="reset-input"
-          type="password"
-          placeholder="Confirmar contraseña"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-
-        <button className="reset-btn" onClick={handleReset}>
-          Guardar nueva contraseña
-        </button>
-
-        {message && <p className="reset-msg">{message}</p>}
-      </div>
-    </div>
-  );
-}
+                    <button type="submit" className="reset-btn">Guardar Cambios</button>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 export default ResetPassword;
