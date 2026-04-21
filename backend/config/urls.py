@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from reservas.views import login, forgot_password, reset_password, verify_token
 
 urlpatterns = [
@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/forgot-password/', forgot_password),
     path("api/reset-password/", reset_password), 
     path("api/verify-token/", verify_token),
+    path('', include('reservas.urls')),
 ]
