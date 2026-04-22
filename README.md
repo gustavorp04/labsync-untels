@@ -1,138 +1,104 @@
-# 🧠 LabSync UNTELS
+# 🧠 LabSync UNTELS - Gestión de Laboratorios
 
-Sistema web para la **gestión y reserva de aulas/laboratorios** desarrollado como solución académica escalable, con arquitectura moderna basada en servicios.
-
----
-
-# 📌 Descripción General
-
-LabSync UNTELS es una plataforma que permite a estudiantes, docentes y personal administrativo:
-
-- **Reservar laboratorios y aulas** de forma eficiente.
-- **Gestionar disponibilidad** de recursos en tiempo real.
-- **Autenticarse mediante roles** específicos.
-- **Recuperar contraseñas** de forma segura vía email.
-
-El sistema está diseñado siguiendo buenas prácticas de desarrollo web, con una clara separación entre el frontend y backend, preparado para escalabilidad y despliegue con Docker.
+Sistema web profesional para la **gestión y reserva de aulas/laboratorios** en la UNTELS. Desarrollado con una arquitectura moderna desacoplada (Frontend/Backend) y preparado para escalabilidad.
 
 ---
 
-# 🧱 Stack Tecnológico
-
-### 🔙 Backend
-- **Python 3.11+**
-- **Django**: Framework web robusto.
-- **Django REST Framework (DRF)**: Para la exposición de servicios API.
-- **PostgreSQL**: Motor de base de datos relacional.
-
-### 🔜 Frontend
-- **React**: Biblioteca de JavaScript para interfaces dinámicas.
-- **Axios**: Comunicación fluida con el backend.
-- **CSS Modular**: Estilos limpios y mantenibles.
-
-### 🔐 Seguridad y Servicios
-- **JWT / Session Management**: Manejo de sesiones por roles.
-- **SMTP Gmail**: Integración para el envío de notificaciones y recuperación de cuentas.
+## 📌 Descripción General
+LabSync UNTELS centraliza la administración de recursos académicos, permitiendo a la comunidad universitaria:
+- **Reservar laboratorios** de forma eficiente.
+- **Gestionar activos** e incidencias en tiempo real.
+- **Controlar accesos** mediante un sistema robusto de roles.
+- **Recuperación segura de cuenta** mediante tokens dinámicos vía email.
 
 ---
 
-# 🏗 Arquitectura del Sistema
+## 🏗️ Arquitectura y Stack Tecnológico
 
-```mermaid
-graph LR
-    A[Frontend: React App] -- API Requests --> B[Backend: Django REST]
-    B -- Queries --> C[(PostgreSQL DB)]
-    B -- Emails --> D[Servicio SMTP]
-```
+### 🔙 Backend (API)
+- **Python 3.12** + **Django REST Framework**
+- **PostgreSQL**: Base de datos relacional (Esquema v2.0).
+- **Sistema de Salud**: Endpoint de monitoreo real de servicios.
 
-Esta arquitectura desacoplada permite que el equipo de frontend y backend trabajen de forma independiente, facilitando el mantenimiento y futuras expansiones.
+### 🔜 Frontend (UI)
+- **React 19**
+- **React Router Dom 7**: Gestión de navegación.
+- **Axios**: Comunicación asíncrona con el backend.
+- **Iconografía Profesional**: SVGs vectoriales integrados.
 
----
-
-# 🚀 Funcionalidades Principales
-
-## 🔐 Autenticación Inteligente
-Login único basado en:
-- Código Universitario / Usuario.
-- Contraseña encriptada.
-- Selección de Rol (Estudiante, Docente, Administrador, Jefatura).
-
-## 🔑 Recuperación de Cuenta
-Flujo interactivo integrado:
-1. El usuario solicita el reset mediante su correo en un modal.
-2. El sistema envía el código y el modal cambia automáticamente a una cuadrícula OTP.
-3. Al ingresar el código correcto, el sistema redirige a la página de cambio de clave.
-4. El usuario define su nueva contraseña con validaciones de seguridad en tiempo real.
+### 🔐 Seguridad & Servicios
+- **Hashing de Contraseñas**: PBKDF2 (Nivel bancario).
+- **SMTP Gmail**: Envío de correos de recuperación automáticos.
+- **Protección de Rutas**: Middlewares en React para filtrado por rol.
 
 ---
 
-# 📁 Estructura del Repositorio
+## 🚀 Funcionalidades Clave
 
+### 🛠️ Sistema de Salud (Health Check)
+Implementamos un endpoint en `/api/health/` que realiza un **ping real** a la base de datos (`SELECT 1`). Esto permite monitorear la disponibilidad del sistema en tiempo real.
+
+### 🔑 Recuperación de Contraseña
+Flujo seguro integrado:
+1. Solicitud de código vía email (Token de 6 dígitos).
+2. Validación de expiración (15 minutos).
+3. Cambio de clave con requisitos de complejidad (Mayúsculas, Números, Símbolos).
+
+### 👁️ UX Mejorada
+Inclusión de funcionalidad de **visualización de contraseñas** con iconos vectoriales en todos los formularios de autenticación.
+
+---
+
+## 📁 Estructura del Proyecto
 ```text
 labsync-untels/
-│
-├── backend/                # Directorio del servidor Django
-│   ├── reservas/           # App principal: Modelos, Vistas y Serialización
-│   ├── config/             # Ajustes del proyecto (.env, settings, urls)
-│   └── requirements.txt    # Librerías de Python
-│
-├── frontend/               # Directorio del cliente React
+├── backend/                # Lógica del Servidor (Django)
+│   ├── config/             # Configuración (settings, urls, wsgi)
+│   ├── reservas/           # App principal (models, views, api)
+│   └── manage.py           
+├── frontend/               # Interfaz de Usuario (React)
 │   ├── src/
-│   │   ├── pages/          # Vistas (Auth, Dashboards por Rol)
-│   │   ├── components/      # Elementos reutilizables (Modales, Navbar)
-│   │   └── services/       # Lógica de conexión con la API
-│   └── package.json        # Dependencias de npm
-│
-├── .env.example            # Guía para variables de entorno
-└── README.md               # Documentación actual
+│   │   ├── pages/auth/     # Login y Recuperación
+│   │   ├── services/       # Conexión API
+│   │   └── styles/         # Diseño CSS modular
+│   └── package.json
+└── .github/workflows/      # Pipeline de Integración Continua (CI)
 ```
 
 ---
 
-# ⚙️ API Endpoints (Resumen)
+## ⚙️ Configuración y Ejecución
 
-| Acción | Método | Endpoint | Descripción |
-| :--- | :---: | :--- | :--- |
-| **Login** | `POST` | `/api/login/` | Autenticación y retorno de datos de usuario. |
-| **Recuperar** | `POST` | `/api/forgot-password/` | Envío de correo con token de reset. |
-| **Reset** | `POST` | `/api/reset-password/` | Actualización de contraseña con token válido. |
+### Requisitos
+- Python 3.12+
+- Node.js 18+
+- PostgreSQL activo
 
----
-
-# 🚀 Cómo empezar
-
-### 1. Clonar y configurar Backend
-```bash
-cd backend
-pip install -r requirements.txt
-# Configurar archivo .env con credenciales de DB y Email
-python manage.py migrate
-python manage.py runserver
-```
-
-### 2. Configurar Frontend
-```bash
-cd frontend
-npm install
-npm start
-```
+### Instalación Rápida
+1. **Backend:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   python manage.py migrate
+   python manage.py runserver
+   ```
+2. **Frontend:**
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
 
 ---
 
-# 🔒 Variables Críticas (.env)
-
-Asegúrate de crear un archivo `.env` en la carpeta `backend/config/` con:
-- `DB_NAME`, `DB_USER`, `DB_PASS`
-- `EMAIL_HOST_USER` (Tu Gmail)
-- `EMAIL_HOST_PASSWORD` (App Password)
+## 📌 Estado del Proyecto (Roadmap)
+- [x] Sincronización con PostgreSQL (Esquema SQL 2.0)
+- [x] Sistema de Health Check Pro
+- [x] Iconografía Profesional SVG
+- [x] Recuperación de cuenta vía Email
+- [x] Pipeline CI (GitHub Actions) Configurado
+- [ ] Dockerización del entorno
+- [ ] Reportes estadísticos de uso de laboratorios
 
 ---
-
-# 📌 Estado del Proyecto
-
-- [x] Backend API Base
-- [x] Login & Roles funcionales
-- [x] Sistema de recuperación de contraseña funcional
-- [x] Conexión a PostgreSQL
-- [ ] Dockerización (En curso)
-- [ ] Módulo de Reservas Avanzado (Roadmap)
+**Desarrollado para la UNTELS** - *Optimización y Control Académico*
