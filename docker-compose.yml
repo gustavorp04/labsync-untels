@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: labsync_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=LabSyncUNTELS
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=daniel04
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: labsync_backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=LabSyncUNTELS
+      - DB_USER=postgres
+      - DB_PASS=daniel04
+      - DB_PORT=5432
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: labsync_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
