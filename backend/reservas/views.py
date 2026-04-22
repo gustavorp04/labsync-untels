@@ -7,7 +7,9 @@ from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import Usuario
+from .models import Usuario, Rol, PasswordReset
+from django.utils import timezone
+from datetime import timedelta
 from django.db import connection
 
 @api_view(['POST'])
@@ -25,14 +27,14 @@ def login(request):
         if not check_password(password, user.password_hash):
             return Response({'error': 'Contraseña incorrecta'}, status=400)
 
-        if user.rol != rol_seleccionado:
+        if user.id_rol.nombre != rol_seleccionado:
             return Response({'error': 'Rol incorrecto'}, status=403)
 
         return Response({
             'mensaje': 'Login exitoso',
-            'user_id': user.id,
+            'user_id': user.id_usuario,
             'nombre': user.nombre,
-            'rol': user.rol
+            'rol': user.id_rol.nombre
         })
     except Exception:
         return Response({
@@ -49,8 +51,14 @@ def forgot_password(request):
             return Response({"error": "Email no existe"}, status=400)
 
         token = get_random_string(6).upper()
-        user.reset_token = token
-        user.save()
+        
+        # Guardar en la nueva tabla PasswordReset
+        PasswordReset.objects.filter(id_usuario=user).delete() # Limpiar antiguos
+        PasswordReset.objects.create(
+            id_usuario=user,
+            token_hash=token,
+            fecha_expiracion=timezone.now() + timedelta(minutes=15)
+        )
         send_reset_email(email, token)
         return Response({"mensaje": "Correo enviado"})
     except Exception:
@@ -100,13 +108,24 @@ def reset_password(request):
             return Response({"error": list(e.messages)}, status=400)
 
         try:
-            user = Usuario.objects.get(reset_token=token)
+            # Buscar el token en la nueva tabla
+            reset_entry = PasswordReset.objects.get(
+                token_hash=token, 
+                usado=False, 
+                fecha_expiracion__gt=timezone.now()
+            )
+            
+            user = reset_entry.id_usuario
             user.password_hash = make_password(password)
-            user.reset_token = None 
             user.save()
+            
+            # Marcar el token como usado
+            reset_entry.usado = True
+            reset_entry.save()
+            
             return Response({"mensaje": "¡Contraseña actualizada con éxito!"})
-        except Usuario.DoesNotExist:
-            return Response({"error": "El código de verificación es incorrecto o ya fue utilizado."}, status=400)
+        except PasswordReset.DoesNotExist:
+            return Response({"error": "El código es incorrecto, expiró o ya fue utilizado."}, status=400)
     except Exception:
         return Response({
             "error": "Error interno del servidor"
@@ -118,10 +137,15 @@ def verify_token(request):
         token = request.data.get("token")
         if not token:
             return Response({"error": "Se requiere el código"}, status=400)
-        exists = Usuario.objects.filter(reset_token=token).exists()
+        exists = PasswordReset.objects.filter(
+            token_hash=token, 
+            usado=False, 
+            fecha_expiracion__gt=timezone.now()
+        ).exists()
+        
         if exists:
             return Response({"mensaje": "Código válido"}, status=200)
-        return Response({"error": "El código ingresado es incorrecto"}, status=400)
+        return Response({"error": "El código es incorrecto o ha expirado"}, status=400)
     except Exception:
         return Response({
             "error": "Error interno del servidor"
@@ -129,14 +153,23 @@ def verify_token(request):
 
 @api_view(['GET'])
 def health_check(request):
+    """
+    Verifica que el servicio esté activo y que la base de datos sea accesible de verdad.
+    """
     try:
-        connection.cursor()
+        # Esto obliga a Django a conectarse y autenticarse en la BD
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        
         return Response({
             "status": "ok",
-            "database": "connected"
+            "database": "connected",
+            "message": "Servicio operativo y autenticado"
         }, status=200)
-    except Exception:
+    except Exception as e:
+        print(f"FALLO DE HEALTH CHECK: {str(e)}")
         return Response({
             "status": "error",
-            "database": "disconnected"
+            "database": "disconnected",
+            "detail": "Error de conexión o autenticación con PostgreSQL"
         }, status=500)

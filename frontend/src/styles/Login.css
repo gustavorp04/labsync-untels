@@ -170,8 +170,11 @@ background: linear-gradient(
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 18px;
   padding: 2px;
+  display: flex;
+  align-items: center;
+  color: #6b7280;
 }
 
 .form-row {
