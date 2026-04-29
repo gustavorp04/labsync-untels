@@ -5,7 +5,7 @@ from unittest.mock import patch
 class LaboratorioAPITests(TestCase):
     
     # El @patch intercepta la consulta a la base de datos antes de que suceda
-    @patch('reservas.views.LaboratorioListView.get_queryset')
+    @patch('reservas.views.laboratorio_views.LaboratorioListView.get_queryset')
     def test_get_laboratorios_list(self, mock_get_queryset):
         """Prueba que el endpoint de laboratorios responda 200 usando Mocking"""
         

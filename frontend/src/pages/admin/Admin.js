@@ -203,7 +203,7 @@ function Admin() {
               />
 
               <div className="action-buttons">
-                <button>Actualizar</button>
+                <button onClick={fetchReservas}>Actualizar</button>
                 <button>Exportar PDF</button>
               </div>
             </div>
@@ -273,7 +273,7 @@ function Admin() {
               />
 
               <div className="action-buttons">
-                <button>Actualizar</button>
+                <button onClick={fetchReservas}>Actualizar</button>
                 <button>Exportar PDF</button>
               </div>
             </div>
