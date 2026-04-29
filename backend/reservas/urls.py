@@ -31,7 +31,7 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     # RESERVAS (DOCENTE)
     # -------------------------------------------------------------------------
-    path('api/reservas/', reserva_views.crear_reserva, name='crear-reserva'),
+    path('api/reservas/crear/', reserva_views.crear_reserva, name='crear-reserva'),
 
     # -------------------------------------------------------------------------
     # SISTEMA

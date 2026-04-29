@@ -10,7 +10,7 @@ export const crearReserva = async (reservaData) => {
     - cantidad_alumnos
     - acepto_declaracion_jurada
   */
-  const response = await axios.post(`${API_URL}/reservas/`, reservaData);
+  const response = await axios.post(`${API_URL}/reservas/crear/`, reservaData);
   return response.data;
 };
 
@@ -19,9 +19,15 @@ export const getTodasLasReservas = async () => {
   return response.data;
 };
 
+export const eliminarReserva = async (id) => {
+  const response = await axios.delete(`${API_URL}/v1/reservas/${id}/`);
+  return response.data;
+};
+
 const reservaService = {
   crearReserva,
-  getTodasLasReservas
+  getTodasLasReservas,
+  eliminarReserva
 };
 
 export default reservaService;

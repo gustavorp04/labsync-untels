@@ -9,8 +9,8 @@ RUN npm install
 # Copiar el código
 COPY . .
 
-# Exponer el puerto de Vite
-EXPOSE 5173
+# Exponer el puerto de React (CRA)
+EXPOSE 3000
 
-# Ejecutar en modo desarrollo permitiendo conexiones externas
-CMD ["npm", "run", "dev", "--", "--host"]
+# Ejecutar en modo desarrollo
+CMD ["npm", "start"]
