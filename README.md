@@ -1,104 +1,64 @@
-# 🧠 LabSync UNTELS - Gestión de Laboratorios
+# LabSync UNTELS 🔬💻
 
-Sistema web profesional para la **gestión y reserva de aulas/laboratorios** en la UNTELS. Desarrollado con una arquitectura moderna desacoplada (Frontend/Backend) y preparado para escalabilidad.
+Sistema integral para la gestión de reservas de laboratorios y auditoría de activos tecnológicos en la **Universidad Nacional Tecnológica de Lima Sur (UNTELS)**.
 
----
+## 🏗️ Arquitectura del Sistema
+El proyecto sigue un patrón de **Arquitectura Desacoplada (Client-Server)**:
+- **Frontend:** Single Page Application (SPA) desarrollada con React.js.
+- **Backend:** API REST robusta construida con Django Rest Framework (DRF).
+- **Base de Datos:** PostgreSQL para almacenamiento relacional persistente.
+- **Contenedores:** Orquestación completa mediante Docker y Docker Compose.
 
-## 📌 Descripción General
-LabSync UNTELS centraliza la administración de recursos académicos, permitiendo a la comunidad universitaria:
-- **Reservar laboratorios** de forma eficiente.
-- **Gestionar activos** e incidencias en tiempo real.
-- **Controlar accesos** mediante un sistema robusto de roles.
-- **Recuperación segura de cuenta** mediante tokens dinámicos vía email.
-
----
-
-## 🏗️ Arquitectura y Stack Tecnológico
-
-### 🔙 Backend (API)
-- **Python 3.12** + **Django REST Framework**
-- **PostgreSQL**: Base de datos relacional (Esquema v2.0).
-- **Sistema de Salud**: Endpoint de monitoreo real de servicios.
-
-### 🔜 Frontend (UI)
-- **React 19**
-- **React Router Dom 7**: Gestión de navegación.
-- **Axios**: Comunicación asíncrona con el backend.
-- **Iconografía Profesional**: SVGs vectoriales integrados.
-
-### 🔐 Seguridad & Servicios
-- **Hashing de Contraseñas**: PBKDF2 (Nivel bancario).
-- **SMTP Gmail**: Envío de correos de recuperación automáticos.
-- **Protección de Rutas**: Middlewares en React para filtrado por rol.
-
----
-
-## 🚀 Funcionalidades Clave
-
-### 🛠️ Sistema de Salud (Health Check)
-Implementamos un endpoint en `/api/health/` que realiza un **ping real** a la base de datos (`SELECT 1`). Esto permite monitorear la disponibilidad del sistema en tiempo real.
-
-### 🔑 Recuperación de Contraseña
-Flujo seguro integrado:
-1. Solicitud de código vía email (Token de 6 dígitos).
-2. Validación de expiración (15 minutos).
-3. Cambio de clave con requisitos de complejidad (Mayúsculas, Números, Símbolos).
-
-### 👁️ UX Mejorada
-Inclusión de funcionalidad de **visualización de contraseñas** con iconos vectoriales en todos los formularios de autenticación.
-
----
-
-## 📁 Estructura del Proyecto
+## 📁 Estructura del Directorio
 ```text
-labsync-untels/
-├── backend/                # Lógica del Servidor (Django)
-│   ├── config/             # Configuración (settings, urls, wsgi)
-│   ├── reservas/           # App principal (models, views, api)
-│   └── manage.py           
-├── frontend/               # Interfaz de Usuario (React)
+reserva_aulas/
+├── backend/                # Lógica de servidor y API REST (Django)
+│   ├── config/             # Configuración central del proyecto
+│   ├── reservas/           # Aplicación principal (Modelos, Vistas, Serializadores)
+│   └── seed_completo.py    # Script maestro de carga de datos
+├── frontend/               # Interfaz de usuario (React)
 │   ├── src/
-│   │   ├── pages/auth/     # Login y Recuperación
-│   │   ├── services/       # Conexión API
-│   │   └── styles/         # Diseño CSS modular
-│   └── package.json
-└── .github/workflows/      # Pipeline de Integración Continua (CI)
+│   │   ├── components/     # Componentes reutilizables
+│   │   ├── pages/          # Vistas principales (Admin, Docente, Estudiante)
+│   │   └── services/       # Comunicación con la API
+├── scripts sql/            # Scripts oficiales de Base de Datos (Schema & Seeds)
+└── docker-compose.yml      # Configuración de contenedores
 ```
 
----
+## 🛠️ Tecnologías Utilizadas
+- **Backend:** Python 3.10+, Django 5.x, Django Rest Framework.
+- **Frontend:** React 18, Hooks (useState, useEffect), Axios.
+- **Base de Datos:** PostgreSQL 15.
+- **DevOps:** Docker, GitHub Actions (CI/CD).
 
-## ⚙️ Configuración y Ejecución
+## 🚀 Instalación y Uso
 
-### Requisitos
-- Python 3.12+
-- Node.js 18+
-- PostgreSQL activo
+### Clonar el repositorio
+```bash
+git clone https://github.com/gustavorp04/labsync-untels.git
+cd labsync-untels
+```
 
-### Instalación Rápida
-1. **Backend:**
+### Ejecución con Docker
+1. Levantar los servicios:
    ```bash
-   cd backend
-   pip install -r requirements.txt
-   python manage.py migrate
-   python manage.py runserver
+   docker-compose up -d --build
    ```
-2. **Frontend:**
+2. Poblar la base de datos con datos reales de la universidad:
    ```bash
-   cd frontend
-   npm install
-   npm start
+   docker exec -it labsync_backend python seed_completo.py
    ```
 
----
+## 👥 Roles del Sistema
+1. **Administrador de Laboratorio:** Gestión de incidencias, validación de reservas y auditoría de equipos.
+2. **Jefatura de Laboratorio:** Supervisión general y reportes de uso.
+3. **Docente:** Reserva de ambientes para clases extra y laboratorios libres.
+4. **Estudiante:** Consulta de disponibilidad y gestión de perfil.
 
-## 📌 Estado del Proyecto (Roadmap)
-- [x] Sincronización con PostgreSQL (Esquema SQL 2.0)
-- [x] Sistema de Health Check Pro
-- [x] Iconografía Profesional SVG
-- [x] Recuperación de cuenta vía Email
-- [x] Pipeline CI (GitHub Actions) Configurado
-- [ ] Dockerización del entorno
-- [ ] Reportes estadísticos de uso de laboratorios
+## 🔑 Credenciales de Prueba
+- **Administrador:** `ADM0001` / `AdminLab_2026`
+- **Docente:** `D0001` / `DocSist_2026`
+- **Estudiante:** `202310001` / `EstSist_2026`
 
----
-**Desarrollado para la UNTELS** - *Optimización y Control Académico*
+## 📄 Licencia
+Este proyecto es de uso académico para la UNTELS - Ciclo VIII.
