@@ -28,8 +28,10 @@ services:
       - DB_PASS=daniel04
       - DB_PORT=5432
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "sleep 5 &&
+             python manage.py migrate &&
              python manage.py runserver 0.0.0.0:8000"
+    restart: on-failure
     depends_on:
       - db
 
