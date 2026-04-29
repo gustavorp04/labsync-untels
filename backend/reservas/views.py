@@ -1,16 +1,28 @@
 import re
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import generics
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils.crypto import get_random_string
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import Usuario, Rol, PasswordReset
 from django.utils import timezone
 from datetime import timedelta
 from django.db import connection
+
+from .models import Usuario, Rol, PasswordReset, Laboratorio, ActivoLaboratorio
+from .serializers import (
+    LaboratorioListSerializer, 
+    LaboratorioDetailSerializer, 
+    ActivoLaboratorioSerializer
+)
+
+
+# =============================================================================
+# ENDPOINTS SPRINT 1 & 2: AUTENTICACIÓN Y RECUPERACIÓN DE CONTRASEÑA
+# =============================================================================
 
 @api_view(['POST'])
 def login(request):
@@ -157,7 +169,6 @@ def health_check(request):
     Verifica que el servicio esté activo y que la base de datos sea accesible de verdad.
     """
     try:
-        # Esto obliga a Django a conectarse y autenticarse en la BD
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         
@@ -173,3 +184,25 @@ def health_check(request):
             "database": "disconnected",
             "detail": "Error de conexión o autenticación con PostgreSQL"
         }, status=500)
+
+
+# =============================================================================
+# ENDPOINTS PBI-02: GESTIÓN DE LABORATORIOS E INVENTARIO
+# =============================================================================
+
+class LaboratorioListView(generics.ListAPIView):
+    """Devuelve la lista general de todos los laboratorios"""
+    queryset = Laboratorio.objects.all()
+    serializer_class = LaboratorioListSerializer
+
+class LaboratorioDetailView(generics.RetrieveAPIView):
+    """Devuelve un laboratorio específico y la lista de todos sus equipos"""
+    queryset = Laboratorio.objects.all()
+    serializer_class = LaboratorioDetailSerializer
+    lookup_field = 'id_laboratorio'
+
+class ActivoLaboratorioUpdateView(generics.UpdateAPIView):
+    """Permite al administrador cambiar el estado de un equipo a Mantenimiento/Operativo"""
+    queryset = ActivoLaboratorio.objects.all()
+    serializer_class = ActivoLaboratorioSerializer
+    lookup_field = 'id_activo'
