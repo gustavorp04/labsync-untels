@@ -1,0 +1,145 @@
+/* Reutilizamos la base del Admin para coherencia visual */
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #0f172a;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.sidebar {
+  width: 260px;
+  background: #111827;
+  padding: 25px;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.logo h2 {
+  margin: 0;
+  font-size: 28px;
+  color: #10b981; /* Verde esmeralda para Docentes */
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  margin-top: 30px;
+}
+
+.menu-title {
+  background: #1f2937;
+  border: none;
+  color: white;
+  padding: 14px;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  transition: 0.3s;
+}
+
+.menu-title:hover {
+  background: #374151;
+}
+
+.main-content {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.welcome-center {
+  background: #1f2937;
+  padding: 50px;
+  border-radius: 20px;
+  text-align: center;
+  margin-top: 80px;
+}
+
+/* FORMULARIO DE RESERVA */
+.form-section {
+  background: #1f2937;
+  padding: 30px;
+  border-radius: 18px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  background: #111827;
+  color: white;
+  outline: none;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  width: 100%;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.btn-primary:hover {
+  background: #059669;
+}
+
+.table-section {
+  background: #1f2937;
+  padding: 30px;
+  border-radius: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #111827;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+th, td {
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid #374151;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.status-programada { background: #065f46; color: #a7f3d0; }
+.status-pendiente { background: #92400e; color: #fef3c7; }

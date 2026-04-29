@@ -6,12 +6,12 @@ import "../../styles/Login.css";
 import logo from "../../assets/logo.png";
 import { loginUser } from "../../services/auth"; 
 
-const ROLES = ["estudiante", "docente", "admin", "jefatura"];
+const ROLES = ["estudiante", "docente", "admin_lab", "jefatura"];
 
 const ROUTES = {
   estudiante: "/estudiante",
   docente: "/docente",
-  admin: "/admin",
+  admin_lab: "/admin",
   jefatura: "/jefatura",
 };
 
@@ -47,6 +47,7 @@ function Login() {
       localStorage.setItem("isAuthenticated", "true");
       localStorage.setItem("role", data.rol);
       localStorage.setItem("username", data.nombre);
+      localStorage.setItem("id_usuario", data.id_usuario);
 
       navigate(ROUTES[data.rol]);
 
@@ -90,13 +91,13 @@ function Login() {
 
         <div className="feature-boxes">
           <div className="feature-card">
-            <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" width="24" />
+            <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" width="24" alt="Icono Horarios" />
             <p className="feature-title">Gestión de horarios</p>
             <p className="feature-text">Evita conflictos en reservas</p>
           </div>
 
           <div className="feature-card">
-            <img src="https://cdn-icons-png.flaticon.com/512/190/190411.png" width="20" />
+            <img src="https://cdn-icons-png.flaticon.com/512/190/190411.png" width="20" alt="Icono Equipos" />
             <p className="feature-title">Control de equipos</p>
             <p className="feature-text">Inventario en tiempo real</p>
           </div>

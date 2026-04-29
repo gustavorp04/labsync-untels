@@ -1,10 +1,10 @@
 from rest_framework import viewsets
-from reservas.models import Usuario, Laboratorio, Reserva, Incidencia, Asistencia
+from reservas.models import Usuario, Laboratorio, Reserva, Incidencia, Asistencia, HorarioDisponible
 
 # Importaciones corregidas apuntando a tus archivos actuales
 from ..serializers.auth_serializers import UsuarioSerializer
 from ..serializers.laboratorio_serializers import LaboratorioListSerializer
-from ..serializers.reserva_serializers import ReservaSerializer, AsistenciaSerializer
+from ..serializers.reserva_serializers import ReservaSerializer, AsistenciaSerializer, HorarioDisponibleSerializer
 from ..serializers.incidencia_serializers import IncidenciaSerializer
 
 class UsuarioViewSet(viewsets.ModelViewSet):
@@ -26,3 +26,7 @@ class IncidenciaViewSet(viewsets.ModelViewSet):
 class AsistenciaViewSet(viewsets.ModelViewSet):
     queryset = Asistencia.objects.all()
     serializer_class = AsistenciaSerializer
+
+class HorarioDisponibleViewSet(viewsets.ModelViewSet):
+    queryset = HorarioDisponible.objects.filter(estado='Disponible').order_by('fecha', 'hora_inicio')
+    serializer_class = HorarioDisponibleSerializer
