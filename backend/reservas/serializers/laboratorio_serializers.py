@@ -1,33 +1,69 @@
 from rest_framework import serializers
-from .models import Laboratorio, ActivoLaboratorio
+from reservas.models import Laboratorio, ActivoLaboratorio, Facultad, TipoLaboratorio
 
-# Serializador para un activo individual (PC, Mouse, etc.)
+# 1. Serializador para los equipos (PCs, Laptops, etc.)
 class ActivoLaboratorioSerializer(serializers.ModelSerializer):
+    # Traemos el nombre del tipo (ej. "PC") en lugar del ID
     tipo_activo = serializers.CharField(source='id_tipo_activo.nombre', read_only=True)
 
     class Meta:
         model = ActivoLaboratorio
-        # Estos son los campos exactos que acordaste con el frontend
-        fields = ['id_activo', 'tipo_activo', 'num_serie', 'codigo_patrimonio', 'estado', 'updated_at']
+        fields = [
+            'id_activo', 
+            'tipo_activo', 
+            'num_serie', 
+            'codigo_patrimonio', 
+            'estado', 
+            'updated_at'
+        ]
 
-# Serializador para el listado general de Laboratorios
+# 2. Serializador específico para el Dashboard / Lista General
 class LaboratorioListSerializer(serializers.ModelSerializer):
-    tipo_laboratorio = serializers.CharField(source='id_tipo.nombre', read_only=True)
+    # Información procesada para que el frontend no trabaje de más
+    tipo_nombre = serializers.CharField(source='id_tipo.nombre', read_only=True)
+    facultad_nombre = serializers.CharField(source='id_facultad.nombre', read_only=True)
     equipos_operativos = serializers.SerializerMethodField()
+    estado_sistema = serializers.SerializerMethodField()
 
     class Meta:
         model = Laboratorio
-        fields = ['id_laboratorio', 'nombre', 'tipo_laboratorio', 'aforo_maximo', 'habilitado', 'equipos_operativos']
+        fields = [
+            'id_laboratorio', 
+            'nombre', 
+            'tipo_nombre', 
+            'facultad_nombre', 
+            'aforo_maximo', 
+            'equipos_operativos',
+            'estado_sistema',
+            'habilitado'
+        ]
 
     def get_equipos_operativos(self, obj):
-        # Gracias a la Mejora B (related_name='activos'), contar esto es así de fácil:
-        return obj.activos.filter(estado='Operativo').count()
+        # Contamos solo los que están "Operativo" usando el related_name por defecto
+        return obj.activolaboratorio_set.filter(estado='Operativo').count()
 
-# Serializador para el detalle de un Laboratorio con la lista de sus PCs
+    def get_estado_sistema(self, obj):
+        # Lógica de negocio: Si tiene menos del mínimo de equipos de su tipo, está "En Mantenimiento"
+        operativos = self.get_equipos_operativos(obj)
+        minimo_requerido = obj.id_tipo.min_equipos
+        return "Disponible" if operativos >= minimo_requerido else "Mantenimiento"
+
+# 3. Serializador para el detalle (Cuando entras a un lab específico)
 class LaboratorioDetailSerializer(serializers.ModelSerializer):
-    # Aquí anidamos el serializador de activos para que salgan todos los equipos dentro del JSON
-    activos = ActivoLaboratorioSerializer(many=True, read_only=True)
+    # Anidamos los activos para ver la lista de todas las PCs del lab
+    activos = ActivoLaboratorioSerializer(source='activolaboratorio_set', many=True, read_only=True)
+    tipo_detalle = serializers.CharField(source='id_tipo.nombre', read_only=True)
+    facultad_detalle = serializers.CharField(source='id_facultad.nombre', read_only=True)
 
     class Meta:
         model = Laboratorio
-        fields = ['id_laboratorio', 'nombre', 'habilitado', 'activos']
+        fields = [
+            'id_laboratorio', 
+            'nombre', 
+            'codigo_patrimonio', 
+            'aforo_maximo', 
+            'tipo_detalle', 
+            'facultad_detalle', 
+            'habilitado', 
+            'activos'
+        ]

@@ -4,13 +4,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from ..models import Usuario
 
-class UserSerializer(serializers.ModelSerializer):
-    rol = serializers.CharField(source='id_rol.nombre', read_only=True)
-
+class UsuarioSerializer(serializers.ModelSerializer):
+    rol_nombre = serializers.CharField(source='id_rol.nombre', read_only=True)
     class Meta:
         model = Usuario
-        fields = ['id_usuario', 'nombre', 'rol']
-
+        fields = ['id_usuario', 'nombre', 'email', 'codigo_universitario', 'rol_nombre', 'created_at']
 class LoginSerializer(serializers.Serializer):
     usuario = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
@@ -34,3 +32,4 @@ class ResetPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError(list(e.messages))
             
         return value
+UserSerializer = UsuarioSerializer

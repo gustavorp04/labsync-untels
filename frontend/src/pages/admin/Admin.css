@@ -1,0 +1,145 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #111827;
+}
+
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  color: white;
+}
+
+/* SIDEBAR */
+
+.sidebar {
+  width: 270px;
+  background: #0b1120;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.logo p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.menu {
+  margin-top: 20px;
+}
+
+.menu-section {
+  margin-bottom: 20px;
+}
+
+.menu-title {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: white;
+  text-align: left;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.menu-title:hover,
+.menu-title.active {
+  background: #2563eb;
+}
+
+.submenu {
+  display: flex;
+  flex-direction: column;
+  margin-left: 12px;
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.submenu button {
+  background: transparent;
+  border: none;
+  color: #d1d5db;
+  text-align: left;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.submenu button:hover {
+  background: #1f2937;
+}
+
+/* MAIN */
+
+.main-content {
+  flex: 1;
+  padding: 40px;
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.header p {
+  opacity: 0.7;
+  margin-bottom: 30px;
+}
+
+/* TABLA */
+
+.table-section {
+  background: #1f2937;
+  padding: 24px;
+  border-radius: 14px;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: 14px;
+  border-bottom: 1px solid #374151;
+}
+
+td {
+  padding: 14px;
+  border-bottom: 1px solid #374151;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ESTADOS */
+
+.estado {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.disponible {
+  background: #065f46;
+}
