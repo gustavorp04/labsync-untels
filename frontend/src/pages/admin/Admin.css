@@ -290,3 +290,65 @@ td {
 .pagination button:hover {
   background: #4b5563;
 }
+
+/* MODAL EDITAR */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1f2937;
+  padding: 30px;
+  border-radius: 20px;
+  width: 400px;
+  border: 1px solid #374151;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #9ca3af;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  color: white;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.cancel-btn { background: #374151; color: white; }
+.save-btn { background: #10b981; color: white; }

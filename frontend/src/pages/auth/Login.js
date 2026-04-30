@@ -48,6 +48,7 @@ function Login() {
       localStorage.setItem("role", data.rol);
       localStorage.setItem("username", data.nombre);
       localStorage.setItem("id_usuario", data.id_usuario);
+      localStorage.setItem("departamento", data.departamento || "");
 
       navigate(ROUTES[data.rol]);
 

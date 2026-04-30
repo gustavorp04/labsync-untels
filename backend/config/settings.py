@@ -144,3 +144,46 @@ EMAIL_HOST_USER = "gustavorpd04@gmail.com"
 EMAIL_HOST_PASSWORD = "rzev yyvg ajqy isom"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# =============================================================================
+# CONFIGURACIÓN DE LOGGING (PBI-18 — PRIVACIDAD)
+# =============================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'mask_pii': {
+            '()': 'reservas.utils.logging_filters.PIIMaskingFilter',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['mask_pii'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'reservas': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

@@ -1,6 +1,9 @@
+import logging
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import connection
+
+logger = logging.getLogger('reservas')
 
 @api_view(['GET'])
 def health_check(request):
@@ -18,7 +21,7 @@ def health_check(request):
             "message": "Servicio operativo y autenticado"
         }, status=200)
     except Exception as e:
-        print(f"FALLO DE HEALTH CHECK: {str(e)}")
+        logger.error(f"FALLO DE HEALTH CHECK: {str(e)}")
         return Response({
             "status": "error",
             "database": "disconnected",

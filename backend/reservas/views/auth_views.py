@@ -1,7 +1,10 @@
+import logging
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
+
+logger = logging.getLogger('reservas')
 
 @api_view(['POST'])
 def login(request):
@@ -18,11 +21,13 @@ def login(request):
             return Response({'error': error}, status=status_code)
 
         user_data = UserSerializer(user).data
+        logger.info(f"Login exitoso para usuario: {data['usuario']}")
         return Response({
             'mensaje': 'Login exitoso',
             **user_data
         })
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error en login para {request.data.get('usuario')}: {str(e)}")
         return Response({"error": "Error interno del servidor"}, status=500)
 
 @api_view(['POST'])

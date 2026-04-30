@@ -6,9 +6,17 @@ from ..models import Usuario
 
 class UsuarioSerializer(serializers.ModelSerializer):
     rol = serializers.CharField(source='id_rol.nombre', read_only=True)
+    departamento = serializers.SerializerMethodField()
+
     class Meta:
         model = Usuario
-        fields = ['id_usuario', 'nombre', 'email', 'codigo_universitario', 'rol', 'created_at']
+        fields = ['id_usuario', 'nombre', 'email', 'codigo_universitario', 'rol', 'departamento', 'created_at']
+
+    def get_departamento(self, obj):
+        try:
+            return obj.perfildocente.departamento
+        except:
+            return None
 class LoginSerializer(serializers.Serializer):
     usuario = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)

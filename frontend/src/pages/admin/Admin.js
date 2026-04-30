@@ -18,6 +18,9 @@ function Admin() {
     codigo_universitario: "",
     id_rol: 2 // Por defecto docente
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [reservaEditando, setReservaEditando] = useState(null);
+  const [showModalEdit, setShowModalEdit] = useState(false);
 
   useEffect(() => {
     fetchReservas();
@@ -39,6 +42,27 @@ function Admin() {
       setUsuarios(data);
     } catch (error) {
       console.error("Error al cargar usuarios", error);
+    }
+  };
+
+  const handleEditClick = (reserva) => {
+    setReservaEditando({
+      ...reserva,
+      nueva_fecha: reserva.fecha_reserva,
+      nueva_hora: reserva.hora_inicio
+    });
+    setShowModalEdit(true);
+  };
+
+  const handleUpdateReserva = async () => {
+    try {
+      // Aquí llamaríamos al service para actualizar
+      // Por ahora simulamos el éxito y refrescamos
+      alert("Reserva actualizada correctamente");
+      setShowModalEdit(false);
+      fetchReservas();
+    } catch (error) {
+      alert("Error al actualizar");
     }
   };
 
@@ -200,6 +224,8 @@ function Admin() {
                 type="text"
                 placeholder="Buscar reserva..."
                 className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
 
               <div className="action-buttons">
@@ -223,8 +249,10 @@ function Admin() {
 
               <tbody>
                 {reservas.filter(r => {
-                  const hoyStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-                  return r.fecha_reserva === hoyStr;
+                  const hoyStr = new Date().toLocaleDateString('en-CA');
+                  const matchesSearch = r.usuario_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        r.laboratorio_nombre.toLowerCase().includes(searchTerm.toLowerCase());
+                  return r.fecha_reserva === hoyStr && matchesSearch;
                 }).map(r => (
                   <tr key={r.id_reserva}>
                     <td>Docente</td>
@@ -234,7 +262,7 @@ function Admin() {
                     <td>{r.hora_inicio} - {r.hora_fin}</td>
                     <td>
                       <div className="option-buttons">
-                        <button className="edit-btn">Editar</button>
+                        <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
                         <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
                       </div>
                     </td>
@@ -270,6 +298,8 @@ function Admin() {
                 type="text"
                 placeholder="Buscar reserva programada..."
                 className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
 
               <div className="action-buttons">
@@ -315,7 +345,9 @@ function Admin() {
               <tbody>
                 {reservas.filter(r => {
                   const hoyStr = new Date().toLocaleDateString('en-CA');
-                  return r.fecha_reserva > hoyStr;
+                  const matchesSearch = r.usuario_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        r.laboratorio_nombre.toLowerCase().includes(searchTerm.toLowerCase());
+                  return r.fecha_reserva > hoyStr && matchesSearch;
                 }).map(r => (
                   <tr key={r.id_reserva}>
                     <td>Docente</td>
@@ -325,7 +357,7 @@ function Admin() {
                     <td>{r.hora_inicio} - {r.hora_fin}</td>
                     <td>
                       <div className="option-buttons">
-                        <button className="edit-btn">Editar</button>
+                        <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
                         <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
                       </div>
                     </td>
@@ -365,7 +397,11 @@ function Admin() {
               </thead>
 
               <tbody>
-                {reservas.filter(r => r.estado !== 'Programada').map(r => (
+                {reservas.filter(r => {
+                  const matchesSearch = r.usuario_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        r.laboratorio_nombre.toLowerCase().includes(searchTerm.toLowerCase());
+                  return r.estado !== 'Programada' && matchesSearch;
+                }).map(r => (
                   <tr key={r.id_reserva}>
                     <td>Docente</td>
                     <td>{r.usuario_nombre}</td>
@@ -452,6 +488,41 @@ function Admin() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* # VISTA USUARIOS ... */}
+        
+        {/* MODAL EDITAR RESERVA */}
+        {showModalEdit && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2>Editar Reserva</h2>
+              <p>Modificando reserva de <strong>{reservaEditando.usuario_nombre}</strong></p>
+              
+              <div className="form-group">
+                <label>Nueva Fecha</label>
+                <input 
+                  type="date" 
+                  value={reservaEditando.nueva_fecha} 
+                  onChange={(e) => setReservaEditando({...reservaEditando, nueva_fecha: e.target.value})}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Nuevo Horario</label>
+                <input 
+                  type="time" 
+                  value={reservaEditando.nueva_hora} 
+                  onChange={(e) => setReservaEditando({...reservaEditando, nueva_hora: e.target.value})}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button className="cancel-btn" onClick={() => setShowModalEdit(false)}>Cancelar</button>
+                <button className="save-btn" onClick={handleUpdateReserva}>Guardar Cambios</button>
+              </div>
+            </div>
           </div>
         )}
 

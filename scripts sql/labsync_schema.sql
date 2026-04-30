@@ -253,9 +253,9 @@ CREATE TRIGGER trg_verificar_habilitacion
 -- =============================================================================
 INSERT INTO ROL (nombre) VALUES ('estudiante'), ('docente'), ('admin_lab'), ('jefatura');
 INSERT INTO TIPO_LABORATORIO (nombre, min_equipos, tipo_equipo_minimo) VALUES
-    ('Computación', 10, 'CPU'),
-    ('Ambiental',    3, 'Mesa'),
-    ('Electrónica',  3, 'Mesa');
+    ('Cómputo',     10, 'CPU'),
+    ('Electrónica',  3, 'Mesa'),
+    ('Ambiental',    3, 'Mesa');
 INSERT INTO TIPO_ACTIVO (nombre) VALUES ('CPU'), ('Monitor'), ('Teclado'), ('Mouse'), ('Mesa'), ('Silla');
 INSERT INTO FACULTAD (nombre) VALUES ('Facultad de Ingeniería y Gestión');
 INSERT INTO CARRERA (id_facultad, nombre) VALUES
