@@ -20,12 +20,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-zl@a_w&y2n%dlc)nz%&ax51_6psk6gf35=npwzx-ofx3ll+bg8'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-desarrollo-local-no-usar-en-pro')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -140,8 +140,9 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "gustavorpd04@gmail.com"
-EMAIL_HOST_PASSWORD = "rzev yyvg ajqy isom"
+
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'tu-correo-local@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'tu-token-local')
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
@@ -186,4 +187,4 @@ LOGGING = {
             'propagate': False,
         },
     },
-}
+}
