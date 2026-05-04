@@ -1,0 +1,53 @@
+name: Continuous Deployment to Staging
+
+on:
+  push:
+    branches: [ main ] # Se activa automáticamente al hacer merge a la rama principal
+
+jobs:
+  # -------------------------------------------------------------------------
+  # REQUISITO: Ejecutar pruebas obligatoriamente antes de desplegar
+  # -------------------------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Inyectamos secretos como variables de entorno para que los tests pasen
+      DB_PASS: ${{ secrets.DB_PASS }} 
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Versión definida en la arquitectura del producto
+          
+      - name: Install Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          
+      - name: Run Unit Tests
+        run: |
+          cd backend
+          python manage.py test # Valida que el código sea funcional antes de Staging
+
+  # -------------------------------------------------------------------------
+  # ACCIÓN CD: Despliegue automático (PBI-19)
+  # -------------------------------------------------------------------------
+  deploy:
+    needs: test # Solo si las pruebas pasan (Job anterior), se procede al despliegue
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 # Preparar el entorno Docker[cite: 1]
+
+      - name: Deploying via Docker
+        run: |
+          echo "Desplegando incremento en entorno Staging realista..."[cite: 1]
+          # El sistema se orquestará mediante Docker (docker-compose)[cite: 1]
+          docker-compose build
+          # Aquí tu equipo añadiría el comando de subida a su servidor (ej. Render o Railway)
