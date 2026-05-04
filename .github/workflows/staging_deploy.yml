@@ -25,7 +25,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          
+
     env:
       # Inyectamos secretos como variables de entorno para que los tests pasen
       DB_PASS: ${{ secrets.DB_PASS }} 
@@ -63,7 +63,7 @@ jobs:
 
       - name: Deploying via Docker
         run: |
-          echo "Desplegando incremento en entorno Staging realista..."[cite: 1]
-          # El sistema se orquestará mediante Docker (docker-compose)[cite: 1]
-          docker-compose build
-          # Aquí tu equipo añadiría el comando de subida a su servidor (ej. Render o Railway)
+          echo "Desplegando incremento en entorno Staging realista..."
+          # El sistema se orquestará mediante Docker V2
+          docker compose build
+          # Aquí tu equipo añadiría el comando de subida a su servidor
