@@ -17,9 +17,10 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_DB: LabSyncUNTELS
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: daniel04
+          # AHORA USA LOS SECRETOS EN LUGAR DE TEXTO PLANO
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASS }}
         ports:
           - 5432:5432
         options: >-
@@ -51,10 +52,11 @@ jobs:
 
     - name: Ejecutar Pruebas de Django
       env:
-        # Estas variables activan el bloque PostgreSQL en tu settings.py
-        DB_NAME: LabSyncUNTELS
-        DB_USER: postgres
-        DB_PASSWORD: daniel04
+        # AHORA USA LOS SECRETOS Y LOS NOMBRES CORRECTOS PARA SETTINGS.PY
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASS: ${{ secrets.DB_PASS }}
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DB_HOST: localhost
         DB_PORT: 5432
       run: |
