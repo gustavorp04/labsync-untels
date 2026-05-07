@@ -8,12 +8,8 @@ django.setup()
 
 def ejecutar_sql_archivo(ruta_relativa):
     """Lee y ejecuta un archivo SQL completo en la base de datos."""
-    # En Docker, la carpeta 'scripts sql' está en /scripts sql
-    # En local, está en ../scripts sql
-    if os.path.exists('/scripts sql'):
-        base_dir = '/'
-    else:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Ahora 'scripts sql' está en el mismo nivel que este script en el directorio backend
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     
     ruta_archivo = os.path.join(base_dir, 'scripts sql', ruta_relativa)
     

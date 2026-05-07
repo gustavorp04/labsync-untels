@@ -19,7 +19,6 @@ services:
     container_name: labsync_backend
     volumes:
       - ./backend:/app
-      - ./scripts sql:/scripts sql
     ports:
       - "8000:8000"
     environment:
