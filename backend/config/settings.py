@@ -27,6 +27,10 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
+# Agrega esta lista con la URL exacta de Render
+CSRF_TRUSTED_ORIGINS = [
+    'https://labsync-untels.onrender.com',
+]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
@@ -96,6 +100,7 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
