@@ -3,9 +3,10 @@
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background: #0f172a;
-  color: white;
-  font-family: Arial, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  transition: all var(--transition-speed);
 }
 
 
@@ -13,9 +14,9 @@
 
 .sidebar {
   width: 260px;
-  background: #111827;
+  background: var(--bg-card);
   padding: 25px;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
 }
@@ -56,20 +57,21 @@
 /* # BOTONES PRINCIPALES */
 
 .menu-title {
-  background: #1f2937;
-  border: none;
-  color: white;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   text-align: left;
   cursor: pointer;
   font-size: 15px;
-  transition: 0.3s;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  transition: var(--transition-speed);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .menu-title:hover {
-  background: #374151;
+  background: var(--untels-blue);
+  color: #fff;
 }
 
 
@@ -84,18 +86,19 @@
 }
 
 .submenu button {
-  background: #374151;
+  background: transparent;
   border: none;
-  color: white;
+  color: var(--text-muted);
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--border-radius);
   text-align: left;
   cursor: pointer;
-  transition: 0.3s;
+  transition: var(--transition-speed);
 }
 
 .submenu button:hover {
-  background: #4b5563;
+  background: var(--bg-input);
+  color: var(--text-main);
 }
 
 
@@ -111,12 +114,13 @@
 /* # BIENVENIDA */
 
 .welcome-center {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 50px;
-  border-radius: 20px;
+  border-radius: var(--border-radius);
   text-align: center;
   margin-top: 80px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
 }
 
 .welcome-center h1 {
@@ -133,10 +137,11 @@
 /* # SECCIÓN TABLAS */
 
 .table-section {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 30px;
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
 }
 
 .table-section h2 {
@@ -156,11 +161,11 @@
 .search-input {
   width: 280px;
   padding: 12px;
-  border: none;
-  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
   outline: none;
-  background: #111827;
-  color: white;
+  background: var(--bg-input);
+  color: var(--text-main);
 }
 
 .action-buttons {
@@ -169,13 +174,13 @@
 }
 
 .action-buttons button {
-  background: #2563eb;
+  background: var(--untels-blue);
   border: none;
   color: white;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: var(--border-radius);
   cursor: pointer;
-  transition: 0.3s;
+  transition: var(--transition-speed);
 }
 
 .action-buttons button:hover {
@@ -203,22 +208,24 @@
 table {
   width: 100%;
   border-collapse: collapse;
-  background: #111827;
-  border-radius: 14px;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.20);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
 }
 
 th {
-  background: #0f172a;
+  background: var(--bg-main);
   padding: 16px;
   text-align: left;
   font-size: 14px;
+  border-bottom: 2px solid var(--border-color);
 }
 
 td {
   padding: 16px;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid var(--border-color);
   font-size: 14px;
 }
 
@@ -291,15 +298,14 @@ td {
   background: #4b5563;
 }
 
-/* MODAL EDITAR */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -307,12 +313,13 @@ td {
 }
 
 .modal-content {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 30px;
-  border-radius: 20px;
+  border-radius: var(--border-radius);
   width: 400px;
-  border: 1px solid #374151;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+  color: var(--text-main);
 }
 
 .form-group {
@@ -323,16 +330,16 @@ td {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .form-group input {
   width: 100%;
   padding: 12px;
-  background: #111827;
-  border: 1px solid #374151;
-  border-radius: 10px;
-  color: white;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-main);
 }
 
 .modal-actions {
@@ -350,5 +357,7 @@ td {
   cursor: pointer;
 }
 
-.cancel-btn { background: #374151; color: white; }
-.save-btn { background: #10b981; color: white; }
+.cancel-btn { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); }
+.cancel-btn:hover { background: var(--border-color); }
+.save-btn { background: var(--untels-blue); color: white; }
+.save-btn:hover { background: #003366; }

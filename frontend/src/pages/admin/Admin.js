@@ -431,7 +431,7 @@ function Admin() {
               <h2>Gestión de Usuarios</h2>
               <button 
                 className="action-buttons" 
-                style={{background: '#10b981', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer'}}
+                style={{background: 'var(--untels-blue)', color: 'white', border: 'none', padding: '10px 15px', borderRadius: 'var(--border-radius)', cursor: 'pointer'}}
                 onClick={() => setMostrarFormUsuario(!mostrarFormUsuario)}
               >
                 {mostrarFormUsuario ? "Cerrar" : "+ Nuevo Usuario"}
@@ -439,7 +439,7 @@ function Admin() {
             </div>
 
             {mostrarFormUsuario && (
-              <form onSubmit={handleCreateUsuario} style={{background: '#111827', padding: '20px', borderRadius: '12px', marginBottom: '20px', display: 'grid', gap: '15px'}}>
+              <form onSubmit={handleCreateUsuario} style={{background: 'var(--bg-input)', padding: '20px', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)', marginBottom: '20px', display: 'grid', gap: '15px'}}>
                 <input 
                   type="text" placeholder="Nombre completo" className="search-input" style={{width: '100%'}}
                   value={nuevoUsuario.nombre} onChange={(e) => setNuevoUsuario({...nuevoUsuario, nombre: e.target.value})} required

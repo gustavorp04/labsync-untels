@@ -3,16 +3,17 @@
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background: #0f172a;
-  color: white;
-  font-family: Arial, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  transition: all var(--transition-speed);
 }
 
 .sidebar {
   width: 260px;
-  background: #111827;
+  background: var(--bg-card);
   padding: 25px;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
 }
@@ -32,19 +33,20 @@
 }
 
 .menu-title {
-  background: #1f2937;
-  border: none;
-  color: white;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   text-align: left;
   cursor: pointer;
   font-size: 15px;
-  transition: 0.3s;
+  transition: var(--transition-speed);
 }
 
 .menu-title:hover {
-  background: #374151;
+  background: var(--untels-blue);
+  color: #fff;
 }
 
 .main-content {
@@ -54,20 +56,24 @@
 }
 
 .welcome-center {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 50px;
-  border-radius: 20px;
+  border-radius: var(--border-radius);
   text-align: center;
   margin-top: 80px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
 }
 
 /* FORMULARIO DE RESERVA */
 .form-section {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 30px;
-  border-radius: 18px;
+  border-radius: var(--border-radius);
   max-width: 600px;
   margin: 0 auto;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
 }
 
 .form-group {
@@ -84,10 +90,10 @@
 .form-control {
   width: 100%;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #374151;
-  background: #111827;
-  color: white;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-main);
   outline: none;
 }
 
@@ -116,23 +122,26 @@
 }
 
 .table-section {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 30px;
-  border-radius: 18px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  background: #111827;
-  border-radius: 14px;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
   overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 th, td {
   padding: 16px;
   text-align: left;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .status-badge {
@@ -153,13 +162,13 @@ th, td {
 }
 
 .category-card {
-  background: #111827;
+  background: var(--bg-input);
   padding: 30px;
-  border-radius: 20px;
+  border-radius: var(--border-radius);
   text-align: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid #374151;
+  border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -184,8 +193,8 @@ th, td {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1f2937;
-  border-radius: 16px;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
   color: #10b981;
 }
 
@@ -196,10 +205,10 @@ th, td {
 }
 
 .lab-card {
-  background: #111827;
+  background: var(--bg-input);
   padding: 20px;
-  border-radius: 15px;
-  border: 1px solid #374151;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
   cursor: pointer;
   transition: 0.2s;
 }
@@ -210,7 +219,7 @@ th, td {
 
 .lab-card h4 {
   margin: 0 0 10px 0;
-  color: #f3f4f6;
+  color: var(--text-main);
 }
 
 .lab-info {
@@ -249,18 +258,19 @@ th, td {
 }
 
 .slot-btn {
-  background: #111827;
-  border: 1px solid #374151;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--border-radius);
   text-align: center;
   cursor: pointer;
   transition: 0.2s;
+  color: var(--text-main);
 }
 
 .slot-btn:hover {
   border-color: #10b981;
-  background: #1e293b;
+  background: var(--bg-card);
 }
 
 .slot-btn.active {
@@ -302,14 +312,14 @@ th, td {
 }
 
 .modal-content {
-  background: #1f2937;
+  background: var(--bg-card);
   padding: 40px;
-  border-radius: 24px;
+  border-radius: var(--border-radius);
   width: 90%;
   max-width: 450px;
   text-align: center;
-  border: 1px solid #374151;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
   animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 

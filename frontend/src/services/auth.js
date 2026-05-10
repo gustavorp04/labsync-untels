@@ -3,10 +3,11 @@ import axios from "axios";
 const API_URL = `${process.env.REACT_APP_API_URL}/api`;
 
 export const loginUser = async (usuario, password, rol) => {
-  const response = await axios.post(`${API_URL}/login/`, {
+  // Use the specific endpoint based on the role requested
+  const endpoint = `${API_URL}/auth/${rol}/login/`;
+  const response = await axios.post(endpoint, {
     usuario,
-    password,
-    rol
+    password
   });
   return response.data;
 };

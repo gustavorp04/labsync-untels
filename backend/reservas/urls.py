@@ -16,7 +16,10 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     # AUTH & CUENTAS
     # -------------------------------------------------------------------------
-    path('api/login/', auth_views.login, name='login'),
+    path('api/auth/estudiante/login/', auth_views.login_estudiante, name='login-estudiante'),
+    path('api/auth/docente/login/', auth_views.login_docente, name='login-docente'),
+    path('api/auth/admin/login/', auth_views.login_admin, name='login-admin'),
+    path('api/auth/jefatura/login/', auth_views.login_jefatura, name='login-jefatura'),
     path('api/forgot-password/', auth_views.forgot_password, name='forgot-password'),
     path('api/reset-password/', auth_views.reset_password, name='reset-password'),
     path('api/verify-token/', auth_views.verify_token, name='verify-token'),

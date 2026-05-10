@@ -7,7 +7,6 @@ import "./Docente.css";
 function Docente() {
   const navigate = useNavigate();
   const [vista, setVista] = useState("inicio");
-  const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios] = useState([]);
   const [misReservas, setMisReservas] = useState([]);
   
@@ -18,7 +17,7 @@ function Docente() {
     acepto_declaracion_jurada: false
   });
 
-  const [mensaje, setMensaje] = useState({ text: "", type: "" });
+  const [mensaje] = useState({ text: "", type: "" });
   const [modalInfo, setModalInfo] = useState({ show: false, type: 'success', title: '', text: '' });
   
   // UI de Pasos

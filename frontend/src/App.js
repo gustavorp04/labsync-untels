@@ -1,8 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import Login from "./pages/auth/Login";
+// Auth Pages
+import LoginEstudiante from "./pages/auth/estudiante/LoginEstudiante";
+import LoginDocente from "./pages/auth/docente/LoginDocente";
+import LoginAdmin from "./pages/auth/admin/LoginAdmin";
+import LoginJefatura from "./pages/auth/jefatura/LoginJefatura";
 import ResetPassword from "./pages/auth/ResetPassword";
 
+// Dashboard Pages
 import Estudiante from "./pages/estudiante/Estudiante";
 import Docente from "./pages/docente/Docente";
 import Admin from "./pages/admin/Admin";
@@ -14,9 +19,18 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
+        {/* Default redirect to student login */}
+        <Route path="/" element={<Navigate to="/login/estudiante" />} />
+        
+        {/* Separated Auth Routes */}
+        <Route path="/login/estudiante" element={<LoginEstudiante />} />
+        <Route path="/login/docente" element={<LoginDocente />} />
+        <Route path="/login/admin" element={<LoginAdmin />} />
+        <Route path="/login/jefatura" element={<LoginJefatura />} />
+        
         <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* Protected Dashboard Routes */}
         <Route path="/estudiante" element={
           <ProtectedRoute allowedRole="estudiante">
             <Estudiante />
@@ -41,7 +55,8 @@ function App() {
           </ProtectedRoute>
         } />
 
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/login/estudiante" />} />
       </Routes>
     </BrowserRouter>
   );

@@ -75,10 +75,15 @@ function ForgotPasswordModal({ onClose }) {
         </p>
 
         {step === 1 ? (
-          <div className="field-group">
-            <label className="field-label">Correo institucional</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>Correo institucional</label>
             <input
-              className="field-input"
+              className="neo-input"
+              style={{ 
+                width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--border-radius)', 
+                border: '1px solid var(--border-color)', background: 'var(--bg-input)', 
+                color: 'var(--text-main)', fontSize: '0.85rem' 
+              }}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

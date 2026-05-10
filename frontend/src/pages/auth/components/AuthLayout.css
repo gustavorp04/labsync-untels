@@ -1,0 +1,194 @@
+.auth-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  padding: 2rem;
+}
+
+.auth-header {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  padding-bottom: 2rem;
+}
+
+.auth-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--glass-bg);
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--card-shadow);
+}
+
+.auth-logo {
+  height: 40px;
+  width: auto;
+}
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-university {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--untels-blue);
+  letter-spacing: 0.5px;
+}
+
+[data-theme='dark'] .auth-university {
+  color: var(--accent-cyan);
+}
+
+.auth-portal-name {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.auth-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Common form styles to be used across all specific logins */
+.neo-auth-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.neo-auth-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-main);
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.neo-auth-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.neo-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.neo-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.neo-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-family: var(--font-primary);
+  font-size: 0.85rem;
+  transition: all var(--transition-speed);
+}
+
+.neo-input:focus {
+  outline: none;
+  border-color: var(--untels-blue);
+  box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
+}
+
+[data-theme='dark'] .neo-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--neon-shadow);
+}
+
+.neo-btn-primary {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--border-radius);
+  border: none;
+  background: var(--untels-blue);
+  color: white;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  margin-top: 1rem;
+}
+
+.neo-btn-primary:hover {
+  background: #003366;
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow);
+}
+
+[data-theme='dark'] .neo-btn-primary {
+  background: var(--untels-blue);
+}
+
+[data-theme='dark'] .neo-btn-primary:hover {
+  background: var(--accent-cyan);
+  box-shadow: var(--neon-shadow);
+  color: #0A0E17;
+}
+
+.neo-error-msg {
+  color: #EF4444;
+  font-size: 0.85rem;
+  text-align: center;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.pw-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pw-input-wrapper .neo-input {
+  padding-right: 2.5rem;
+}
+
+.pw-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pw-toggle-btn:hover {
+  color: var(--text-main);
+}

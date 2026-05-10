@@ -1,0 +1,57 @@
+:root {
+  /* UNTELS Brand Colors */
+  --untels-blue: #004A99;
+  --untels-gold: #D4AF37;
+  
+  /* Font Families */
+  --font-primary: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  
+  /* Shared values */
+  --transition-speed: 0.3s;
+  --border-radius: 6px;
+}
+
+/* LIGHT THEME (Default) */
+[data-theme='light'] {
+  --bg-main: #F4F6F8;
+  --bg-card: #FFFFFF;
+  --bg-input: #F9FAFB;
+  --text-main: #111827;
+  --text-muted: #6B7280;
+  --border-color: #E5E7EB;
+  --accent-cyan: #00A3E0; /* Slightly darker cyan for visibility on light bg */
+  
+  --glass-border: rgba(0, 0, 0, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --neon-shadow: 0 4px 6px -1px rgba(0, 74, 153, 0.1);
+  --card-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+/* DARK THEME */
+[data-theme='dark'] {
+  --bg-main: #0A0E17;
+  --bg-card: #161B28;
+  --bg-input: #1F2637;
+  --text-main: #F3F4F6;
+  --text-muted: #9CA3AF;
+  --border-color: #2D3748;
+  --accent-cyan: #00D1FF;
+  
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(22, 27, 40, 0.7);
+  --neon-shadow: 0 0 15px rgba(0, 209, 255, 0.2);
+  --card-shadow: 0 15px 35px rgba(0,0,0,0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
