@@ -5,15 +5,17 @@
 -- =============================================================================
 
 -- Limpiar esquema previo (orden inverso a las dependencias)
+DROP TABLE IF EXISTS PENALIZACION        CASCADE;
+DROP TABLE IF EXISTS HISTORIAL_MANTENIMIENTO CASCADE;
 DROP TABLE IF EXISTS INCIDENCIA          CASCADE;
 DROP TABLE IF EXISTS ASISTENCIA          CASCADE;
-DROP TABLE IF EXISTS PENALIZACION        CASCADE;
 DROP TABLE IF EXISTS RESERVA_DETALLE     CASCADE;
 DROP TABLE IF EXISTS RESERVA             CASCADE;
 DROP TABLE IF EXISTS HORARIO_DISPONIBLE  CASCADE;
 DROP TABLE IF EXISTS ACTIVO_LABORATORIO  CASCADE;
 DROP TABLE IF EXISTS LABORATORIO         CASCADE;
 DROP TABLE IF EXISTS TIPO_ACTIVO         CASCADE;
+DROP TABLE IF EXISTS CATEGORIA_ACTIVO    CASCADE;
 DROP TABLE IF EXISTS TIPO_LABORATORIO    CASCADE;
 DROP TABLE IF EXISTS PASSWORD_RESET      CASCADE;
 DROP TABLE IF EXISTS PERFIL_DOCENTE      CASCADE;
@@ -50,9 +52,17 @@ CREATE TABLE TIPO_LABORATORIO (
     tipo_equipo_minimo    VARCHAR(20)  NOT NULL
 );
 
+CREATE TABLE CATEGORIA_ACTIVO (
+    id_categoria  SERIAL        PRIMARY KEY,
+    nombre        VARCHAR(60)   NOT NULL,
+    descripcion   VARCHAR(200)
+);
+
 CREATE TABLE TIPO_ACTIVO (
     id_tipo_activo  SERIAL       PRIMARY KEY,
-    nombre          VARCHAR(50)  NOT NULL UNIQUE
+    id_categoria    INT          NOT NULL REFERENCES CATEGORIA_ACTIVO(id_categoria),
+    nombre          VARCHAR(50)  NOT NULL UNIQUE,
+    descripcion     VARCHAR(200)
 );
 
 -- =============================================================================
@@ -188,6 +198,33 @@ CREATE TABLE PENALIZACION (
 );
 
 -- =============================================================================
+-- ⑥ BITÁCORA Y SEGUIMIENTO
+-- =============================================================================
+
+CREATE TABLE HISTORIAL_MANTENIMIENTO (
+    id_historial     SERIAL       PRIMARY KEY,
+    id_activo        INT          NOT NULL REFERENCES ACTIVO_LABORATORIO(id_activo),
+    estado_anterior  VARCHAR(20)  NOT NULL,
+    estado_nuevo     VARCHAR(20)  NOT NULL,
+    motivo           TEXT,
+    id_incidencia    INT          REFERENCES INCIDENCIA(id_incidencia),
+    fecha_cambio     TIMESTAMP    NOT NULL DEFAULT NOW(),
+    registrado_por   INT          NOT NULL REFERENCES USUARIO(id_usuario)
+);
+
+-- =============================================================================
+-- ⑦ CONFIGURACIÓN Y REGLAS DE NEGOCIO
+-- =============================================================================
+
+CREATE TABLE CONFIGURACION_SISTEMA (
+    id_config         SERIAL       PRIMARY KEY,
+    clave             VARCHAR(50)  NOT NULL UNIQUE,
+    valor             TEXT         NOT NULL,
+    descripcion       TEXT,
+    updated_at        TIMESTAMP    DEFAULT NOW()
+);
+
+-- =============================================================================
 -- ÍNDICES
 -- =============================================================================
 CREATE INDEX idx_horario_lab_fecha   ON HORARIO_DISPONIBLE(id_laboratorio, fecha);
@@ -215,6 +252,7 @@ CREATE TRIGGER trg_activo_updated_at
     BEFORE UPDATE ON ACTIVO_LABORATORIO
     FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+-- Función para actualizar habilitación de laboratorio según mínimos
 CREATE OR REPLACE FUNCTION fn_verificar_habilitacion_laboratorio()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -248,15 +286,46 @@ CREATE TRIGGER trg_verificar_habilitacion
     AFTER INSERT OR UPDATE OF estado ON ACTIVO_LABORATORIO
     FOR EACH ROW EXECUTE FUNCTION fn_verificar_habilitacion_laboratorio();
 
+-- Función para validar que no se reserven equipos dañados
+CREATE OR REPLACE FUNCTION fn_validar_activo_operativo()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ACTIVO_LABORATORIO 
+        WHERE id_activo = NEW.id_activo AND estado = 'Operativo'
+    ) THEN
+        RAISE EXCEPTION 'EL EQUIPO SELECCIONADO NO ESTÁ OPERATIVO PARA RESERVA.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validar_activo_reserva
+    BEFORE INSERT ON RESERVA_DETALLE
+    FOR EACH ROW EXECUTE FUNCTION fn_validar_activo_operativo();
+
 -- =============================================================================
 -- DATOS SEMILLA (seed) 
 -- =============================================================================
+INSERT INTO CONFIGURACION_SISTEMA (clave, valor, descripcion) VALUES
+    ('SEMESTRE_ACTUAL', '2026-I', 'Semestre académico vigente'),
+    ('DIAS_ANTICIPACION_RESERVA', '1', 'Días mínimos de anticipación para reservar'),
+    ('MIN_ESTUDIANTES_RESERVA', '10', 'Mínimo de alumnos para habilitar reserva individual');
+
 INSERT INTO ROL (nombre) VALUES ('estudiante'), ('docente'), ('admin_lab'), ('jefatura');
 INSERT INTO TIPO_LABORATORIO (nombre, min_equipos, tipo_equipo_minimo) VALUES
     ('Cómputo',     10, 'CPU'),
     ('Electrónica',  3, 'Mesa'),
     ('Ambiental',    3, 'Mesa');
-INSERT INTO TIPO_ACTIVO (nombre) VALUES ('CPU'), ('Monitor'), ('Teclado'), ('Mouse'), ('Mesa'), ('Silla');
+INSERT INTO CATEGORIA_ACTIVO (nombre, descripcion) VALUES 
+    ('Cómputo', 'Equipos informáticos y periféricos'),
+    ('Mobiliario', 'Muebles de laboratorio y oficina'),
+    ('Electrónica', 'Instrumentos y componentes electrónicos');
+
+INSERT INTO TIPO_ACTIVO (id_categoria, nombre) VALUES 
+    (1, 'CPU'), (1, 'Monitor'), (1, 'Teclado'), (1, 'Mouse'),
+    (2, 'Mesa'), (2, 'Silla'),
+    (3, 'Osciloscopio'), (3, 'Multímetro');
 INSERT INTO FACULTAD (nombre) VALUES ('Facultad de Ingeniería y Gestión');
 INSERT INTO CARRERA (id_facultad, nombre) VALUES
     (1, 'Ingeniería de Sistemas'),

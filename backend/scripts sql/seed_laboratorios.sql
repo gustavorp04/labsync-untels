@@ -11,8 +11,7 @@ INSERT INTO tipo_laboratorio (nombre, min_equipos, tipo_equipo_minimo) VALUES
 ('Cómputo',      10, 'CPU'),
 ('Electrónica',   3, 'Mesa'),
 ('Ambiental',     3, 'Mesa'),
-('Física',        3, 'Mesa'),
-('Redes',         5, 'CPU')
+('Física',        3, 'Mesa')
 ON CONFLICT (nombre) DO NOTHING;
 
 -- =============================================================================

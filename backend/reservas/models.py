@@ -37,6 +37,16 @@ class Carrera(models.Model):
         db_table = 'carrera'
 
 
+class CategoriaActivo(models.Model):
+    id_categoria = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=60)
+    descripcion = models.CharField(max_length=200, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'categoria_activo'
+
+
 class Facultad(models.Model):
     id_facultad = models.AutoField(primary_key=True)
     nombre = models.CharField(unique=True, max_length=100)
@@ -170,7 +180,9 @@ class Rol(models.Model):
 
 class TipoActivo(models.Model):
     id_tipo_activo = models.AutoField(primary_key=True)
+    id_categoria = models.ForeignKey(CategoriaActivo, models.DO_NOTHING, db_column='id_categoria')
     nombre = models.CharField(unique=True, max_length=50)
+    descripcion = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -200,3 +212,30 @@ class Usuario(models.Model):
     class Meta:
         managed = False
         db_table = 'usuario'
+
+
+class HistorialMantenimiento(models.Model):
+    id_historial = models.AutoField(primary_key=True)
+    id_activo = models.ForeignKey(ActivoLaboratorio, models.DO_NOTHING, db_column='id_activo')
+    estado_anterior = models.CharField(max_length=20)
+    estado_nuevo = models.CharField(max_length=20)
+    motivo = models.TextField(blank=True, null=True)
+    id_incidencia = models.ForeignKey(Incidencia, models.DO_NOTHING, db_column='id_incidencia', blank=True, null=True)
+    fecha_cambio = models.DateTimeField()
+    registrado_por = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='registrado_por')
+
+    class Meta:
+        managed = False
+        db_table = 'historial_mantenimiento'
+
+
+class ConfiguracionSistema(models.Model):
+    id_config = models.AutoField(primary_key=True)
+    clave = models.CharField(unique=True, max_length=50)
+    valor = models.TextField()
+    descripcion = models.TextField(blank=True, null=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'configuracion_sistema'
