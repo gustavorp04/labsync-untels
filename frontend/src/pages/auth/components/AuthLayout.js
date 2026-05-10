@@ -10,7 +10,7 @@ const AuthLayout = ({ children, bgImage, portalName }) => {
         <div className="auth-logo-container">
           <img src={logo} alt="UNTELS Logo" className="auth-logo" />
           <div className="auth-brand">
-            <span className="auth-university">UNTELS</span>
+            <span className="auth-university">LabSync - UNTELS</span>
             <span className="auth-portal-name">{portalName}</span>
           </div>
         </div>
