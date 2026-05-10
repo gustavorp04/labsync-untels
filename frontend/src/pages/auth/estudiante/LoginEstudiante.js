@@ -44,7 +44,7 @@ const LoginEstudiante = () => {
       <div className="neo-auth-card">
         <div>
           <h2 className="neo-auth-title">Bienvenido</h2>
-          <p className="neo-auth-subtitle">Ingresa para gestionar tus laboratorios</p>
+          <p className="neo-auth-subtitle">Ingresa para gestionar tus laboratorio</p>
         </div>
 
         <form onSubmit={handleSubmit} className="neo-form-group" style={{ gap: '1.25rem' }}>
