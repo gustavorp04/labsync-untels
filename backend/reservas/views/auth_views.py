@@ -24,6 +24,34 @@ def _base_login(request, expected_role):
             return Response({'error': error}, status=status_code)
 
         user_data = UserSerializer(user).data
+        
+        # PBI-04: Forzado de datos de carrera para Estudiantes
+        if expected_role == 'estudiante':
+            print("!!! DIAGNOSTICO: PROCESANDO LOGIN DE ESTUDIANTE !!!")
+            from ..models import PerfilEstudiante
+            # Búsqueda ultra-robusta del perfil
+            try:
+                perfil = PerfilEstudiante.objects.get(id_usuario=user)
+            except:
+                perfil = PerfilEstudiante.objects.filter(id_usuario_id=user.id_usuario).first()
+
+            if perfil:
+                # Obtenemos el ID de carrera de forma segura
+                id_carrera = perfil.id_carrera.id_carrera if hasattr(perfil.id_carrera, 'id_carrera') else perfil.id_carrera_id
+                
+                if id_carrera == 1:
+                    user_data['carrera'] = 'Sistemas'
+                elif id_carrera == 3:
+                    user_data['carrera'] = 'Electronica'
+                else:
+                    user_data['carrera'] = 'Ambiental'
+                
+                user_data['ciclo'] = perfil.ciclo
+            else:
+                # Si llegamos aquí, el usuario no tiene perfil en la BD
+                user_data['carrera'] = 'Desconocida'
+                user_data['ciclo'] = 0
+
         logger.info(f"Login exitoso para usuario: {data['usuario']} con rol {expected_role}")
         return Response({
             'mensaje': 'Login exitoso',

@@ -1,75 +1,80 @@
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
-from ..models import Laboratorio, ActivoLaboratorio, ReservaDetalle, Reserva
+from ..models import Laboratorio, ActivoLaboratorio, ReservaDetalle, Reserva, HistorialMantenimiento, Usuario
 
-def actualizar_estado_activo(id_activo, nuevo_estado):
-    """
-    Actualiza el estado de un equipo (PC/Mesa) y recalcula la disponibilidad del laboratorio.
-    Regla PBI-02: El laboratorio solo pasa a estado "Disponible" (habilitado=True) 
-    si tiene más de 10 PCs (Computación) o al menos 3 mesas (Ambiental/Electrónica).
-    """
+def calcular_habilitacion_lab(laboratorio):
+    """Regla PBI-02: Valida mínimos operativos."""
+    tipo = laboratorio.id_tipo
+    operativos = ActivoLaboratorio.objects.filter(
+        id_laboratorio=laboratorio,
+        estado='Operativo',
+        id_tipo_activo__nombre=tipo.tipo_equipo_minimo
+    ).count()
+    
+    nuevo_estado = operativos >= tipo.min_equipos
+    if laboratorio.habilitado != nuevo_estado:
+        laboratorio.habilitado = nuevo_estado
+        laboratorio.save()
+    return nuevo_estado
+
+def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None):
+    """Actualiza equipo, recalcula lab (PBI-02) y reasigna (PBI-04)."""
     with transaction.atomic():
         try:
-            # 1. Actualizar el estado del equipo
-            activo = ActivoLaboratorio.objects.select_related('id_laboratorio', 'id_laboratorio__id_tipo').get(pk=id_activo)
+            activo = ActivoLaboratorio.objects.select_related(
+                'id_laboratorio', 'id_laboratorio__id_tipo'
+            ).get(pk=id_activo)
+
+            estado_anterior = activo.estado
+            if estado_anterior == nuevo_estado:
+                return activo, activo.id_laboratorio, [], None
+
             activo.estado = nuevo_estado
             activo.save()
 
-            # 2. Evaluar el estado del laboratorio
+            # PBI-02: Recalcular habilitación
             laboratorio = activo.id_laboratorio
-            tipo_lab = laboratorio.id_tipo
-            min_equipos = tipo_lab.min_equipos
-            tipo_equipo_requerido = tipo_lab.tipo_equipo_minimo
+            calcular_habilitacion_lab(laboratorio)
 
-            # Contar cuántos equipos operativos del tipo requerido hay en ese laboratorio
-            equipos_operativos = ActivoLaboratorio.objects.filter(
-                id_laboratorio=laboratorio,
-                id_tipo_activo__nombre__icontains=tipo_equipo_requerido,
-                estado='Operativo'
-            ).count()
+            # Registro en historial
+            usuario_registrador = Usuario.objects.filter(pk=usuario_id).first() or \
+                                  Usuario.objects.filter(id_rol__nombre='admin_lab').first() or \
+                                  Usuario.objects.first()
 
-            # 3. Aplicar regla de negocio
-            estado_anterior = laboratorio.habilitado
-            if equipos_operativos >= min_equipos:
-                laboratorio.habilitado = True
-            else:
-                laboratorio.habilitado = False
-            
-            laboratorio.save()
+            HistorialMantenimiento.objects.create(
+                id_activo=activo,
+                estado_anterior=estado_anterior,
+                estado_nuevo=nuevo_estado,
+                motivo=motivo,
+                fecha_cambio=timezone.now(),
+                registrado_por=usuario_registrador,
+            )
 
-            # 4. PBI-02: Reasignar reservas si el equipo falló
-            mensajes_reasignacion = []
+            mensajes = []
             if nuevo_estado != 'Operativo':
+                # PBI-04: Reasignar si el equipo entra en mantenimiento
                 hoy = timezone.now().date()
-                detalles_afectados = ReservaDetalle.objects.filter(
+                detalles = ReservaDetalle.objects.filter(
                     id_activo=activo,
                     id_reserva__id_horario__fecha__gte=hoy,
-                    id_reserva__estado='Confirmada'
-                ).select_related('id_reserva', 'id_reserva__id_horario')
-
-                for detalle in detalles_afectados:
-                    horario = detalle.id_reserva.id_horario
+                    id_reserva__estado__in=['Programada', 'Pendiente']
+                )
+                for d in detalles:
+                    horario = d.id_reserva.id_horario
+                    ocupados = ReservaDetalle.objects.filter(id_reserva__id_horario=horario).values_list('id_activo', flat=True)
+                    libre = ActivoLaboratorio.objects.filter(id_laboratorio=laboratorio, estado='Operativo').exclude(id_activo__in=ocupados).first()
                     
-                    # Buscar un equipo operativo en el mismo lab que NO esté reservado en este horario
-                    equipos_ocupados_horario = ReservaDetalle.objects.filter(
-                        id_reserva__id_horario=horario
-                    ).values_list('id_activo', flat=True)
-
-                    equipo_libre = ActivoLaboratorio.objects.filter(
-                        id_laboratorio=laboratorio,
-                        estado='Operativo'
-                    ).exclude(id_activo__in=equipos_ocupados_horario).first()
-
-                    if equipo_libre:
-                        detalle.id_activo = equipo_libre
-                        detalle.save()
-                        mensajes_reasignacion.append(f"Reserva de fecha {horario.fecha} movida al equipo {equipo_libre.num_serie}")
+                    if libre:
+                        d.id_activo = libre
+                        d.save()
+                        mensajes.append(f"Reserva {horario.fecha} reasignada a {libre.num_serie}")
                     else:
-                        mensajes_reasignacion.append(f"ADVERTENCIA: No hay equipos libres para reasignar la reserva del {horario.fecha}")
+                        # Si no hay equipo, y el lab se inhabilitó, se cancela automático (PBI-04)
+                        if not laboratorio.habilitado:
+                            d.id_reserva.estado = 'Cancelada'
+                            d.id_reserva.save()
+                            mensajes.append(f"Reserva {horario.fecha} cancelada por falta de equipos.")
 
-            return activo, laboratorio, mensajes_reasignacion, None
-
-        except ActivoLaboratorio.DoesNotExist:
-            return None, None, [], "El equipo especificado no existe."
+            return activo, laboratorio, mensajes, None
         except Exception as e:
             return None, None, [], str(e)

@@ -151,7 +151,7 @@ CREATE TABLE RESERVA (
     cantidad_alumnos        INT          NOT NULL CHECK (cantidad_alumnos > 0),
     acepto_declaracion_jurada BOOLEAN    NOT NULL DEFAULT FALSE,
     estado                  VARCHAR(20)  NOT NULL DEFAULT 'Programada'
-                                CHECK (estado IN ('Programada', 'Cancelada', 'Completada', 'No-show')),
+                                CHECK (estado IN ('Programada', 'Cancelada', 'Completada', 'No-show', 'Pendiente')),
     created_at              TIMESTAMP    NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMP    NOT NULL DEFAULT NOW()
 );

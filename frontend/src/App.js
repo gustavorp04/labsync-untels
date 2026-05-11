@@ -17,7 +17,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* Default redirect to student login */}
         <Route path="/" element={<Navigate to="/login/estudiante" />} />

@@ -14,6 +14,13 @@ const LoginEstudiante = () => {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
 
+  // Evita que el usuario vea el login si ya está logueado (Fix botón atrás)
+  React.useEffect(() => {
+    if (localStorage.getItem('isAuthenticated') === 'true' && localStorage.getItem('role') === 'estudiante') {
+      navigate('/estudiante', { replace: true });
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
@@ -27,9 +34,13 @@ const LoginEstudiante = () => {
       const data = await loginUser(username, password, 'estudiante');
       
       localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('role', data.rol);
-      localStorage.setItem('username', data.nombre);
-      localStorage.setItem('id_usuario', data.id_usuario);
+      localStorage.setItem('role', data.rol || 'estudiante');
+      localStorage.setItem('username', data.nombre || 'Estudiante'); // Legacy
+      localStorage.setItem('nombre', data.nombre || 'Estudiante');
+      localStorage.setItem('id_usuario', data.id_usuario || '');     // Legacy
+      localStorage.setItem('userId', data.id_usuario || '');
+      localStorage.setItem('carrera', data.carrera || '');
+      localStorage.setItem('ciclo', data.ciclo || '');
 
       navigate('/estudiante');
     } catch (err) {

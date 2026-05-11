@@ -29,16 +29,13 @@ class CrearReservaSerializer(serializers.Serializer):
         if data['cantidad_alumnos'] > horario.capacidad_total:
             raise serializers.ValidationError(f"La cantidad de alumnos ({data['cantidad_alumnos']}) supera la capacidad del laboratorio ({horario.capacidad_total}).")
 
-        # Regla: mínimo 10 alumnos
-        if data['cantidad_alumnos'] < 10:
-            raise serializers.ValidationError("Para realizar una reserva, el mínimo de estudiantes debe ser 10.")
-
         # Pasamos el horario validado para no buscarlo otra vez en el service
         data['horario_obj'] = horario
         return data
 
 class ReservaSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.CharField(source='id_usuario.nombre', read_only=True)
+    usuario_rol = serializers.CharField(source='id_usuario.id_rol.nombre', read_only=True)
     laboratorio_nombre = serializers.CharField(source='id_horario.id_laboratorio.nombre', read_only=True)
     fecha_reserva = serializers.DateField(source='id_horario.fecha', read_only=True)
     hora_inicio = serializers.TimeField(source='id_horario.hora_inicio', read_only=True)
@@ -46,7 +43,7 @@ class ReservaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reserva
-        fields = ['id_reserva', 'usuario_nombre', 'laboratorio_nombre', 'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 'estado', 'created_at']
+        fields = ['id_reserva', 'usuario_nombre', 'usuario_rol', 'laboratorio_nombre', 'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 'estado', 'created_at']
 
 class AsistenciaSerializer(serializers.ModelSerializer):
     class Meta:

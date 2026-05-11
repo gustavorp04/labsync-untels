@@ -39,8 +39,11 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
         ]
 
     def get_equipos_operativos(self, obj):
-        # Contamos solo los que están "Operativo" usando el related_name por defecto
-        return obj.activolaboratorio_set.filter(estado='Operativo').count()
+        # Contamos solo estaciones reales (CPU/Mesa) que estén "Operativo"
+        return obj.activolaboratorio_set.filter(
+            id_tipo_activo__nombre__in=['CPU', 'Mesa'], 
+            estado='Operativo'
+        ).count()
 
     def get_estado_sistema(self, obj):
         # Lógica de negocio: Si tiene menos del mínimo de equipos de su tipo, está "En Mantenimiento"

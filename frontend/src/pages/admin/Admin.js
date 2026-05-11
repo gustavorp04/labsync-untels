@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import reservaService from "../../services/reservaService";
 import userService from "../../services/userService";
+import laboratorioService from "../../services/laboratorioService";
+import LabMap from "../../components/LabMap";
 import "./Admin.css";
 
 function Admin() {
@@ -16,16 +18,35 @@ function Admin() {
     nombre: "",
     email: "",
     codigo_universitario: "",
-    id_rol: 2 // Por defecto docente
+    id_rol: 2
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [reservaEditando, setReservaEditando] = useState(null);
   const [showModalEdit, setShowModalEdit] = useState(false);
 
+  // --- INVENTARIO STATE ---
+  const [laboratorios, setLaboratorios] = useState([]);
+  const [labSeleccionado, setLabSeleccionado] = useState(null);
+  const [activos, setActivos] = useState([]);
+  const [historial, setHistorial] = useState([]);
+  const [activoModal, setActivoModal] = useState(null); // PC clickeada
+  const [cambioEstado, setCambioEstado] = useState({ estado: '', motivo: '' });
+  const [loadingActivos, setLoadingActivos] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
+
   useEffect(() => {
     fetchReservas();
     fetchUsuarios();
+    fetchLaboratorios();
   }, []);
+
+  // Temporizador para mensajes (3 segundos)
+  useEffect(() => {
+    if (feedbackMsg) {
+      const timer = setTimeout(() => setFeedbackMsg(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMsg]);
 
   const fetchReservas = async () => {
     try {
@@ -43,6 +64,70 @@ function Admin() {
     } catch (error) {
       console.error("Error al cargar usuarios", error);
     }
+  };
+
+  const fetchLaboratorios = async () => {
+    try {
+      const data = await laboratorioService.getLaboratorios();
+      setLaboratorios(data);
+    } catch (error) {
+      console.error("Error al cargar laboratorios", error);
+    }
+  };
+
+  const seleccionarLab = async (lab) => {
+    setLabSeleccionado(lab);
+    setActivos([]);
+    setHistorial([]);
+    setLoadingActivos(true);
+    try {
+      const [activosData, historialData] = await Promise.all([
+        laboratorioService.getActivosPorLab(lab.id_laboratorio),
+        laboratorioService.getHistorialLab(lab.id_laboratorio),
+      ]);
+      setActivos(activosData);
+      setHistorial(historialData);
+    } catch (err) {
+      console.error("Error al cargar activos", err);
+    } finally {
+      setLoadingActivos(false);
+    }
+  };
+
+  const abrirModalActivo = (activo) => {
+    setActivoModal(activo);
+    if (activo) {
+      setCambioEstado({ estado: activo.estado, motivo: '' });
+    }
+  };
+
+  const guardarCambioEstado = async () => {
+    if (!cambioEstado.motivo.trim()) {
+      setFeedbackMsg({ tipo: 'error', texto: 'El motivo es obligatorio.' });
+      return;
+    }
+    try {
+      const adminId = localStorage.getItem('userId');
+      await laboratorioService.actualizarEstadoActivo(
+        activoModal.id_activo,
+        cambioEstado.estado,
+        cambioEstado.motivo,
+        adminId
+      );
+      setFeedbackMsg({ tipo: 'ok', texto: `Equipo actualizado a "${cambioEstado.estado}" correctamente.` });
+      setActivoModal(null);
+      // Recargar activos e historial
+      await seleccionarLab(labSeleccionado);
+      await fetchLaboratorios();
+    } catch (err) {
+      setFeedbackMsg({ tipo: 'error', texto: 'Error al actualizar el equipo.' });
+    }
+  };
+
+  const colorActivo = (estado) => {
+    if (estado === 'Operativo') return '#10b981';
+    if (estado === 'Mantenimiento') return '#f59e0b';
+    return '#dc2626'; // Dado de baja
   };
 
   const handleEditClick = (reserva) => {
@@ -157,26 +242,29 @@ function Admin() {
           <div className="menu-section">
             <button
               className="menu-title"
-              onClick={toggleInventario}
+              onClick={() => { setMostrarInventario(!mostrarInventario); setVista('inventario'); }}
             >
               Inventario
             </button>
 
             {mostrarInventario && (
               <div className="submenu">
-
-                <button onClick={() => setVista("sistemas")}>
-                  Lab Sistemas
-                </button>
-
-                <button onClick={() => setVista("electronica")}>
-                  Lab Electrónica
-                </button>
-
-                <button onClick={() => setVista("ambiental")}>
-                  Lab Ambiental
-                </button>
-
+                {laboratorios.map(lab => (
+                  <button
+                    key={lab.id_laboratorio}
+                    onClick={() => { setVista('inventario'); seleccionarLab(lab); }}
+                    style={{
+                      borderLeft: labSeleccionado?.id_laboratorio === lab.id_laboratorio
+                        ? '3px solid var(--untels-blue)' : '3px solid transparent'
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                      background: lab.habilitado ? '#10b981' : '#dc2626', marginRight: 8
+                    }} />
+                    {lab.codigo_patrimonio} — {lab.nombre.replace('Laboratorio de Cómputo de ', '').replace('Laboratorio de ', '')}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -207,8 +295,23 @@ function Admin() {
         {/* # VISTA INICIO */}
         {vista === "inicio" && (
           <div className="welcome-center">
-            <h1>Bienvenido Admin 👋</h1>
+            <h1>Bienvenido Admin</h1>
             <p>Panel principal de gestión LabSync UNTELS</p>
+            <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 30 }}>
+              {[
+                { label: 'Laboratorios Habilitados', val: laboratorios.filter(l => l.habilitado).length, color: '#10b981' },
+                { label: 'En Mantenimiento', val: laboratorios.filter(l => !l.habilitado).length, color: '#f59e0b' },
+                { label: 'Total Laboratorios', val: laboratorios.length, color: 'var(--untels-blue)' },
+              ].map(card => (
+                <div key={card.label} style={{
+                  background: 'var(--bg-input)', border: '1px solid var(--border-color)',
+                  borderRadius: 12, padding: '20px 30px', textAlign: 'center', minWidth: 160
+                }}>
+                  <div style={{ fontSize: 36, fontWeight: 700, color: card.color }}>{card.val}</div>
+                  <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>{card.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -350,7 +453,7 @@ function Admin() {
                   return r.fecha_reserva > hoyStr && matchesSearch;
                 }).map(r => (
                   <tr key={r.id_reserva}>
-                    <td>Docente</td>
+                    <td>{r.usuario_rol || 'Usuario'}</td>
                     <td>{r.usuario_nombre}</td>
                     <td>{r.laboratorio_nombre}</td>
                     <td>{r.fecha_reserva}</td>
@@ -376,51 +479,97 @@ function Admin() {
           </div>
         )}
 
-        {/* # VISTA HISTORIAL */}
-        {vista === "historial" && (
+        {/* # VISTA INVENTARIO (MAPA DE EQUIPOS) */}
+        {vista === "inventario" && (
           <div className="table-section">
+            <h2>Mapa de Inventario</h2>
 
-            <h2>Historial de Reservas</h2>
-            {/* ... buscador y fechas omitidos para brevedad ... */}
+            {feedbackMsg && (
+              <div style={{
+                padding: '12px 20px', borderRadius: 8, marginBottom: 20,
+                background: feedbackMsg.tipo === 'ok' ? '#d1fae5' : '#fee2e2',
+                color: feedbackMsg.tipo === 'ok' ? '#065f46' : '#7f1d1d',
+                border: `1px solid ${feedbackMsg.tipo === 'ok' ? '#6ee7b7' : '#fca5a5'}`
+              }}>
+                {feedbackMsg.texto}
+                <button onClick={() => setFeedbackMsg(null)} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>×</button>
+              </div>
+            )}
 
-            <table>
-              <thead>
-                <tr>
-                  <th>Tipo Usuario</th>
-                  <th>Usuario</th>
-                  <th>Laboratorio</th>
-                  <th>Fecha</th>
-                  <th>Hora</th>
-                  <th>Estado</th>
-                  <th>Opciones</th>
-                </tr>
-              </thead>
+            {!labSeleccionado ? (
+              <p style={{ opacity: 0.6 }}>Selecciona un laboratorio del menú izquierdo para ver su mapa de equipos.</p>
+            ) : (
+              <>
+                {/* CABECERA DEL LAB */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+                  <div style={{
+                    background: labSeleccionado.habilitado ? '#d1fae5' : '#fee2e2',
+                    color: labSeleccionado.habilitado ? '#065f46' : '#7f1d1d',
+                    border: `1px solid ${labSeleccionado.habilitado ? '#6ee7b7' : '#fca5a5'}`,
+                    borderRadius: 20, padding: '6px 16px', fontWeight: 600, fontSize: 13
+                  }}>
+                    {labSeleccionado.habilitado ? 'HABILITADO' : 'INHABILITADO'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <strong>{labSeleccionado.nombre}</strong>
+                    <span style={{ opacity: 0.6, fontSize: 13, marginLeft: 10 }}>
+                      {labSeleccionado.codigo_patrimonio} · Aforo: {labSeleccionado.aforo_maximo} · Tipo: {labSeleccionado.tipo_nombre}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13 }}>
+                    Equipos Operativos: <strong style={{ color: '#10b981' }}>
+                      {activos.filter(a => (a.tipo_activo_nombre === 'CPU' || a.tipo_activo_nombre === 'Mesa') && a.estado === 'Operativo').length}
+                    </strong>
+                    {' / '}{labSeleccionado.aforo_maximo}
+                  </div>
+                </div>
 
-              <tbody>
-                {reservas.filter(r => {
-                  const matchesSearch = r.usuario_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                        r.laboratorio_nombre.toLowerCase().includes(searchTerm.toLowerCase());
-                  return r.estado !== 'Programada' && matchesSearch;
-                }).map(r => (
-                  <tr key={r.id_reserva}>
-                    <td>Docente</td>
-                    <td>{r.usuario_nombre}</td>
-                    <td>{r.laboratorio_nombre}</td>
-                    <td>{r.fecha_reserva}</td>
-                    <td>{r.hora_inicio} - {r.hora_fin}</td>
-                    <td>{r.estado}</td>
-                    <td>
-                      <button className="view-btn">👁 Ver</button>
-                    </td>
-                  </tr>
-                ))}
-                {reservas.filter(r => r.estado !== 'Programada').length === 0 && (
-                  <tr>
-                    <td colSpan="7" style={{textAlign: 'center'}}>No hay historial de reservas.</td>
-                  </tr>
+                {/* LEYENDA ANTIGUA REMOVIDA - LabMap usa su propia leyenda */}
+
+                {loadingActivos ? (
+                  <div style={{ textAlign: 'center', padding: 40, opacity: 0.6 }}>Cargando equipos...</div>
+                ) : (
+                  <div style={{ marginBottom: 32 }}>
+                    {activos.length > 0 ? (
+                      <LabMap 
+                        activos={activos} 
+                        activoSel={activoModal} 
+                        onSelect={abrirModalActivo} 
+                        columnas={6} 
+                      />
+                    ) : (
+                      <p style={{ opacity: 0.6 }}>No hay equipos registrados.</p>
+                    )}
+                  </div>
                 )}
-              </tbody>
-            </table>
+
+                {/* HISTORIAL */}
+                {historial.length > 0 && (
+                  <>
+                    <h3 style={{ marginBottom: 12 }}>Historial de Mantenimiento</h3>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Equipo</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th><th>Fecha</th><th>Registrado por</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historial.slice(0, 15).map(h => (
+                          <tr key={h.id_historial}>
+                            <td>{h.activo_serie}</td>
+                            <td><span style={{ color: colorActivo(h.estado_anterior), fontWeight: 600 }}>{h.estado_anterior}</span></td>
+                            <td><span style={{ color: colorActivo(h.estado_nuevo), fontWeight: 600 }}>{h.estado_nuevo}</span></td>
+                            <td>{h.motivo || '—'}</td>
+                            <td>{new Date(h.fecha_cambio).toLocaleString('es-PE')}</td>
+                            <td>{h.registrado_por_nombre}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -521,6 +670,54 @@ function Admin() {
               <div className="modal-actions">
                 <button className="cancel-btn" onClick={() => setShowModalEdit(false)}>Cancelar</button>
                 <button className="save-btn" onClick={handleUpdateReserva}>Guardar Cambios</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL CAMBIAR ESTADO EQUIPO (PBI-02) */}
+        {activoModal && (
+          <div className="modal-overlay" onClick={() => setActivoModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: 460 }}>
+              <h2 style={{ marginBottom: 4 }}>Cambiar Estado de Equipo</h2>
+              <p style={{ opacity: 0.6, marginBottom: 20, fontSize: 13 }}>
+                Serie: <strong>{activoModal.num_serie}</strong> &mdash; Patrimonio: <strong>{activoModal.codigo_patrimonio}</strong>
+              </p>
+
+              <div className="form-group">
+                <label>Nuevo Estado</label>
+                <select
+                  className="search-input"
+                  style={{ width: '100%' }}
+                  value={cambioEstado.estado}
+                  onChange={e => setCambioEstado({ ...cambioEstado, estado: e.target.value })}
+                >
+                  <option value="Operativo">Operativo</option>
+                  <option value="Mantenimiento">Mantenimiento</option>
+                  <option value="Dado de baja">Dado de baja</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Motivo <span style={{ color: '#dc2626' }}>*</span></label>
+                <textarea
+                  className="search-input"
+                  style={{ width: '100%', minHeight: 80, resize: 'vertical' }}
+                  placeholder="Describe el motivo del cambio de estado..."
+                  value={cambioEstado.motivo}
+                  onChange={e => setCambioEstado({ ...cambioEstado, motivo: e.target.value })}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button className="cancel-btn" onClick={() => setActivoModal(null)}>Cancelar</button>
+                <button
+                  className="save-btn"
+                  onClick={guardarCambioEstado}
+                  style={{ background: colorActivo(cambioEstado.estado) }}
+                >
+                  Guardar Cambio
+                </button>
               </div>
             </div>
           </div>
