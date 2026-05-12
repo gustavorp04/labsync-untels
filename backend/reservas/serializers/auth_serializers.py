@@ -12,7 +12,53 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-        fields = ['id_usuario', 'nombre', 'email', 'codigo_universitario', 'rol', 'carrera', 'ciclo', 'departamento', 'created_at']
+        fields = ['id_usuario', 'nombre', 'email', 'codigo_universitario', 'rol', 'id_rol', 'carrera', 'ciclo', 'departamento', 'created_at']
+        extra_kwargs = {
+            'id_rol': {'write_only': True}
+        }
+
+    def create(self, validated_data):
+        from django.contrib.auth.hashers import make_password
+        from django.utils import timezone
+        from ..models import PerfilEstudiante, PerfilDocente, Carrera
+        
+        request = self.context.get('request')
+        data = request.data if request else {}
+
+        # 1. Hashear contraseña (por defecto el código universitario)
+        raw_password = data.get('password') or validated_data.get('codigo_universitario')
+        validated_data['password_hash'] = make_password(raw_password)
+        validated_data['created_at'] = timezone.now()
+
+        # 2. Crear el usuario
+        user = super().create(validated_data)
+
+        # 3. Crear Perfiles según el ROL
+        rol_nombre = user.id_rol.nombre.lower()
+
+        if rol_nombre == 'estudiante':
+            carrera_nombre = data.get('carrera')
+            ciclo = data.get('ciclo', 1)
+            if carrera_nombre:
+                # Buscar o asignar carrera (fallback si no existe)
+                carrera_obj = Carrera.objects.filter(nombre__icontains=carrera_nombre).first()
+                if not carrera_obj:
+                    carrera_obj = Carrera.objects.first() # Primer disponible
+                
+                PerfilEstudiante.objects.create(
+                    id_usuario=user,
+                    id_carrera=carrera_obj,
+                    ciclo=ciclo
+                )
+
+        elif rol_nombre == 'docente':
+            departamento = data.get('departamento', 'General')
+            PerfilDocente.objects.create(
+                id_usuario=user,
+                departamento=departamento
+            )
+
+        return user
 
     def get_departamento(self, obj):
         try:

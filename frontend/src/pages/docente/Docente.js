@@ -19,6 +19,7 @@ const Icon = {
   Clock:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   Shield:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   ChevronLeft: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
+  Search: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
 };
 
 const CATEGORIAS = [
@@ -60,6 +61,7 @@ function Docente() {
   const [labSel, setLabSel]             = useState(null);
   const [horarioSel, setHorarioSel]     = useState(null);
   const [activosSel, setActivosSel]     = useState([]);
+  const [labSearchTerm, setLabSearchTerm] = useState("");
 
   // Data
   const [laboratorios, setLaboratorios] = useState([]);
@@ -319,10 +321,24 @@ function Docente() {
             {/* ─ PASO 2: Laboratorio ─ */}
             {paso === 2 && (
               <div className="doc-section">
-                <h2>Laboratorios de {categoriaSel}</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <h2>Laboratorios de {categoriaSel}</h2>
+                  <div className="doc-search-box">
+                    <Icon.Search />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar por código o nombre..." 
+                      value={labSearchTerm}
+                      onChange={(e) => setLabSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
                 {loading ? <div className="doc-loading">Cargando laboratorios…</div> : (
                   <div className="doc-lab-grid">
-                    {laboratorios.map(lab => (
+                    {laboratorios.filter(lab => 
+                      lab.nombre.toLowerCase().includes(labSearchTerm.toLowerCase()) || 
+                      lab.codigo_patrimonio.toLowerCase().includes(labSearchTerm.toLowerCase())
+                    ).map(lab => (
                       <button
                         key={lab.id_laboratorio}
                         className={`doc-lab-card ${!lab.habilitado ? 'disabled' : ''}`}
