@@ -77,7 +77,6 @@ function Estudiante() {
 
   // DJ
   const [aceptaDJ, setAceptaDJ]   = useState(false);
-  const [showDJ, setShowDJ]       = useState(false);
 
   // User Data (Normalizada para compatibilidad)
   const userId   = localStorage.getItem("userId") || localStorage.getItem("id_usuario") || "";
@@ -139,7 +138,7 @@ function Estudiante() {
         .catch(() => showToast('error', 'Error al cargar laboratorios'))
         .finally(() => setLoading(false));
     }
-  }, [vista, carreraNorm, fetchMisReservas]);
+  }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length]);
 
   useEffect(() => {
     if (paso === 2 && labSel) {
@@ -233,22 +232,24 @@ function Estudiante() {
                     />
                   </div>
                 </div>
-                <div className="est-lab-grid">
-                  {laboratorios.filter(lab => 
-                    lab.nombre.toLowerCase().includes(labSearchTerm.toLowerCase()) || 
-                    lab.codigo_patrimonio.toLowerCase().includes(labSearchTerm.toLowerCase())
-                  ).map(lab => (
-                    <button key={lab.id_laboratorio} className="est-lab-card" onClick={()=>{
-                      setLabSel(lab); 
-                      setHorarioSel(null);
-                      setActivoSel(null);
-                      setPaso(2);
-                    }}>
-                      <div className="est-lab-name">{lab.nombre}</div>
-                      <div className="est-lab-foot">🖥 {lab.equipos_operativos}/{lab.aforo_maximo} operativos</div>
-                    </button>
-                  ))}
-                </div>
+                {loading ? <div className="est-loading">Cargando laboratorios...</div> : (
+                  <div className="est-lab-grid">
+                    {laboratorios.filter(lab => 
+                      lab.nombre.toLowerCase().includes(labSearchTerm.toLowerCase()) || 
+                      lab.codigo_patrimonio.toLowerCase().includes(labSearchTerm.toLowerCase())
+                    ).map(lab => (
+                      <button key={lab.id_laboratorio} className="est-lab-card" onClick={()=>{
+                        setLabSel(lab); 
+                        setHorarioSel(null);
+                        setActivoSel(null);
+                        setPaso(2);
+                      }}>
+                        <div className="est-lab-name">{lab.nombre}</div>
+                        <div className="est-lab-foot">🖥 {lab.equipos_operativos}/{lab.aforo_maximo} operativos</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {paso === 2 && (

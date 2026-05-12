@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import reservaService from "../../services/reservaService";
 import userService from "../../services/userService";
@@ -12,13 +12,23 @@ function Admin() {
   const [mostrarReservas, setMostrarReservas] = useState(false);
   const [mostrarInventario, setMostrarInventario] = useState(false);
   const [reservas, setReservas] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterRol, setFilterRol] = useState("todos");
-  const [userSearchTerm, setUserSearchTerm] = useState("");
   const [usuarios, setUsuarios] = useState([]);
   const [reservaEditando, setReservaEditando] = useState(null);
   const [showModalEdit, setShowModalEdit] = useState(false);
-
+  const [mostrarFormUsuario, setMostrarFormUsuario] = useState(false);
+  const [nuevoUsuario, setNuevoUsuario] = useState({
+    nombre: "",
+    email: "",
+    codigo_universitario: "",
+    id_rol: 2,
+    carrera: "",
+    departamento: "",
+    ciclo: 1
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [filterRol, setFilterRol] = useState("todos");
+  
   // Icons for Sidebar
   const Icon = {
     Home: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -30,16 +40,6 @@ function Admin() {
     Plus: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   };
 
-  const [nuevoUsuario, setNuevoUsuario] = useState({
-    nombre: "",
-    email: "",
-    codigo_universitario: "",
-    id_rol: 2,
-    carrera: "",
-    departamento: "",
-    ciclo: 1
-  });
-
   // --- INVENTARIO STATE ---
   const [laboratorios, setLaboratorios] = useState([]);
   const [labSeleccionado, setLabSeleccionado] = useState(null);
@@ -48,7 +48,11 @@ function Admin() {
   const [activoModal, setActivoModal] = useState(null); // PC clickeada
   const [cambioEstado, setCambioEstado] = useState({ estado: '', motivo: '' });
   const [loadingActivos, setLoadingActivos] = useState(false);
+  const [activoSel, setActivoSel]   = useState(() => JSON.parse(sessionStorage.getItem("est_activoSel")) || null);
+  const [labSearchTerm, setLabSearchTerm] = useState("");
+  const [horarios, setHorarios]         = useState([]);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const [feedback, setFeedback]         = useState(null);
 
   useEffect(() => {
     fetchReservas();
@@ -195,8 +199,15 @@ function Admin() {
     setMostrarReservas(!mostrarReservas);
   };
 
-  const toggleInventario = () => {
-    setMostrarInventario(!mostrarInventario);
+  const handleDeleteUsuario = async (id) => {
+    if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
+      try {
+        await userService.eliminarUsuario(id);
+        fetchUsuarios();
+      } catch (error) {
+        alert("Error al eliminar");
+      }
+    }
   };
 
   const handleLogout = () => {
