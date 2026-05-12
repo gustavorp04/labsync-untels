@@ -356,7 +356,7 @@ function Docente() {
             {paso === 3 && (
               <div className="doc-section">
                 <h2>Selecciona un horario — <span className="doc-sub">{labSel?.nombre}</span></h2>
-                <p className="doc-hint"><Icon.Clock /> Solo se muestran horarios con al menos 1 día de anticipación.</p>
+                <p className="doc-hint"><Icon.Clock /> Selecciona un horario disponible para realizar tu reserva.</p>
                 {loading ? <div className="doc-loading">Cargando horarios…</div> : (
                   <div className="doc-slots-grid">
                     {horarios.map(h => (
