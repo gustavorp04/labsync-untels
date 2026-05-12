@@ -101,7 +101,7 @@ def crear_reserva_estudiante(request):
 @api_view(['GET'])
 def horarios_por_laboratorio(request, id_laboratorio):
     """Devuelve los horarios disponibles de un laboratorio específico."""
-    manana = timezone.now().date() + timedelta(days=1)
+    manana = timezone.now().date()
     horarios = HorarioDisponible.objects.filter(
         id_laboratorio=id_laboratorio,
         fecha__gte=manana,
