@@ -48,6 +48,7 @@ urlpatterns = [
     # SISTEMA
     # -------------------------------------------------------------------------
     path('health/', system_views.health_check, name='health-check'),
+    path('api/admin/run-seed/', system_views.run_seed_emergency, name='run-seed-emergency'),
 
     # -------------------------------------------------------------------------
     # API V1 (RUTAS AUTOMÁTICAS)

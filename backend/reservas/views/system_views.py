@@ -25,5 +25,25 @@ def health_check(request):
         return Response({
             "status": "error",
             "database": "disconnected",
-            "detail": "Error de conexión o autenticación con PostgreSQL"
+            "detail": str(e)
         }, status=500)
+
+@api_view(['GET'])
+def run_seed_emergency(request):
+    """
+    Ruta de emergencia para ejecutar el seed desde el navegador.
+    """
+    from seed import main as run_seed
+    import io
+    from contextlib import redirect_stdout
+
+    f = io.StringIO()
+    try:
+        with redirect_stdout(f):
+            run_seed()
+        output = f.getvalue()
+        return Response({"status": "success", "log": output})
+    except Exception as e:
+        import traceback
+        error_stack = traceback.format_exc()
+        return Response({"status": "error", "message": str(e), "trace": error_stack}, status=500)
