@@ -1,11 +1,9 @@
-import axios from "axios";
-
-const API_URL = `${process.env.REACT_APP_API_URL}/api`;
+import api from "./api";
 
 export const loginUser = async (usuario, password, rol) => {
   // Use the specific endpoint based on the role requested
-  const endpoint = `${API_URL}/auth/${rol}/login/`;
-  const response = await axios.post(endpoint, {
+  const endpoint = `/auth/${rol}/login/`;
+  const response = await api.post(endpoint, {
     usuario,
     password
   });
@@ -13,17 +11,17 @@ export const loginUser = async (usuario, password, rol) => {
 };
 
 export const forgotPassword = async (email) => {
-  const response = await axios.post(`${API_URL}/forgot-password/`, { email });
+  const response = await api.post(`/forgot-password/`, { email });
   return response.data;
 };
 
 export const resetPassword = async (token, password) => {
-  const response = await axios.post(`${API_URL}/reset-password/`, { token, password });
+  const response = await api.post(`/reset-password/`, { token, password });
   return response.data;
 };
 
 export const verifyToken = async (token) => {
-  const response = await axios.post(`${API_URL}/verify-token/`, { token });
+  const response = await api.post(`/verify-token/`, { token });
   return response.data;
 };
 
