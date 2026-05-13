@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './ThemeToggle.css';
 
-const ThemeToggle = () => {
+const ThemeToggle = ({ fixed = true }) => {
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'dark');
 
   useEffect(() => {
@@ -14,7 +14,7 @@ const ThemeToggle = () => {
   };
 
   return (
-    <div className="theme-switch-wrapper">
+    <div className={`theme-switch-wrapper ${fixed ? 'fixed' : ''}`}>
       <label className="theme-switch" htmlFor="checkbox">
         <input 
           type="checkbox" 

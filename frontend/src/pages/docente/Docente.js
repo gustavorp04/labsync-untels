@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
 import LabMap from "../../components/LabMap";
+import ThemeToggle from "../../components/ThemeToggle";
 import "./Docente.css";
 
 /* ─── SVG Icons ─── */
@@ -243,6 +244,11 @@ function Docente() {
             </button>
           ))}
         </nav>
+
+        <div className="doc-theme-section" style={{ padding: '0 20px', marginBottom: '20px' }}>
+          <span style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '10px' }}>Apariencia</span>
+          <ThemeToggle fixed={false} />
+        </div>
 
         <button className="doc-logout" onClick={handleLogout}>
           <Icon.Logout />

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import "../../styles/Placeholder.css";
+import ThemeToggle from "../../components/ThemeToggle";
 
 function Jefatura() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ function Jefatura() {
       <button onClick={handleLogout}>
         ← Cerrar sesión
       </button>
+      <ThemeToggle />
     </div>
   );
 }

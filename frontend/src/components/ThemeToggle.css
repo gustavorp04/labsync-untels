@@ -1,8 +1,13 @@
 .theme-switch-wrapper {
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+}
+
+.theme-switch-wrapper.fixed {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 1000;
 }
 
 .theme-switch {

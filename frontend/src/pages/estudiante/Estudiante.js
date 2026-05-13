@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
 import LabMap from "../../components/LabMap";
+import ThemeToggle from "../../components/ThemeToggle";
 import "./Estudiante.css";
 
 /* ─── Icons ─── */
@@ -48,16 +49,6 @@ function Estudiante() {
   useEffect(() => { sessionStorage.setItem("est_vista", vista); }, [vista]);
   useEffect(() => { sessionStorage.setItem("est_paso", paso.toString()); }, [paso]);
 
-  // Tema
-  const [theme, setTheme] = useState(() => localStorage.getItem("app-theme") || "dark");
-
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    localStorage.setItem("app-theme", newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
-  };
-  
   // Data
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios]         = useState([]);
@@ -209,10 +200,10 @@ function Estudiante() {
           <button className={`est-nav-btn ${vista==='nueva-reserva'?'active':''}`} onClick={()=>{setVista('nueva-reserva'); setPaso(1);}}><Icon.Book /><span>Reservar</span></button>
           <button className={`est-nav-btn ${vista==='mis-reservas'?'active':''}`} onClick={()=>{setVista('mis-reservas'); setPaso(1);}}><Icon.List /><span>Mis Reservas</span></button>
           <div style={{ flex: 1 }}></div>
-          <button className="est-nav-btn" onClick={toggleTheme}>
-            {theme === 'dark' ? <Icon.Sun /> : <Icon.Moon />}
-            <span>Modo {theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
-          </button>
+          <div className="est-theme-container" style={{ padding: '10px 20px' }}>
+            <span style={{ fontSize: 12, opacity: 0.6, display: 'block', marginBottom: 8 }}>Apariencia</span>
+            <ThemeToggle fixed={false} />
+          </div>
         </nav>
         <button className="est-logout" onClick={handleLogout}><Icon.Logout /><span>Cerrar Sesión</span></button>
       </aside>

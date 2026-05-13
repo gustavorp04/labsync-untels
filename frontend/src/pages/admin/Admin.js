@@ -4,6 +4,7 @@ import reservaService from "../../services/reservaService";
 import userService from "../../services/userService";
 import laboratorioService from "../../services/laboratorioService";
 import LabMap from "../../components/LabMap";
+import ThemeToggle from "../../components/ThemeToggle";
 import "./Admin.css";
 
 function Admin() {
@@ -316,6 +317,11 @@ function Admin() {
           <button className={`menu-title ${vista === 'usuarios' ? 'active' : ''}`} onClick={() => setVista("usuarios")}>
             <Icon.Users /> <span>Usuarios</span>
           </button>
+
+          <div className="admin-theme-section" style={{ marginTop: 'auto', padding: '20px 0' }}>
+            <span style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '10px' }}>Apariencia</span>
+            <ThemeToggle fixed={false} />
+          </div>
 
           <button className="menu-title logout-btn" onClick={handleLogout}>
             <Icon.Logout /> <span>Cerrar Sesión</span>
