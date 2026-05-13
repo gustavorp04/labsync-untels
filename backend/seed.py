@@ -1,6 +1,6 @@
 import os
 import django
-import pandas as pd
+import csv
 from datetime import datetime, timedelta
 from django.db import connection, transaction
 
@@ -90,7 +90,7 @@ def generar_activos_inteligentes():
     print(f"Inventory generated for {labs.count()} labs.")
 
 def generar_horarios_maestros():
-    print("Processing schedules from real CSV data...")
+    print("Processing schedules from real CSV data (Standard Library Version)...")
     
     bloques = [
         ('08:00', '09:40'), ('09:40', '11:20'), ('11:20', '13:00'),
@@ -99,54 +99,48 @@ def generar_horarios_maestros():
     ]
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    # ACTUALIZADO: Nuevo nombre de archivo
     ruta_csv = os.path.join(base_dir, 'horarios.csv')
     bloqueados = {}
     
-    # Diccionario a prueba de tildes y mayúsculas
     dias_map = {
         'lunes': 0, 'martes': 1, 'miercoles': 2, 'miércoles': 2,
         'jueves': 3, 'viernes': 4, 'sabado': 5, 'sábado': 5
     }
 
     try:
-        # ACTUALIZADO: Leemos el CSV especificando el separador por punto y coma (;)
-        try:
-            df = pd.read_csv(ruta_csv, skiprows=1, sep=';', encoding='utf-8')
-        except UnicodeDecodeError:
-            df = pd.read_csv(ruta_csv, skiprows=1, sep=';', encoding='latin-1')
+        if not os.path.exists(ruta_csv):
+            print(f"Error: {ruta_csv} not found.")
+            return
 
-        # BLINDAJE EXTREMO: Renombramos las columnas usando su posición exacta 
-        # (Así no importa si el Excel dice "Dia", "Día" o "D\x8e")
-        df.rename(columns={
-            df.columns[0]: 'Laboratorio',
-            df.columns[3]: 'Día',
-            df.columns[4]: 'Hora Inicio',
-            df.columns[6]: 'Estado'
-        }, inplace=True)
-
-        columnas_necesarias = ['Laboratorio', 'Día', 'Hora Inicio', 'Estado']
-        df = df[columnas_necesarias].dropna() 
-        
-        for index, row in df.iterrows():
-            if str(row['Estado']).strip().lower() == 'bloqueado':
-                lab_cod = str(row['Laboratorio']).strip()
-                dia_str = str(row['Día']).strip().lower()
-                h_inicio = str(row['Hora Inicio']).strip()
+        with open(ruta_csv, mode='r', encoding='utf-8', errors='replace') as f:
+            # Saltamos la primera línea si es necesario (skiprows=1)
+            f.readline()
+            reader = csv.reader(f, delimiter=';')
+            
+            for row in reader:
+                if len(row) < 7: continue
                 
-                if len(h_inicio) == 4 and h_inicio.find(':') == 1:
-                    h_inicio = '0' + h_inicio
+                # Columnas según el mapeo previo:
+                # 0: Laboratorio, 3: Día, 4: Hora Inicio, 6: Estado
+                lab_cod = row[0].strip()
+                dia_str = row[3].strip().lower()
+                h_inicio = row[4].strip()
+                estado_str = row[6].strip().lower()
                 
-                dia_num = dias_map.get(dia_str, -1)
-                
-                if lab_cod not in bloqueados:
-                    bloqueados[lab_cod] = {}
-                if dia_num not in bloqueados[lab_cod]:
-                    bloqueados[lab_cod][dia_num] = []
-                
-                bloqueados[lab_cod][dia_num].append(h_inicio)
+                if estado_str == 'bloqueado':
+                    if len(h_inicio) == 4 and h_inicio.find(':') == 1:
+                        h_inicio = '0' + h_inicio
                     
-        print("CSV schedule data mapped perfectly (Encoding safe).")
+                    dia_num = dias_map.get(dia_str, -1)
+                    
+                    if lab_cod not in bloqueados:
+                        bloqueados[lab_cod] = {}
+                    if dia_num not in bloqueados[lab_cod]:
+                        bloqueados[lab_cod][dia_num] = []
+                    
+                    bloqueados[lab_cod][dia_num].append(h_inicio)
+                    
+        print("CSV schedule data mapped perfectly (CSV module).")
     except Exception as e:
         print(f"Error processing CSV: {e}")
         return
