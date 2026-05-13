@@ -122,9 +122,14 @@ def marcar_asistencia(reserva_id, asistio):
     from ..models import Asistencia
     with transaction.atomic():
         try:
-            reserva = Reserva.objects.get(pk=reserva_id)
+            reserva = Reserva.objects.select_for_update().get(pk=reserva_id)
         except Reserva.DoesNotExist:
             return False, "Reserva no encontrada."
+        
+        # Validar estado actual
+        if reserva.estado not in ['Programada', 'Pendiente']:
+            return False, f"No se puede marcar asistencia en una reserva con estado '{reserva.estado}'."
+
         hoy = timezone.localtime(timezone.now()).date()
         if reserva.id_horario.fecha != hoy:
             return False, f"Solo puedes marcar asistencia el mismo día de la reserva (Reserva: {reserva.id_horario.fecha}, Hoy: {hoy})."
@@ -135,17 +140,20 @@ def marcar_asistencia(reserva_id, asistio):
         )
         if not created:
             asistencia.asistio = asistio
+            if asistio and not asistencia.hora_ingreso:
+                asistencia.hora_ingreso = timezone.now()
             asistencia.save()
             
-        reserva.estado = 'Completada' if asistio else 'No-Show'
+        estado_anterior = reserva.estado
+        reserva.estado = 'Completada' if asistio else 'No-show'
         reserva.save()
 
         # Log de asistencia
         HistorialReserva.objects.create(
             reserva=reserva,
-            estado_anterior='Programada',
+            estado_anterior=estado_anterior,
             estado_nuevo=reserva.estado,
-            observacion="Asistencia marcada por Administrador."
+            observacion=f"Asistencia marcada como {'Asistió' if asistio else 'No-show'} por Administrador."
         )
 
         return True, None
@@ -168,12 +176,12 @@ def cerrar_dia_reservas():
     with transaction.atomic():
         for r in reservas_vencidas:
             estado_ant = r.estado
-            r.estado = 'No-Show'
+            r.estado = 'No-show'
             r.save()
             HistorialReserva.objects.create(
                 reserva=r,
                 estado_anterior=estado_ant,
-                estado_nuevo='No-Show',
+                estado_nuevo='No-show',
                 observacion="Cierre automático por horario vencido."
             )
             count += 1

@@ -48,6 +48,12 @@ const getHorariosPorLab = async (idLab) => {
   return res.data;
 };
 
+/** Historial global de cambios de estado de reservas */
+const getHistorialReservas = async () => {
+  const res = await api.get(`/reservas/historial/`);
+  return res.data;
+};
+
 const reservaService = {
   crearReserva,
   crearReservaEstudiante,
@@ -57,6 +63,7 @@ const reservaService = {
   marcarAsistencia,
   eliminarReserva,
   getHorariosPorLab,
+  getHistorialReservas,
 };
 
 export default reservaService;

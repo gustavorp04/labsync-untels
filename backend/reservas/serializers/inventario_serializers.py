@@ -40,7 +40,9 @@ class ActivoLaboratorioSerializer(serializers.ModelSerializer):
 
 class HistorialMantenimientoSerializer(serializers.ModelSerializer):
     activo_serie = serializers.CharField(source='id_activo.num_serie', read_only=True)
+    activo_tipo  = serializers.CharField(source='id_activo.id_tipo_activo.nombre', read_only=True)
     registrado_por_nombre = serializers.CharField(source='registrado_por.nombre', read_only=True)
+    registrado_por_rol    = serializers.CharField(source='registrado_por.id_rol.nombre', read_only=True)
 
     class Meta:
         model = HistorialMantenimiento
@@ -48,11 +50,13 @@ class HistorialMantenimientoSerializer(serializers.ModelSerializer):
             'id_historial',
             'id_activo',
             'activo_serie',
+            'activo_tipo',
             'estado_anterior',
             'estado_nuevo',
             'motivo',
             'fecha_cambio',
             'registrado_por',
             'registrado_por_nombre',
+            'registrado_por_rol',
         ]
-        read_only_fields = ['id_historial', 'fecha_cambio', 'activo_serie', 'registrado_por_nombre']
+        read_only_fields = ['id_historial', 'fecha_cambio', 'activo_serie', 'activo_tipo', 'registrado_por_nombre', 'registrado_por_rol']

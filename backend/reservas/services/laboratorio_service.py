@@ -36,10 +36,13 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
             laboratorio = activo.id_laboratorio
             calcular_habilitacion_lab(laboratorio)
 
-            # Registro en historial
-            usuario_registrador = Usuario.objects.filter(pk=usuario_id).first() or \
-                                  Usuario.objects.filter(id_rol__nombre='admin_lab').first() or \
-                                  Usuario.objects.first()
+            # Registro en historial — solo usa el usuario del request
+            usuario_registrador = None
+            if usuario_id:
+                usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
+            # Si no hay usuario válido, busca el primer admin_lab registrado
+            if not usuario_registrador:
+                usuario_registrador = Usuario.objects.filter(id_rol__nombre='admin_lab').first()
 
             HistorialMantenimiento.objects.create(
                 id_activo=activo,

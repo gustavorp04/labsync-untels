@@ -5,7 +5,7 @@ import "./LabMap.css";
 /**
  * LabMap — Mapa interactivo Universal
  */
-export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6 }) {
+export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, adminMode = false }) {
   
   const pcs = useMemo(
     () => activos.filter((a) => a.tipo_activo_nombre === "CPU" || a.tipo_activo_nombre === "Mesa"),
@@ -36,6 +36,11 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
   }
 
   function handleClick(a) {
+    if (adminMode) {
+      // En modo admin, siempre se puede seleccionar cualquier equipo
+      onSelect(isSelected(a) ? null : a);
+      return;
+    }
     if (a.estado !== "Operativo" || a.reservado || a.estado_reserva === "Pendiente") return;
     
     // Si es array (Docente), pasamos el objeto y el padre decide si agregar/quitar
@@ -66,7 +71,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
                     key={a.id_activo}
                     className={`lm-pc lm-pc--${estado}`}
                     onClick={() => handleClick(a)}
-                    disabled={estado === "broken" || estado === "occupied" || estado === "maintenance" || estado === "pending"}
+                    disabled={!adminMode && (estado === "broken" || estado === "occupied" || estado === "maintenance" || estado === "pending")}
                     title={a.num_serie || 'Sin código'}
                   >
                     <div className="lm-pc-icon-wrapper">

@@ -13,6 +13,7 @@ function Admin() {
   const [mostrarInventario, setMostrarInventario] = useState(false);
   const [reservas, setReservas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [historialReservas, setHistorialReservas] = useState([]);
   const [reservaEditando, setReservaEditando] = useState(null);
   const [showModalEdit, setShowModalEdit] = useState(false);
   const [mostrarFormUsuario, setMostrarFormUsuario] = useState(false);
@@ -38,6 +39,25 @@ function Admin() {
     Logout: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
     Search: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
     Plus: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    // Iconos de activos
+    CPU: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="1" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="20" y1="15" x2="23" y2="15"/></svg>,
+    Monitor: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+    Mesa: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="7" width="20" height="4" rx="1"/><line x1="5" y1="11" x2="5" y2="20"/><line x1="19" y1="11" x2="19" y2="20"/><line x1="12" y1="11" x2="12" y2="20"/></svg>,
+    Silla: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 3v10M18 3v10M4 13h16a1 1 0 0 1 1 1v1H3v-1a1 1 0 0 1 1-1z"/><line x1="8" y1="15" x2="8" y2="21"/><line x1="16" y1="15" x2="16" y2="21"/></svg>,
+    Proyector: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="8" width="20" height="8" rx="2"/><circle cx="16" cy="12" r="2"/><path d="M6 12h4"/><path d="M8 6l-2 2"/><path d="M16 6l2 2"/></svg>,
+    Default: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>,
+  };
+
+  // Helper: ícono según tipo de activo
+  const getActivoIcon = (tipo) => {
+    if (!tipo) return <Icon.Default />;
+    const t = tipo.toLowerCase();
+    if (t.includes('cpu') || t.includes('pc') || t.includes('computad')) return <Icon.CPU />;
+    if (t.includes('monitor')) return <Icon.Monitor />;
+    if (t.includes('mesa')) return <Icon.Mesa />;
+    if (t.includes('silla') || t.includes('asiento')) return <Icon.Silla />;
+    if (t.includes('proyector') || t.includes('proyecc')) return <Icon.Proyector />;
+    return <Icon.Default />;
   };
 
   // --- INVENTARIO STATE ---
@@ -48,16 +68,15 @@ function Admin() {
   const [activoModal, setActivoModal] = useState(null); // PC clickeada
   const [cambioEstado, setCambioEstado] = useState({ estado: '', motivo: '' });
   const [loadingActivos, setLoadingActivos] = useState(false);
-  const [activoSel, setActivoSel]   = useState(() => JSON.parse(sessionStorage.getItem("est_activoSel")) || null);
-  const [labSearchTerm, setLabSearchTerm] = useState("");
-  const [horarios, setHorarios]         = useState([]);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
-  const [feedback, setFeedback]         = useState(null);
+  const [historialSearch, setHistorialSearch] = useState('');
+  const [historialFiltro, setHistorialFiltro] = useState('todos');
 
   useEffect(() => {
     fetchReservas();
     fetchUsuarios();
     fetchLaboratorios();
+    fetchHistorialReservas();
   }, []);
 
   // Temporizador para mensajes (3 segundos)
@@ -74,6 +93,15 @@ function Admin() {
       setReservas(data);
     } catch (error) {
       console.error("Error al cargar reservas", error);
+    }
+  };
+
+  const fetchHistorialReservas = async () => {
+    try {
+      const data = await reservaService.getHistorialReservas();
+      setHistorialReservas(data);
+    } catch (error) {
+      console.error("Error al cargar historial de reservas", error);
     }
   };
 
@@ -99,6 +127,9 @@ function Admin() {
     setLabSeleccionado(lab);
     setActivos([]);
     setHistorial([]);
+    setActivoModal(null);
+    setHistorialSearch('');
+    setHistorialFiltro('todos');
     setLoadingActivos(true);
     try {
       const [activosData, historialData] = await Promise.all([
@@ -574,7 +605,8 @@ function Admin() {
                         activos={activos} 
                         activoSel={activoModal} 
                         onSelect={abrirModalActivo} 
-                        columnas={6} 
+                        columnas={labSeleccionado?.codigo_patrimonio === 'A1-1' ? 6 : 6}
+                        adminMode={true}
                       />
                     ) : (
                       <p style={{ opacity: 0.6 }}>No hay equipos registrados.</p>
@@ -583,32 +615,159 @@ function Admin() {
                 )}
 
                 {/* HISTORIAL */}
-                {historial.length > 0 && (
-                  <>
-                    <h3 style={{ marginBottom: 12 }}>Historial de Mantenimiento</h3>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Equipo</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th><th>Fecha</th><th>Registrado por</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {historial.slice(0, 15).map(h => (
-                          <tr key={h.id_historial}>
-                            <td>{h.activo_serie}</td>
-                            <td><span style={{ color: colorActivo(h.estado_anterior), fontWeight: 600 }}>{h.estado_anterior}</span></td>
-                            <td><span style={{ color: colorActivo(h.estado_nuevo), fontWeight: 600 }}>{h.estado_nuevo}</span></td>
-                            <td>{h.motivo || '—'}</td>
-                            <td>{new Date(h.fecha_cambio).toLocaleString('es-PE')}</td>
-                            <td>{h.registrado_por_nombre}</td>
+                {historial.length > 0 && (() => {
+                  // Estado local de búsqueda/filtro (inline con useState no funciona aquí,
+                  // usamos variables derivadas de los estados ya existentes)
+                  // Se usan historialSearch e historialFiltro del estado global del Admin
+                  const filtrados = historial.filter(h => {
+                    const q = (historialSearch || '').toLowerCase();
+                    const matchSearch = !q || 
+                      (h.activo_serie || '').toLowerCase().includes(q) ||
+                      (h.activo_tipo  || '').toLowerCase().includes(q) ||
+                      (h.motivo || '').toLowerCase().includes(q) ||
+                      (h.registrado_por_nombre || '').toLowerCase().includes(q);
+                    const matchFiltro = !historialFiltro || historialFiltro === 'todos' || h.estado_nuevo === historialFiltro;
+                    return matchSearch && matchFiltro;
+                  });
+
+                  const rolColor = (rol) => {
+                    if (!rol) return { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
+                    const r = rol.toLowerCase();
+                    if (r.includes('admin')) return { bg: 'rgba(37,99,235,0.15)', color: '#3b82f6' };
+                    if (r.includes('docente')) return { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' };
+                    return { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
+                  };
+
+                  return (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                        <h3 style={{ margin: 0 }}>
+                          Historial de Mantenimiento
+                          <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 400, marginLeft: 8 }}>
+                            {filtrados.length} registro{filtrados.length !== 1 ? 's' : ''}
+                          </span>
+                        </h3>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {/* BUSCADOR */}
+                          <div className="search-group" style={{ width: 220 }}>
+                            <Icon.Search />
+                            <input
+                              type="text"
+                              placeholder="Buscar equipo, motivo..."
+                              className="search-input"
+                              value={historialSearch}
+                              onChange={e => setHistorialSearch(e.target.value)}
+                            />
+                          </div>
+                          {/* FILTRO ESTADO */}
+                          <select
+                            className="filter-select"
+                            value={historialFiltro}
+                            onChange={e => setHistorialFiltro(e.target.value)}
+                          >
+                            <option value="todos">Todos los estados</option>
+                            <option value="Operativo">→ Operativo</option>
+                            <option value="Mantenimiento">→ Mantenimiento</option>
+                            <option value="Dado de baja">→ Dado de baja</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tipo</th><th>Equipo (Serie)</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th><th>Fecha</th><th>Registrado por</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </>
-                )}
+                        </thead>
+                        <tbody>
+                          {filtrados.length === 0 ? (
+                            <tr><td colSpan="7" style={{ textAlign: 'center', opacity: 0.5 }}>Sin resultados para esa búsqueda.</td></tr>
+                          ) : filtrados.slice(0, 25).map(h => {
+                            const rc = rolColor(h.registrado_por_rol);
+                            return (
+                              <tr key={h.id_historial}>
+                                <td>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ color: colorActivo(h.estado_nuevo), flexShrink: 0 }}>
+                                      {getActivoIcon(h.activo_tipo)}
+                                    </span>
+                                    <span style={{ fontSize: 12, opacity: 0.7 }}>{h.activo_tipo || '—'}</span>
+                                  </span>
+                                </td>
+                                <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{h.activo_serie}</td>
+                                <td><span style={{ color: colorActivo(h.estado_anterior), fontWeight: 600 }}>{h.estado_anterior}</span></td>
+                                <td><span style={{ color: colorActivo(h.estado_nuevo), fontWeight: 600 }}>{h.estado_nuevo}</span></td>
+                                <td style={{ maxWidth: 180, wordBreak: 'break-word', fontSize: 13 }}>{h.motivo || '—'}</td>
+                                <td style={{ fontSize: 12, opacity: 0.8 }}>{new Date(h.fecha_cambio).toLocaleString('es-PE')}</td>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    <span style={{ fontSize: 13 }}>{h.registrado_por_nombre || '—'}</span>
+                                    {h.registrado_por_rol && (
+                                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: rc.bg, color: rc.color, textTransform: 'uppercase', letterSpacing: '0.5px', alignSelf: 'flex-start' }}>
+                                        {h.registrado_por_rol}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {filtrados.length > 25 && (
+                        <p style={{ fontSize: 12, opacity: 0.5, marginTop: 8, textAlign: 'center' }}>
+                          Mostrando 25 de {filtrados.length}. Usa el buscador para filtrar.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
+          </div>
+        )}
+
+        {/* # VISTA HISTORIAL DE RESERVAS */}
+        {vista === "historial" && (
+          <div className="table-section">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h2>Historial de Cambios en Reservas</h2>
+              <button className="btn-refresh" onClick={fetchHistorialReservas}>Actualizar</button>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Reserva ID</th>
+                  <th>Laboratorio</th>
+                  <th>Estado Anterior</th>
+                  <th>Estado Nuevo</th>
+                  <th>Fecha Cambio</th>
+                  <th>Realizado por</th>
+                  <th>Observación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historialReservas.length === 0 ? (
+                  <tr><td colSpan="7" style={{ textAlign: 'center', padding: 20, opacity: 0.5 }}>No hay registros de cambios aún.</td></tr>
+                ) : historialReservas.map(h => (
+                  <tr key={h.id_historial}>
+                    <td><strong>#{h.reserva_id}</strong></td>
+                    <td>{h.laboratorio}</td>
+                    <td><span className="status-pill gray">{h.estado_anterior}</span></td>
+                    <td><span className={`status-pill ${h.estado_nuevo === 'Completada' ? 'green' : h.estado_nuevo === 'No-show' ? 'red' : 'orange'}`}>{h.estado_nuevo}</span></td>
+                    <td style={{ fontSize: 13 }}>{new Date(h.fecha_cambio).toLocaleString('es-PE')}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span>{h.usuario_nombre || 'Sistema'}</span>
+                        <small style={{ opacity: 0.6, fontSize: 10 }}>{h.usuario_rol || 'Automático'}</small>
+                      </div>
+                    </td>
+                    <td style={{ fontSize: 12, maxWidth: 200, wordBreak: 'break-word' }}>{h.observacion || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -767,53 +926,146 @@ function Admin() {
           </div>
         )}
 
-        {/* MODAL CAMBIAR ESTADO EQUIPO (PBI-02) */}
+        {/* PANEL LATERAL — GESTIÓN DE ACTIVO (PBI-02) */}
         {activoModal && (
-          <div className="modal-overlay" onClick={() => setActivoModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: 460 }}>
-              <h2 style={{ marginBottom: 4 }}>Cambiar Estado de Equipo</h2>
-              <p style={{ opacity: 0.6, marginBottom: 20, fontSize: 13 }}>
-                Serie: <strong>{activoModal.num_serie}</strong> &mdash; Patrimonio: <strong>{activoModal.codigo_patrimonio}</strong>
-              </p>
-
-              <div className="form-group">
-                <label>Nuevo Estado</label>
-                <select
-                  className="search-input"
-                  style={{ width: '100%' }}
-                  value={cambioEstado.estado}
-                  onChange={e => setCambioEstado({ ...cambioEstado, estado: e.target.value })}
-                >
-                  <option value="Operativo">Operativo</option>
-                  <option value="Mantenimiento">Mantenimiento</option>
-                  <option value="Dado de baja">Dado de baja</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Motivo <span style={{ color: '#dc2626' }}>*</span></label>
-                <textarea
-                  className="search-input"
-                  style={{ width: '100%', minHeight: 80, resize: 'vertical' }}
-                  placeholder="Describe el motivo del cambio de estado..."
-                  value={cambioEstado.motivo}
-                  onChange={e => setCambioEstado({ ...cambioEstado, motivo: e.target.value })}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button className="cancel-btn" onClick={() => setActivoModal(null)}>Cancelar</button>
-                <button
-                  className="save-btn"
-                  onClick={guardarCambioEstado}
-                  style={{ background: colorActivo(cambioEstado.estado) }}
-                >
-                  Guardar Cambio
+          <div className="activo-drawer-overlay" onClick={() => setActivoModal(null)} />
+        )}
+        <aside className={`activo-drawer${activoModal ? ' activo-drawer--open' : ''}`}>
+          {activoModal && (
+            <>
+              {/* ENCABEZADO */}
+              <div className="activo-drawer-header">
+                <div className="activo-drawer-icon-wrap" style={{ background: `${colorActivo(activoModal.estado)}22`, color: colorActivo(activoModal.estado) }}>
+                  {getActivoIcon(activoModal.tipo_activo_nombre)}
+                </div>
+                <div className="activo-drawer-title">
+                  <h3>{activoModal.tipo_activo_nombre || 'Equipo'}</h3>
+                  <span className={`activo-drawer-badge activo-badge--${(activoModal.estado || '').toLowerCase().replace(/ /g, '-')}`}>
+                    {activoModal.estado}
+                  </span>
+                </div>
+                <button className="activo-drawer-close" onClick={() => setActivoModal(null)} title="Cerrar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+
+              {/* FICHA DE DATOS */}
+              <div className="activo-drawer-body">
+                <div className="activo-info-grid">
+                  <div className="activo-info-item">
+                    <span className="activo-info-label">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                      Código Patrimonio
+                    </span>
+                    <strong className="activo-info-val">{activoModal.codigo_patrimonio || '—'}</strong>
+                  </div>
+                  <div className="activo-info-item">
+                    <span className="activo-info-label">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                      N° de Serie
+                    </span>
+                    <strong className="activo-info-val">{activoModal.num_serie || '—'}</strong>
+                  </div>
+                  <div className="activo-info-item">
+                    <span className="activo-info-label">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                      Categoría
+                    </span>
+                    <strong className="activo-info-val">{activoModal.categoria_nombre || '—'}</strong>
+                  </div>
+                  <div className="activo-info-item">
+                    <span className="activo-info-label">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                      Estado actual
+                    </span>
+                    <span style={{ color: colorActivo(activoModal.estado), fontWeight: 700 }}>
+                      {activoModal.estado}
+                    </span>
+                  </div>
+                </div>
+
+                {/* PERIFÉRICOS DEL MISMO PUESTO */}
+                {(() => {
+                  const puestoNum = activoModal.num_serie?.split('-').slice(-1)[0];
+                  if (!puestoNum) return null;
+                  const hermanos = activos.filter(a =>
+                    a.id_activo !== activoModal.id_activo &&
+                    a.num_serie?.endsWith(`-${puestoNum}`)
+                  );
+                  if (hermanos.length === 0) return null;
+                  return (
+                    <div style={{ marginBottom: 16 }}>
+                      <div className="activo-drawer-divider" style={{ marginBottom: 10 }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Periféricos del Puesto #{puestoNum}
+                      </div>
+                      <div className="activo-perifericos-list">
+                        {hermanos.map(h => (
+                          <div key={h.id_activo} className="activo-periferico-row">
+                            <div className="activo-periferico-icon" style={{ color: colorActivo(h.estado) }}>
+                              {getActivoIcon(h.tipo_activo_nombre)}
+                            </div>
+                            <div className="activo-periferico-info">
+                              <span className="activo-periferico-tipo">{h.tipo_activo_nombre}</span>
+                              <span className="activo-periferico-serie">{h.num_serie}</span>
+                            </div>
+                            <span className="activo-periferico-estado" style={{ color: colorActivo(h.estado) }}>
+                              <span style={{ width:7, height:7, borderRadius:'50%', background: colorActivo(h.estado), display:'inline-block', marginRight:5 }}/>
+                              {h.estado}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="activo-drawer-divider">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Cambiar estado del equipo
+                </div>
+
+                {/* SELECTOR DE ESTADO */}
+                <div className="activo-estado-btns">
+                  {['Operativo', 'Mantenimiento', 'Dado de baja'].map(est => (
+                    <button
+                      key={est}
+                      className={`activo-estado-btn${cambioEstado.estado === est ? ' activo-estado-btn--active' : ''}`}
+                      style={cambioEstado.estado === est ? { background: colorActivo(est), color: '#fff', borderColor: colorActivo(est) } : {}}
+                      onClick={() => setCambioEstado({ ...cambioEstado, estado: est })}
+                    >
+                      <span className="activo-estado-dot" style={{ background: colorActivo(est) }} />
+                      {est}
+                    </button>
+                  ))}
+                </div>
+
+                {/* MOTIVO */}
+                <div className="form-group" style={{ marginTop: 20 }}>
+                  <label>Motivo del cambio <span style={{ color: '#dc2626' }}>*</span></label>
+                  <textarea
+                    className="search-input activo-motivo-txt"
+                    placeholder="Describe el motivo del cambio de estado..."
+                    value={cambioEstado.motivo}
+                    onChange={e => setCambioEstado({ ...cambioEstado, motivo: e.target.value })}
+                  />
+                </div>
+
+                {/* ACCIONES */}
+                <div className="activo-drawer-actions">
+                  <button className="cancel-btn" onClick={() => setActivoModal(null)}>Cancelar</button>
+                  <button
+                    className="save-btn"
+                    onClick={guardarCambioEstado}
+                    style={{ background: colorActivo(cambioEstado.estado) }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><polyline points="20 6 9 17 4 12"/></svg>
+                    Guardar Cambio
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </aside>
 
       </main>
     </div>

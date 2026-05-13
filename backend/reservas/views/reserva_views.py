@@ -139,26 +139,38 @@ def cancelar_reserva(request, id_reserva):
     if reserva.estado not in ('Programada', 'Pendiente'):
         return Response({'error': "Solo puedes cancelar reservas en estado Programada o Pendiente."}, status=400)
 
-    with transaction.atomic():
-        reserva.estado = 'Cancelada'
-        reserva.save()
-        # Liberar el horario
-        horario = reserva.id_horario
-        horario.capacidad_ocupada = max(0, horario.capacidad_ocupada - reserva.cantidad_alumnos)
-        if horario.estado == 'Completo':
-            horario.estado = 'Disponible'
-        horario.save()
+    try:
+        with transaction.atomic():
+            estado_anterior = reserva.estado
+            reserva.estado = 'Cancelada'
+            reserva.save()
+            
+            # Liberar el horario de forma segura
+            horario = reserva.id_horario
+            if horario:
+                # Fallback seguro para campos que podrían ser None
+                cap_actual = horario.capacidad_ocupada or 0
+                cant_reserva = reserva.cantidad_alumnos or 1
+                
+                horario.capacidad_ocupada = max(0, cap_actual - cant_reserva)
+                if horario.estado == 'Completo':
+                    horario.estado = 'Disponible'
+                horario.save()
 
-        # PBI-05: Log de la cancelación
-        HistorialReserva.objects.create(
-            reserva=reserva,
-            estado_anterior='Programada' if reserva.estado == 'Cancelada' else 'Pendiente', # Simplificado
-            estado_nuevo='Cancelada',
-            usuario_cambio=reserva.id_usuario,
-            observacion="Reserva cancelada por el usuario."
-        )
+            # PBI-05: Log de la cancelación
+            HistorialReserva.objects.create(
+                reserva=reserva,
+                estado_anterior=estado_anterior,
+                estado_nuevo='Cancelada',
+                usuario_cambio=reserva.id_usuario,
+                observacion="Reserva cancelada por el usuario."
+            )
 
-    return Response({'mensaje': 'Reserva cancelada correctamente.'})
+        return Response({'mensaje': 'Reserva cancelada correctamente.'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': f"Error interno al cancelar: {str(e)}"}, status=500)
 
 
 @api_view(['POST'])
@@ -170,6 +182,17 @@ def marcar_asistencia(request, id_reserva):
     if not ok:
         return Response({'error': error}, status=400)
         
-    estado = 'Completada' if asistio else 'No-Show'
+    estado = 'Completada' if asistio else 'No-show'
     return Response({'mensaje': f'Reserva marcada como {estado}.'})
+
+@api_view(['GET'])
+def get_historial_reservas(request):
+    """Devuelve el historial global de cambios de estado de todas las reservas."""
+    from ..models import HistorialReserva
+    from ..serializers.reserva_serializers import HistorialReservaSerializer
+    
+    historial = HistorialReserva.objects.all().order_by('-fecha_cambio')[:100]
+    serializer = HistorialReservaSerializer(historial, many=True)
+    return Response(serializer.data)
+
 

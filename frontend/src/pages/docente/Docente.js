@@ -405,7 +405,7 @@ function Docente() {
                   activos={activos} 
                   activoSel={activosSel} 
                   onSelect={(a) => toggleActivo(a.id_activo)} 
-                  columnas={6} 
+                  columnas={labSel?.codigo_patrimonio === 'A1-1' ? 5 : 6} 
                 />
 
                 <div className="doc-bulk-actions" style={{ display: 'flex', gap: 12, marginTop: 16 }}>

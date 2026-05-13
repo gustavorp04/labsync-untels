@@ -24,6 +24,7 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
     facultad_nombre = serializers.CharField(source='id_facultad.nombre', read_only=True)
     equipos_operativos = serializers.SerializerMethodField()
     estado_sistema = serializers.SerializerMethodField()
+    nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Laboratorio
@@ -37,6 +38,9 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
             'estado_sistema',
             'habilitado'
         ]
+
+    def get_nombre(self, obj):
+        return f"{obj.nombre} ({obj.codigo_patrimonio})"
 
     def get_equipos_operativos(self, obj):
         # Contamos solo estaciones reales (CPU/Mesa) que estén "Operativo"
@@ -57,12 +61,13 @@ class LaboratorioDetailSerializer(serializers.ModelSerializer):
     activos = ActivoLaboratorioSerializer(source='activolaboratorio_set', many=True, read_only=True)
     tipo_detalle = serializers.CharField(source='id_tipo.nombre', read_only=True)
     facultad_detalle = serializers.CharField(source='id_facultad.nombre', read_only=True)
+    nombre_completo = serializers.SerializerMethodField()
 
     class Meta:
         model = Laboratorio
         fields = [
             'id_laboratorio', 
-            'nombre', 
+            'nombre_completo', 
             'codigo_patrimonio', 
             'aforo_maximo', 
             'tipo_detalle', 
@@ -70,3 +75,6 @@ class LaboratorioDetailSerializer(serializers.ModelSerializer):
             'habilitado', 
             'activos'
         ]
+
+    def get_nombre_completo(self, obj):
+        return f"{obj.nombre} ({obj.codigo_patrimonio})"

@@ -293,7 +293,62 @@ function Estudiante() {
             {paso === 3 && (
               <div className="est-section">
                 <h2>Mapa de Equipos</h2>
-                <LabMap activos={activos} activoSel={activoSel} onSelect={setActivoSel} columnas={6} />
+                <LabMap activos={activos} activoSel={activoSel} onSelect={setActivoSel} columnas={labSel?.codigo_patrimonio === 'A1-1' ? 6 : 6} />
+                
+                {/* PANEL INFO DEL ACTIVO SELECCIONADO */}
+                {activoSel && (
+                  <div className="est-activo-panel">
+                    <div className="est-activo-panel-header">
+                      <div className="est-activo-panel-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:20,height:20}}><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="1" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="20" y1="15" x2="23" y2="15"/></svg>
+                      </div>
+                      <div className="est-activo-panel-title">
+                        <strong>{activoSel.tipo_activo_nombre || 'Equipo'}</strong>
+                        <span className="est-activo-badge">
+                          <span style={{width:7,height:7,borderRadius:'50%',background:'#10b981',display:'inline-block',marginRight:4}}/>
+                          Operativo
+                        </span>
+                      </div>
+                      <button className="est-activo-panel-close" onClick={() => setActivoSel(null)} title="Deseleccionar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                    <div className="est-activo-panel-body">
+                      <div className="est-activo-chips">
+                        <div className="est-activo-chip">
+                          <span className="est-activo-chip-label">Código</span>
+                          <strong>{activoSel.codigo_patrimonio || '—'}</strong>
+                        </div>
+                        <div className="est-activo-chip">
+                          <span className="est-activo-chip-label">N° Serie</span>
+                          <strong>{activoSel.num_serie || '—'}</strong>
+                        </div>
+                      </div>
+                      {/* Periféricos del mismo puesto */}
+                      {(() => {
+                        const puestoNum = activoSel.num_serie?.split('-').slice(-1)[0];
+                        if (!puestoNum) return null;
+                        const perifericos = activos.filter(a =>
+                          a.id_activo !== activoSel.id_activo &&
+                          a.num_serie?.endsWith(`-${puestoNum}`)
+                        );
+                        if (perifericos.length === 0) return null;
+                        return (
+                          <div className="est-perifericos">
+                            <div className="est-perifericos-title">Periféricos incluidos en el puesto:</div>
+                            {perifericos.map(p => (
+                              <div key={p.id_activo} className="est-periferico-row">
+                                <span className="est-periferico-tipo">{p.tipo_activo_nombre}</span>
+                                <span className="est-periferico-serie">{p.num_serie}</span>
+                                <span className={`est-periferico-dot ${p.estado === 'Operativo' ? 'ok' : 'bad'}`} />
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
                 <button className="est-btn-primary" onClick={()=>setPaso(4)} disabled={!activoSel}>Continuar</button>
               </div>
             )}

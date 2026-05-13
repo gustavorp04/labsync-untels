@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from datetime import timedelta
-from ..models import Reserva, HorarioDisponible, Asistencia
+from ..models import Reserva, HorarioDisponible, Asistencia, HistorialReserva
 
 class CrearReservaSerializer(serializers.Serializer):
     id_horario = serializers.IntegerField(required=True)
@@ -36,7 +36,7 @@ class CrearReservaSerializer(serializers.Serializer):
 class ReservaSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.CharField(source='id_usuario.nombre', read_only=True)
     usuario_rol = serializers.CharField(source='id_usuario.id_rol.nombre', read_only=True)
-    laboratorio_nombre = serializers.CharField(source='id_horario.id_laboratorio.nombre', read_only=True)
+    laboratorio_nombre = serializers.SerializerMethodField()
     fecha_reserva = serializers.DateField(source='id_horario.fecha', read_only=True)
     hora_inicio = serializers.TimeField(source='id_horario.hora_inicio', read_only=True)
     hora_fin = serializers.TimeField(source='id_horario.hora_fin', read_only=True)
@@ -45,13 +45,17 @@ class ReservaSerializer(serializers.ModelSerializer):
         model = Reserva
         fields = ['id_reserva', 'usuario_nombre', 'usuario_rol', 'laboratorio_nombre', 'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 'estado', 'created_at']
 
+    def get_laboratorio_nombre(self, obj):
+        lab = obj.id_horario.id_laboratorio
+        return f"{lab.nombre} ({lab.codigo_patrimonio})"
+
 class AsistenciaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asistencia
         fields = '__all__'
 
 class HorarioDisponibleSerializer(serializers.ModelSerializer):
-    laboratorio_nombre = serializers.CharField(source='id_laboratorio.nombre', read_only=True)
+    laboratorio_nombre = serializers.SerializerMethodField()
     tipo_nombre = serializers.CharField(source='id_laboratorio.id_tipo.nombre', read_only=True)
     aforo_maximo = serializers.IntegerField(source='id_laboratorio.aforo_maximo', read_only=True)
     es_reservable = serializers.SerializerMethodField()
@@ -65,3 +69,21 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
         fecha_limite = ahora + timedelta(hours=24)
         dt_inicio = timezone.make_aware(timezone.datetime.combine(obj.fecha, obj.hora_inicio))
         return dt_inicio > fecha_limite
+
+    def get_laboratorio_nombre(self, obj):
+        lab = obj.id_laboratorio
+        return f"{lab.nombre} ({lab.codigo_patrimonio})"
+
+class HistorialReservaSerializer(serializers.ModelSerializer):
+    usuario_nombre = serializers.CharField(source='usuario_cambio.nombre', read_only=True)
+    usuario_rol = serializers.CharField(source='usuario_cambio.id_rol.nombre', read_only=True)
+    reserva_id = serializers.IntegerField(source='reserva.id_reserva', read_only=True)
+    laboratorio = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistorialReserva
+        fields = ['id_historial', 'reserva_id', 'estado_anterior', 'estado_nuevo', 'fecha_cambio', 'usuario_nombre', 'usuario_rol', 'observacion', 'laboratorio']
+
+    def get_laboratorio(self, obj):
+        lab = obj.reserva.id_horario.id_laboratorio
+        return f"{lab.nombre} ({lab.codigo_patrimonio})"

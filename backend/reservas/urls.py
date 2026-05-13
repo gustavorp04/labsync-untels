@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/reservas/mis-reservas/', reserva_views.mis_reservas, name='mis-reservas'),
     path('api/reservas/<int:id_reserva>/cancelar/', reserva_views.cancelar_reserva, name='cancelar-reserva'),
     path('api/reservas/<int:id_reserva>/asistencia/', reserva_views.marcar_asistencia, name='marcar-asistencia'),
+    path('api/reservas/historial/', reserva_views.get_historial_reservas, name='historial-reservas'),
     path('api/laboratorios/<int:id_laboratorio>/horarios/', reserva_views.horarios_por_laboratorio, name='horarios-por-lab'),
 
     # -------------------------------------------------------------------------
