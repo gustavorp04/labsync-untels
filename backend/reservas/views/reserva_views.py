@@ -128,27 +128,32 @@ def mis_reservas(request):
 def cancelar_reserva(request, id_reserva):
     """Cancela una reserva existente."""
     user_id = request.data.get('user_id')
+    
+    if not user_id:
+        return Response({'error': "Falta el id de usuario (user_id)."}, status=400)
+
     try:
         reserva = Reserva.objects.get(pk=id_reserva)
     except Reserva.DoesNotExist:
         return Response({'error': "Reserva no encontrada."}, status=404)
 
-    if str(reserva.id_usuario.id_usuario) != str(user_id):
+    # Uso de id_usuario_id para evitar carga perezosa y errores de DoesNotExist si el usuario fue borrado (DO_NOTHING)
+    if str(reserva.id_usuario_id) != str(user_id):
         return Response({'error': "No tienes permiso para cancelar esta reserva."}, status=403)
 
     if reserva.estado not in ('Programada', 'Pendiente'):
-        return Response({'error': "Solo puedes cancelar reservas en estado Programada o Pendiente."}, status=400)
+        return Response({'error': f"Solo puedes cancelar reservas en estado Programada o Pendiente. Estado actual: {reserva.estado}"}, status=400)
 
     try:
         with transaction.atomic():
             estado_anterior = reserva.estado
             reserva.estado = 'Cancelada'
+            reserva.updated_at = timezone.now()  # Forzar actualización de timestamp
             reserva.save()
             
             # Liberar el horario de forma segura
             horario = reserva.id_horario
             if horario:
-                # Fallback seguro para campos que podrían ser None
                 cap_actual = horario.capacidad_ocupada or 0
                 cant_reserva = reserva.cantidad_alumnos or 1
                 
@@ -157,20 +162,24 @@ def cancelar_reserva(request, id_reserva):
                     horario.estado = 'Disponible'
                 horario.save()
 
-            # PBI-05: Log de la cancelación
+            # PBI-05: Log de la cancelación usando ID directo
             HistorialReserva.objects.create(
                 reserva=reserva,
                 estado_anterior=estado_anterior,
                 estado_nuevo='Cancelada',
-                usuario_cambio=reserva.id_usuario,
+                usuario_cambio_id=reserva.id_usuario_id,
                 observacion="Reserva cancelada por el usuario."
             )
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return Response({'error': f"Error interno al cancelar: {str(e)}"}, status=500)
+        error_trace = traceback.format_exc()
+        print(f"ERROR al cancelar reserva {id_reserva}: {str(e)}\n{error_trace}")
+        return Response({
+            'error': "Error interno al procesar la cancelación.",
+            'detalle': str(e)
+        }, status=500)
 
 
 @api_view(['POST'])
