@@ -30,12 +30,15 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
             for r in estudiantes_pendientes:
                 r.estado = 'Cancelada'
                 r.save()
-                HistorialReserva.objects.create(
-                    reserva=r,
-                    estado_anterior='Pendiente',
-                    estado_nuevo='Cancelada',
-                    observacion="Cancelación automática: Prioridad Docente."
-                )
+                try:
+                    HistorialReserva.objects.create(
+                        reserva=r,
+                        estado_anterior='Pendiente',
+                        estado_nuevo='Cancelada',
+                        observacion="Cancelación automática: Prioridad Docente."
+                    )
+                except:
+                    pass
 
         nueva_reserva = Reserva.objects.create(
             id_usuario=usuario,
@@ -149,12 +152,15 @@ def marcar_asistencia(reserva_id, asistio):
         reserva.save()
 
         # Log de asistencia
-        HistorialReserva.objects.create(
-            reserva=reserva,
-            estado_anterior=estado_anterior,
-            estado_nuevo=reserva.estado,
-            observacion=f"Asistencia marcada como {'Asistió' if asistio else 'No-show'} por Administrador."
-        )
+        try:
+            HistorialReserva.objects.create(
+                reserva=reserva,
+                estado_anterior=estado_anterior,
+                estado_nuevo=reserva.estado,
+                observacion=f"Asistencia marcada como {'Asistió' if asistio else 'No-show'} por Administrador."
+            )
+        except:
+            pass
 
         return True, None
 
@@ -178,12 +184,15 @@ def cerrar_dia_reservas():
             estado_ant = r.estado
             r.estado = 'No-show'
             r.save()
-            HistorialReserva.objects.create(
-                reserva=r,
-                estado_anterior=estado_ant,
-                estado_nuevo='No-show',
-                observacion="Cierre automático por horario vencido."
-            )
+            try:
+                HistorialReserva.objects.create(
+                    reserva=r,
+                    estado_anterior=estado_ant,
+                    estado_nuevo='No-show',
+                    observacion="Cierre automático por horario vencido."
+                )
+            except:
+                pass
             count += 1
     return count
 
@@ -213,11 +222,14 @@ def purgar_pendientes_vencidos():
                 h.capacidad_ocupada = max(0, h.capacidad_ocupada - 1)
                 h.save()
 
-                HistorialReserva.objects.create(
-                    reserva=r,
-                    estado_anterior='Pendiente',
-                    estado_nuevo='Cancelada',
-                    observacion="Expiración de quórum (Límite 5 minutos superado)."
-                )
+                try:
+                    HistorialReserva.objects.create(
+                        reserva=r,
+                        estado_anterior='Pendiente',
+                        estado_nuevo='Cancelada',
+                        observacion="Expiración de quórum (Límite 5 minutos superado)."
+                    )
+                except:
+                    pass
                 count += 1
     return count

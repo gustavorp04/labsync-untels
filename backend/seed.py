@@ -28,7 +28,10 @@ def ejecutar_sql_archivo(ruta_relativa):
         print(f"OK: {ruta_relativa} loaded successfully.")
         return True
     except Exception as e:
-        print(f"OK (o ya cargado): {ruta_relativa}")
+        print(f"ERROR loading {ruta_relativa}: {str(e)}")
+        # Si es un error de que ya existe, no importa, pero si es otro, queremos saberlo.
+        if "already exists" in str(e).lower():
+            return True
         return False
 
 def limpiar_tablas_dinamicas():

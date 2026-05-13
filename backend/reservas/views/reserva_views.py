@@ -163,13 +163,16 @@ def cancelar_reserva(request, id_reserva):
                 horario.save()
 
             # PBI-05: Log de la cancelación usando ID directo
-            HistorialReserva.objects.create(
-                reserva=reserva,
-                estado_anterior=estado_anterior,
-                estado_nuevo='Cancelada',
-                usuario_cambio_id=reserva.id_usuario_id,
-                observacion="Reserva cancelada por el usuario."
-            )
+            try:
+                HistorialReserva.objects.create(
+                    reserva=reserva,
+                    estado_anterior=estado_anterior,
+                    estado_nuevo='Cancelada',
+                    usuario_cambio_id=reserva.id_usuario_id,
+                    observacion="Reserva cancelada por el usuario."
+                )
+            except Exception as log_err:
+                print(f"WARN: No se pudo crear el historial de reserva (posible tabla faltante): {log_err}")
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:
