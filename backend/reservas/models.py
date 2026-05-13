@@ -242,13 +242,13 @@ class ConfiguracionSistema(models.Model):
 
 class HistorialReserva(models.Model):
     id_historial = models.AutoField(primary_key=True)
-    reserva = models.ForeignKey('Reserva', models.CASCADE, db_column='id_reserva')
+    reserva = models.ForeignKey('Reserva', models.DO_NOTHING, db_column='id_reserva')
     estado_anterior = models.CharField(max_length=20)
     estado_nuevo = models.CharField(max_length=20)
     fecha_cambio = models.DateTimeField(auto_now_add=True)
-    usuario_cambio = models.ForeignKey('Usuario', models.SET_NULL, db_column='usuario_cambio', null=True)
+    usuario_cambio = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='usuario_cambio', null=True)
     observacion = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'historial_reserva'

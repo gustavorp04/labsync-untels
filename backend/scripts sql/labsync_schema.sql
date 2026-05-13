@@ -7,6 +7,7 @@
 -- Limpiar esquema previo (orden inverso a las dependencias)
 DROP TABLE IF EXISTS PENALIZACION        CASCADE;
 DROP TABLE IF EXISTS HISTORIAL_MANTENIMIENTO CASCADE;
+DROP TABLE IF EXISTS HISTORIAL_RESERVA      CASCADE;
 DROP TABLE IF EXISTS INCIDENCIA          CASCADE;
 DROP TABLE IF EXISTS ASISTENCIA          CASCADE;
 DROP TABLE IF EXISTS RESERVA_DETALLE     CASCADE;
@@ -154,6 +155,16 @@ CREATE TABLE RESERVA (
                                 CHECK (estado IN ('Programada', 'Cancelada', 'Completada', 'No-show', 'Pendiente')),
     created_at              TIMESTAMP    NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE HISTORIAL_RESERVA (
+    id_historial     SERIAL       PRIMARY KEY,
+    id_reserva       INT          NOT NULL REFERENCES RESERVA(id_reserva) ON DELETE CASCADE,
+    estado_anterior  VARCHAR(20)  NOT NULL,
+    estado_nuevo     VARCHAR(20)  NOT NULL,
+    fecha_cambio     TIMESTAMP    NOT NULL DEFAULT NOW(),
+    usuario_cambio   INT          REFERENCES USUARIO(id_usuario) ON DELETE SET NULL,
+    observacion      TEXT
 );
 
 CREATE TABLE RESERVA_DETALLE (

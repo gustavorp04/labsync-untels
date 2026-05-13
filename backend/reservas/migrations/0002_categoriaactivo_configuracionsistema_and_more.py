@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'historial_reserva',
-                'managed': True,
+                'managed': False,
             },
         ),
     ]
