@@ -1,9 +1,10 @@
 from django.db import transaction, models
+from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 from ..models import (
     Reserva, HorarioDisponible, ActivoLaboratorio, ReservaDetalle,
-    HistorialMantenimiento, Usuario, TipoLaboratorio
+    HistorialMantenimiento, Usuario, TipoLaboratorio, HistorialReserva, Asistencia
 )
 
 def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos_ids=None):
@@ -15,10 +16,26 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
             return None, "El horario ya no está disponible."
 
         if horario_db.estado != 'Disponible':
-            return None, "Este horario ya fue reservado o bloqueado."
+            return None, "Este horario ya fue reservado o ha alcanzado su capacidad máxima."
 
-        if not horario_db.id_laboratorio.habilitado:
-            return None, "El laboratorio no cumple con los requisitos mínimos operativos (PBI-02)."
+        # PBI-03: Anticipación de 24 horas para docentes también
+        manana = timezone.now().date() + timedelta(days=1)
+        if horario_db.fecha < manana:
+            return None, "Las reservas deben hacerse con al menos 24 horas de anticipación."
+
+        # PBI-06: Si hay alumnos en 'Pendiente', el docente tiene prioridad absoluta.
+        # Se cancelan las reservas de alumnos para dar paso al docente.
+        estudiantes_pendientes = Reserva.objects.filter(id_horario=horario_db, estado='Pendiente')
+        if estudiantes_pendientes.exists():
+            for r in estudiantes_pendientes:
+                r.estado = 'Cancelada'
+                r.save()
+                HistorialReserva.objects.create(
+                    reserva=r,
+                    estado_anterior='Pendiente',
+                    estado_nuevo='Cancelada',
+                    observacion="Cancelación automática: Prioridad Docente."
+                )
 
         nueva_reserva = Reserva.objects.create(
             id_usuario=usuario,
@@ -108,6 +125,9 @@ def marcar_asistencia(reserva_id, asistio):
             reserva = Reserva.objects.get(pk=reserva_id)
         except Reserva.DoesNotExist:
             return False, "Reserva no encontrada."
+        hoy = timezone.localtime(timezone.now()).date()
+        if reserva.id_horario.fecha != hoy:
+            return False, f"Solo puedes marcar asistencia el mismo día de la reserva (Reserva: {reserva.id_horario.fecha}, Hoy: {hoy})."
 
         asistencia, created = Asistencia.objects.get_or_create(
             id_reserva=reserva,
@@ -119,4 +139,77 @@ def marcar_asistencia(reserva_id, asistio):
             
         reserva.estado = 'Completada' if asistio else 'No-Show'
         reserva.save()
+
+        # Log de asistencia
+        HistorialReserva.objects.create(
+            reserva=reserva,
+            estado_anterior='Programada',
+            estado_nuevo=reserva.estado,
+            observacion="Asistencia marcada por Administrador."
+        )
+
         return True, None
+
+def cerrar_dia_reservas():
+    """PBI-06: Cron job de cierre de día. 
+    Marca como No-Show las reservas pasadas o de hoy que ya terminaron."""
+    ahora = timezone.localtime(timezone.now())
+    hoy = ahora.date()
+    hora_actual = ahora.time()
+
+    # Reservas vencidas (días anteriores o hoy que ya pasaron su hora_fin)
+    reservas_vencidas = Reserva.objects.filter(
+        Q(id_horario__fecha__lt=hoy) | 
+        Q(id_horario__fecha=hoy, id_horario__hora_fin__lt=hora_actual),
+        estado__in=['Programada', 'Pendiente']
+    )
+    
+    count = 0
+    with transaction.atomic():
+        for r in reservas_vencidas:
+            estado_ant = r.estado
+            r.estado = 'No-Show'
+            r.save()
+            HistorialReserva.objects.create(
+                reserva=r,
+                estado_anterior=estado_ant,
+                estado_nuevo='No-Show',
+                observacion="Cierre automático por horario vencido."
+            )
+            count += 1
+    return count
+
+def purgar_pendientes_vencidos():
+    """PBI-06: Los alumnos tienen solo 5 minutos para llegar al quórum de 10.
+    Si no se llega, las reservas 'Pendiente' expiran."""
+    limite = timezone.now() - timedelta(minutes=5)
+    
+    # Buscamos reservas pendientes creadas hace más de 5 min
+    pendientes = Reserva.objects.filter(
+        estado='Pendiente',
+        created_at__lt=limite
+    )
+    
+    count = 0
+    with transaction.atomic():
+        for r in pendientes:
+            # Solo purgamos si para ese horario NO se llegó a 10
+            total_horario = Reserva.objects.filter(id_horario=r.id_horario, estado__in=['Programada', 'Pendiente']).aggregate(total=models.Sum('cantidad_alumnos'))['total'] or 0
+            
+            if total_horario < 10:
+                r.estado = 'Cancelada'
+                r.save()
+                
+                # Liberar capacidad en el horario
+                h = r.id_horario
+                h.capacidad_ocupada = max(0, h.capacidad_ocupada - 1)
+                h.save()
+
+                HistorialReserva.objects.create(
+                    reserva=r,
+                    estado_anterior='Pendiente',
+                    estado_nuevo='Cancelada',
+                    observacion="Expiración de quórum (Límite 5 minutos superado)."
+                )
+                count += 1
+    return count

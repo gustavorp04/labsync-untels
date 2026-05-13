@@ -183,6 +183,17 @@ function Admin() {
     }
   };
 
+  const handleAsistencia = async (id, asistio) => {
+    try {
+      await reservaService.marcarAsistencia(id, asistio);
+      setFeedbackMsg({ tipo: 'ok', texto: `Reserva marcada como ${asistio ? 'Asistió' : 'No-Show'}` });
+      fetchReservas();
+    } catch (error) {
+      console.error("Error al registrar asistencia", error);
+      setFeedbackMsg({ tipo: 'error', texto: error.response?.data?.error || "Error al registrar asistencia." });
+    }
+  };
+
   const handleCreateUsuario = async (e) => {
     e.preventDefault();
     try {
@@ -251,6 +262,12 @@ function Admin() {
             </button>
             {mostrarInventario && (
               <div className="submenu">
+                <button 
+                  className={!labSeleccionado ? 'active-lab' : ''} 
+                  onClick={() => { setVista('inventario'); setLabSeleccionado(null); }}
+                >
+                  Vista General
+                </button>
                 {laboratorios.map(lab => (
                   <button
                     key={lab.id_laboratorio}
@@ -258,7 +275,7 @@ function Admin() {
                     className={labSeleccionado?.id_laboratorio === lab.id_laboratorio ? 'active-lab' : ''}
                   >
                     <span className={`dot ${lab.habilitado ? 'on' : 'off'}`} />
-                    {lab.codigo_patrimonio}
+                    {lab.codigo_patrimonio || lab.nombre || `Laboratorio ${lab.id_laboratorio}`}
                   </button>
                 ))}
               </div>
@@ -344,13 +361,25 @@ function Admin() {
                   return r.fecha_reserva === hoyStr && matchesSearch;
                 }).map(r => (
                   <tr key={r.id_reserva}>
-                    <td>Docente</td>
+                    <td style={{ textTransform: 'capitalize' }}>
+                      <span className={`badge-rol ${r.usuario_rol?.toLowerCase()}`}>
+                        {r.usuario_rol || 'Usuario'}
+                      </span>
+                    </td>
                     <td>{r.usuario_nombre}</td>
                     <td>{r.laboratorio_nombre}</td>
                     <td>{r.fecha_reserva}</td>
                     <td>{r.hora_inicio} - {r.hora_fin}</td>
                     <td>
                       <div className="option-buttons">
+                        {r.estado === 'Programada' || r.estado === 'Pendiente' ? (
+                          <>
+                            <button className="asistio-btn" onClick={() => handleAsistencia(r.id_reserva, true)}>Asistió</button>
+                            <button className="noshow-btn" onClick={() => handleAsistencia(r.id_reserva, false)}>No-Show</button>
+                          </>
+                        ) : (
+                          <span className={`status-pill ${r.estado.toLowerCase()}`}>{r.estado}</span>
+                        )}
                         <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
                         <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
                       </div>
@@ -483,7 +512,31 @@ function Admin() {
             )}
 
             {!labSeleccionado ? (
-              <p style={{ opacity: 0.6 }}>Selecciona un laboratorio del menú izquierdo para ver su mapa de equipos.</p>
+              <div className="lab-inventory-grid">
+                <p style={{ width: '100%', opacity: 0.6, marginBottom: 20 }}>Selecciona un laboratorio para gestionar su inventario y mapa:</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
+                  {laboratorios.map(lab => (
+                    <div 
+                      key={lab.id_laboratorio} 
+                      className="lab-card-admin"
+                      onClick={() => seleccionarLab(lab)}
+                    >
+                      <div className="lab-card-header">
+                        <span className={`status-dot ${lab.habilitado ? 'on' : 'off'}`} />
+                        <strong>{lab.codigo_patrimonio}</strong>
+                      </div>
+                      <div className="lab-card-body">
+                        <h4>{lab.nombre}</h4>
+                        <p>{lab.tipo_nombre}</p>
+                      </div>
+                      <div className="lab-card-footer">
+                        <span>Aforo: {lab.aforo_maximo}</span>
+                        <button className="btn-manage">Gestionar →</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <>
                 {/* CABECERA DEL LAB */}

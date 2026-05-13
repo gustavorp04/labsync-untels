@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
@@ -85,18 +85,17 @@ function Estudiante() {
   const carrera  = localStorage.getItem("carrera") || "";
 
   // Normalización para filtros (PBI-04)
-  const normalize = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const carreraNorm = normalize(carrera);
-  console.log("DEBUG - Carrera en LocalStorage:", carrera);
-  console.log("DEBUG - Carrera Normalizada:", carreraNorm);
+  const normalize = useCallback((str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""), []);
+  const carreraNorm = useMemo(() => normalize(carrera), [carrera, normalize]);
   
-  let tiposEspecialidad = [];
-  if (carreraNorm.includes('sist')) tiposEspecialidad = ['computo'];
-  if (carreraNorm.includes('amb'))  tiposEspecialidad = ['ambiental'];
-  if (carreraNorm.includes('elec')) tiposEspecialidad = ['electronica'];
+  const tiposEspecialidad = useMemo(() => {
+    if (carreraNorm.includes('sist')) return ['computo'];
+    if (carreraNorm.includes('amb'))  return ['ambiental'];
+    if (carreraNorm.includes('elec')) return ['electronica'];
+    return [];
+  }, [carreraNorm]);
 
-  const tiposPermitidos = [...tiposEspecialidad, 'fisica'];
-  console.log("DEBUG - Tipos Permitidos:", tiposPermitidos);
+  const tiposPermitidos = useMemo(() => [...tiposEspecialidad, 'fisica'], [tiposEspecialidad]);
 
   const showToast = (tipo, texto, dur = 5000) => {
     setToast({ tipo, texto });
@@ -130,7 +129,6 @@ function Estudiante() {
           const filtrados = data.filter(l => {
             if (tiposEspecialidad.length === 0) return true; // Fallback
             const labTipoNorm = normalize(l.tipo_nombre);
-            console.log(`Comparando: ${labTipoNorm} contra`, tiposPermitidos);
             return tiposPermitidos.includes(labTipoNorm);
           });
           setLaboratorios(filtrados);
@@ -138,7 +136,7 @@ function Estudiante() {
         .catch(() => showToast('error', 'Error al cargar laboratorios'))
         .finally(() => setLoading(false));
     }
-  }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length]);
+  }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize]);
 
   useEffect(() => {
     if (paso === 2 && labSel) {
@@ -167,13 +165,24 @@ function Estudiante() {
         id_activo: activoSel.id_activo,
         acepto_declaracion_jurada: true,
       });
-      showToast('ok', '¡Reserva registrada! En espera de quórum de 10 alumnos.');
+      showToast('ok', '¡Reserva registrada! Tienes 5 minutos para que se unan 10 alumnos o será cancelada.');
       setVista('mis-reservas');
       setPaso(1);
     } catch (err) {
       showToast('error', err.response?.data?.error || 'Error al reservar.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelar = async (id) => {
+    if (!window.confirm('¿Cancelar esta reserva?')) return;
+    try {
+      await reservaService.cancelarReserva(id, userId);
+      showToast('ok', 'Reserva cancelada correctamente.');
+      fetchMisReservas();
+    } catch (err) {
+      showToast('error', err.response?.data?.error || 'No se pudo cancelar.');
     }
   };
 
@@ -260,12 +269,20 @@ function Estudiante() {
                     <div key={fecha} className="est-cal-day">
                       <div className="est-cal-date">{fecha}</div>
                       {slots.map(h => (
-                        <button key={h.id_horario} className="est-cal-slot" onClick={()=>{
-                          setHorarioSel(h); 
-                          setActivoSel(null);
-                          setPaso(3);
-                        }}>
-                          {h.hora_inicio} - {h.hora_fin}
+                        <button 
+                          key={h.id_horario} 
+                          className={`est-cal-slot ${!h.es_reservable ? 'blocked' : ''}`} 
+                          onClick={()=>{
+                            if(!h.es_reservable) return;
+                            setHorarioSel(h); 
+                            setActivoSel(null);
+                            setPaso(3);
+                          }}
+                          disabled={!h.es_reservable}
+                          title={!h.es_reservable ? "Este horario está bloqueado por el límite de 24h de anticipación." : ""}
+                        >
+                          {h.hora_inicio.slice(0,5)} - {h.hora_fin.slice(0,5)}
+                          {!h.es_reservable && <span style={{display:'block', fontSize: 10, opacity: 0.6}}>Bloqueado</span>}
                         </button>
                       ))}
                     </div>
@@ -298,9 +315,22 @@ function Estudiante() {
             <div className="est-reservas-list">
               {misReservas.map(r => (
                 <div key={r.id_reserva} className="est-reserva-card">
-                  <div>{r.laboratorio_nombre}</div>
-                  <div>{r.fecha_reserva} · {r.hora_inicio}</div>
-                  <StatusBadge estado={r.estado} />
+                  <div className="est-reserva-info">
+                    <div>{r.laboratorio_nombre}</div>
+                    <div>{r.fecha_reserva} · {r.hora_inicio}</div>
+                  </div>
+                  <div className="est-reserva-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <StatusBadge estado={r.estado} />
+                    {(r.estado === 'Programada' || r.estado === 'Pendiente') && (
+                      <button 
+                        className="doc-btn-cancel" 
+                        style={{ padding: '4px 12px', fontSize: 12, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer' }}
+                        onClick={() => handleCancelar(r.id_reserva)}
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

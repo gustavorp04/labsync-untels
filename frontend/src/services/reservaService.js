@@ -30,6 +30,12 @@ const cancelarReserva = async (idReserva, userId) => {
   return res.data;
 };
 
+/** Marcar asistencia (admin) */
+const marcarAsistencia = async (idReserva, asistio) => {
+  const res = await api.post(`/reservas/${idReserva}/asistencia/`, { asistio });
+  return res.data;
+};
+
 /** Eliminar reserva (admin) */
 const eliminarReserva = async (id) => {
   const res = await api.delete(`/v1/reservas/${id}/`);
@@ -48,6 +54,7 @@ const reservaService = {
   getMisReservas,
   getTodasLasReservas,
   cancelarReserva,
+  marcarAsistencia,
   eliminarReserva,
   getHorariosPorLab,
 };

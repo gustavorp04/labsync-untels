@@ -18,6 +18,7 @@ class TipoActivoSerializer(serializers.ModelSerializer):
 
 class ActivoLaboratorioSerializer(serializers.ModelSerializer):
     tipo_activo_nombre = serializers.CharField(source='id_tipo_activo.nombre', read_only=True)
+    categoria_nombre = serializers.CharField(source='id_tipo_activo.id_categoria.nombre', read_only=True)
     laboratorio_nombre = serializers.CharField(source='id_laboratorio.nombre', read_only=True)
 
     class Meta:
@@ -28,12 +29,13 @@ class ActivoLaboratorioSerializer(serializers.ModelSerializer):
             'laboratorio_nombre',
             'id_tipo_activo',
             'tipo_activo_nombre',
+            'categoria_nombre',
             'num_serie',
             'codigo_patrimonio',
             'estado',
             'updated_at',
         ]
-        read_only_fields = ['id_activo', 'updated_at', 'laboratorio_nombre', 'tipo_activo_nombre']
+        read_only_fields = ['id_activo', 'updated_at', 'laboratorio_nombre', 'tipo_activo_nombre', 'categoria_nombre']
 
 
 class HistorialMantenimientoSerializer(serializers.ModelSerializer):

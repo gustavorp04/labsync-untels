@@ -6,7 +6,7 @@ from django.db import transaction
 from datetime import timedelta
 from ..serializers.reserva_serializers import CrearReservaSerializer, HorarioDisponibleSerializer
 from ..services import reserva_service
-from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle
+from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle, HistorialReserva
 
 
 @api_view(['POST'])
@@ -148,6 +148,15 @@ def cancelar_reserva(request, id_reserva):
         if horario.estado == 'Completo':
             horario.estado = 'Disponible'
         horario.save()
+
+        # PBI-05: Log de la cancelación
+        HistorialReserva.objects.create(
+            reserva=reserva,
+            estado_anterior='Programada' if reserva.estado == 'Cancelada' else 'Pendiente', # Simplificado
+            estado_nuevo='Cancelada',
+            usuario_cambio=reserva.id_usuario,
+            observacion="Reserva cancelada por el usuario."
+        )
 
     return Response({'mensaje': 'Reserva cancelada correctamente.'})
 

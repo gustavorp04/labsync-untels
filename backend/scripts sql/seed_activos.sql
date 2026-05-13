@@ -5,7 +5,7 @@
 -- ============================================================
 
 -- UNIQUE - CODIGO_PATRIMONIO
-ALTER TABLE activo_laboratorio ADD CONSTRAINT uq_codigo_patrimonio UNIQUE (codigo_patrimonio);
+-- CONSTRAINT uq_codigo_patrimonio ya definida en el schema DDL
 
 -- ── Nuevos tipos de activo ──
 INSERT INTO tipo_activo (id_categoria, nombre, descripcion) VALUES 
@@ -31,7 +31,7 @@ INSERT INTO tipo_activo (id_categoria, nombre, descripcion) VALUES
 	(5, 'Dinamómetro', 'Dinamómetro de resorte'),
 	(5, 'Multímetro', 'Multímetro digital'),
 	(5, 'Fuente DC', 'Fuente de poder DC para prácticas de física'),
-	(5, 'Cronómetro', 'Cronómetro digital de laboratorio');
+	(5, 'Cronómetro', 'Cronómetro digital de laboratorio') ON CONFLICT (nombre) DO NOTHING;
 
 -- ── Labs de Cómputo ──
 -- A1-1 (30 puestos)

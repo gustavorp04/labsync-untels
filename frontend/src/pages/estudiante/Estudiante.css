@@ -210,6 +210,12 @@
 .est-cal-slot svg { width: 13px; height: 13px; }
 .est-cal-slot:hover    { border-color: #10b981; color: #10b981; }
 .est-cal-slot.selected { background: #10b981; border-color: #10b981; color: white; }
+.est-cal-slot.blocked {
+  background: var(--bg-main);
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
 
 /* ─── LEGEND ─── */
 .est-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-bottom: 16px; }

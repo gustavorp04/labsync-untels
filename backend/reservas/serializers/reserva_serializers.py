@@ -54,6 +54,14 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
     laboratorio_nombre = serializers.CharField(source='id_laboratorio.nombre', read_only=True)
     tipo_nombre = serializers.CharField(source='id_laboratorio.id_tipo.nombre', read_only=True)
     aforo_maximo = serializers.IntegerField(source='id_laboratorio.aforo_maximo', read_only=True)
+    es_reservable = serializers.SerializerMethodField()
+
     class Meta:
         model = HorarioDisponible
-        fields = ['id_horario', 'laboratorio_nombre', 'tipo_nombre', 'aforo_maximo', 'fecha', 'hora_inicio', 'hora_fin', 'estado', 'capacidad_total']
+        fields = ['id_horario', 'laboratorio_nombre', 'tipo_nombre', 'aforo_maximo', 'fecha', 'hora_inicio', 'hora_fin', 'estado', 'capacidad_total', 'es_reservable']
+
+    def get_es_reservable(self, obj):
+        ahora = timezone.now()
+        fecha_limite = ahora + timedelta(hours=24)
+        dt_inicio = timezone.make_aware(timezone.datetime.combine(obj.fecha, obj.hora_inicio))
+        return dt_inicio > fecha_limite
