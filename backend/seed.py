@@ -1,6 +1,5 @@
 import os
 import django
-import random
 from datetime import datetime, timedelta
 from django.db import connection, transaction
 
@@ -10,7 +9,7 @@ django.setup()
 
 from reservas.models import (
     Laboratorio, TipoLaboratorio, ActivoLaboratorio, TipoActivo,
-    HorarioDisponible, Facultad, Carrera, Usuario, Rol, CategoriaActivo
+    HorarioDisponible
 )
 
 def ejecutar_sql_archivo(ruta_relativa):
@@ -43,7 +42,7 @@ def limpiar_tablas_dinamicas():
         cursor.execute("TRUNCATE TABLE activo_laboratorio RESTART IDENTITY CASCADE;")
 
 def generar_activos_inteligentes():
-    print("Generating assets for laboratories...")
+    print("Generating dynamic assets for laboratories...")
     labs = Laboratorio.objects.all()
     
     try:
@@ -78,7 +77,7 @@ def generar_activos_inteligentes():
                     num_serie=f"SER-MES-{num}", codigo_patrimonio=f"PAT-MES-{num}",
                     estado='Operativo', updated_at=datetime.now()
                 )
-    print(f"Inventory generated for {labs.count()} labs.")
+    print(f"Inventory accurately generated for {labs.count()} labs.")
 
 def generar_horarios_maestros():
     print("Generating official university schedules...")
@@ -90,7 +89,7 @@ def generar_horarios_maestros():
         ('18:50', '20:30'), ('20:30', '22:10'),
     ]
 
-    # Mapeo según imágenes de horarios (0=Lun, 1=Mar, 2=Mie, 3=Jue, 4=Vie, 5=Sab)
+    # Horarios ficticios temporales (Se actualizarán luego con el CSV)
     bloqueados = {
         'A1-1': { 
             0: ['08:00', '09:40', '13:50', '15:30', '18:50', '20:30'], 
@@ -120,7 +119,7 @@ def generar_horarios_maestros():
 
     hoy = datetime.now().date()
     count = 0
-    # Generamos para los próximos 10 días
+    
     for i in range(10):
         fecha = hoy + timedelta(days=i)
         dia_sem = fecha.weekday() # 0=Lunes
