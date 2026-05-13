@@ -31,16 +31,28 @@ def health_check(request):
 @api_view(['GET'])
 def run_seed_emergency(request):
     """
-    Ruta de emergencia para ejecutar el seed desde el navegador.
+    Ruta de emergencia para ejecutar el seed y corregir el esquema desde el navegador.
     """
     from seed import main as run_seed
+    try:
+        from fix_and_inject import main as run_fix
+    except ImportError:
+        run_fix = None
+        
     import io
     from contextlib import redirect_stdout
 
     f = io.StringIO()
     try:
         with redirect_stdout(f):
+            print("--- INICIANDO SEED BASE ---")
             run_seed()
+            if run_fix:
+                print("\n--- INICIANDO FIX DE ESQUEMA E INYECCIÓN ---")
+                run_fix()
+            else:
+                print("\n--- WARNING: fix_and_inject.py no encontrado ---")
+                
         output = f.getvalue()
         return Response({"status": "success", "log": output})
     except Exception as e:
