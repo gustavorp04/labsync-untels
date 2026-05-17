@@ -454,3 +454,153 @@
   opacity: 0.6;
 }
 .doc-empty-state p { margin-bottom: 20px; font-size: 15px; }
+
+/* --- RESPONSIVIDAD GENERAL PARA CELULARES Y TABLETS (DOCENTE) --- */
+@media (max-width: 768px) {
+  .doc-layout {
+    flex-direction: column;
+  }
+
+  .doc-sidebar {
+    width: 100%;
+    min-height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .doc-brand {
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .doc-user-card {
+    margin-bottom: 8px;
+    padding: 10px;
+  }
+
+  .doc-nav {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  
+  .doc-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .doc-nav-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    border-radius: 8px;
+  }
+
+  .doc-logout {
+    margin-top: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    align-self: center;
+  }
+
+  .doc-main {
+    padding: 20px 14px;
+    max-width: 100%;
+  }
+
+  .doc-welcome h1 {
+    font-size: 22px;
+  }
+
+  .doc-welcome p {
+    font-size: 14px;
+  }
+
+  .doc-stat-cards {
+    gap: 10px;
+  }
+
+  .doc-stat-card {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px;
+  }
+
+  .doc-stat-val {
+    font-size: 24px;
+  }
+
+  .doc-section {
+    padding: 20px 14px;
+  }
+
+  .doc-stepper {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .doc-step {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .doc-step-circle {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .doc-lab-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .doc-slots-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+
+  .doc-cat-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .doc-equip-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+
+  .doc-confirm-card {
+    padding: 14px;
+  }
+  
+  .doc-toast {
+    top: auto;
+    bottom: 24px;
+    right: 16px;
+    left: 16px;
+    font-size: 13px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+/* Soporte temático para la Declaración Jurada en Modo Oscuro */
+[data-theme='dark'] .doc-dj-box {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+[data-theme='dark'] .doc-dj-header {
+  color: #fbbf24;
+}
+[data-theme='dark'] .doc-dj-text {
+  background: #1f2637;
+  color: #f3f4f6;
+  border: 1px solid var(--border-color);
+}
+[data-theme='dark'] .doc-dj-check {
+  color: #fbbf24;
+}

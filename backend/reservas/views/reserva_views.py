@@ -50,6 +50,11 @@ def crear_reserva(request):
 @api_view(['POST'])
 def crear_reserva_estudiante(request):
     """Endpoint PBI-04: Estudiante reserva una máquina específica."""
+    try:
+        reserva_service.purgar_pendientes_vencidos()
+    except Exception as e:
+        print(f"WARN: Error en purgar_pendientes_vencidos en crear_reserva_estudiante: {e}")
+
     user_id = request.data.get('user_id')
     id_horario = request.data.get('id_horario')
     id_activo = request.data.get('id_activo')
@@ -114,6 +119,11 @@ def horarios_por_laboratorio(request, id_laboratorio):
 @api_view(['GET'])
 def mis_reservas(request):
     """Devuelve las reservas del usuario indicado por user_id."""
+    try:
+        reserva_service.purgar_pendientes_vencidos()
+    except Exception as e:
+        print(f"WARN: Error en purgar_pendientes_vencidos en mis_reservas: {e}")
+
     user_id = request.query_params.get('user_id')
     if not user_id:
         return Response({'error': "Falta user_id."}, status=400)

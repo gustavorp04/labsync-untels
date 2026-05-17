@@ -414,3 +414,148 @@
 }
 .est-periferico-dot.ok  { background: #10b981; box-shadow: 0 0 5px #10b981; }
 .est-periferico-dot.bad { background: #f59e0b; }
+
+/* --- RESPONSIVIDAD GENERAL PARA CELULARES Y TABLETS --- */
+@media (max-width: 768px) {
+  .est-layout {
+    flex-direction: column;
+  }
+
+  .est-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .est-brand {
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .est-user-card {
+    margin-bottom: 8px;
+    padding: 10px;
+  }
+
+  .est-nav {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none; /* Ocultar scrollbar en Firefox */
+  }
+  
+  .est-nav::-webkit-scrollbar {
+    display: none; /* Ocultar scrollbar en Chrome/Safari */
+  }
+
+  .est-nav-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    border-radius: 8px;
+  }
+
+  .est-logout {
+    margin-top: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    align-self: center;
+  }
+
+  .est-main {
+    padding: 20px 14px;
+  }
+
+  .est-welcome h1 {
+    font-size: 22px;
+  }
+
+  .est-welcome p {
+    font-size: 14px;
+  }
+
+  .est-stat-cards {
+    gap: 10px;
+  }
+
+  .est-stat-card {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px;
+  }
+
+  .est-stat-val {
+    font-size: 24px;
+  }
+
+  .est-section {
+    padding: 20px 14px;
+  }
+
+  .est-stepper {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .est-step {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .est-step-circle {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .est-lab-grid {
+    grid-template-columns: 1fr; /* Columna única en móviles para máxima legibilidad */
+    gap: 10px;
+  }
+
+  .est-activo-chips {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .est-activo-chip {
+    padding: 8px 10px;
+  }
+
+  .est-confirm-card {
+    padding: 14px;
+  }
+  
+  .est-toast {
+    top: auto;
+    bottom: 24px;
+    right: 16px;
+    left: 16px;
+    font-size: 13px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+/* Soporte temático para la Declaración Jurada en Modo Oscuro */
+[data-theme='dark'] .est-dj-box {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+[data-theme='dark'] .est-dj-header {
+  color: #fbbf24;
+}
+[data-theme='dark'] .est-dj-text {
+  background: #1f2637;
+  color: #f3f4f6;
+  border: 1px solid var(--border-color);
+}
+[data-theme='dark'] .est-dj-check {
+  color: #fbbf24;
+}

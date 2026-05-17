@@ -199,7 +199,9 @@ def cerrar_dia_reservas():
 def purgar_pendientes_vencidos():
     """PBI-06: Los alumnos tienen solo 5 minutos para llegar al quórum de 10.
     Si no se llega, las reservas 'Pendiente' expiran."""
-    limite = timezone.now() - timedelta(minutes=5)
+    import datetime
+    # Usar datetime.datetime.utcnow() para comparar de forma precisa y evitar TypeError con offset-naive datetimes de la BD
+    limite = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
     
     # Buscamos reservas pendientes creadas hace más de 5 min
     pendientes = Reserva.objects.filter(

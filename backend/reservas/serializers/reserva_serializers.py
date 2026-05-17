@@ -40,14 +40,49 @@ class ReservaSerializer(serializers.ModelSerializer):
     fecha_reserva = serializers.DateField(source='id_horario.fecha', read_only=True)
     hora_inicio = serializers.TimeField(source='id_horario.hora_inicio', read_only=True)
     hora_fin = serializers.TimeField(source='id_horario.hora_fin', read_only=True)
+    activos = serializers.SerializerMethodField()
+    id_laboratorio = serializers.IntegerField(source='id_horario.id_laboratorio.id_laboratorio', read_only=True)
+    historial_cambios = serializers.SerializerMethodField()
 
     class Meta:
         model = Reserva
-        fields = ['id_reserva', 'usuario_nombre', 'usuario_rol', 'laboratorio_nombre', 'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 'estado', 'created_at']
+        fields = [
+            'id_reserva', 'usuario_nombre', 'usuario_rol', 'laboratorio_nombre', 
+            'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 
+            'estado', 'created_at', 'updated_at', 'activos', 'id_horario', 'id_laboratorio',
+            'historial_cambios'
+        ]
 
     def get_laboratorio_nombre(self, obj):
         lab = obj.id_horario.id_laboratorio
         return f"{lab.nombre} ({lab.codigo_patrimonio})"
+
+    def get_activos(self, obj):
+        from ..models import ReservaDetalle
+        detalles = ReservaDetalle.objects.filter(id_reserva=obj)
+        return [
+            {
+                'id_activo': d.id_activo.id_activo,
+                'num_serie': d.id_activo.num_serie,
+                'codigo_patrimonio': d.id_activo.codigo_patrimonio,
+                'tipo_activo_nombre': d.id_activo.id_tipo_activo.nombre,
+                'estado': d.id_activo.estado
+            }
+            for d in detalles
+        ]
+
+    def get_historial_cambios(self, obj):
+        from ..models import HistorialReserva
+        logs = HistorialReserva.objects.filter(reserva=obj).order_by('fecha_cambio')
+        return [
+            {
+                'estado_anterior': log.estado_anterior,
+                'estado_nuevo': log.estado_nuevo,
+                'fecha_cambio': log.fecha_cambio.strftime('%d/%m/%Y %H:%M:%S') if log.fecha_cambio else '',
+                'observacion': log.observacion
+            }
+            for log in logs
+        ]
 
 class AsistenciaSerializer(serializers.ModelSerializer):
     class Meta:

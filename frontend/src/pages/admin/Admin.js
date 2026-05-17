@@ -30,6 +30,21 @@ function Admin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [filterRol, setFilterRol] = useState("todos");
+  const [userPage, setUserPage] = useState(1);
+
+  // Visual Detail Modal States
+  const [reservaDetalleModal, setReservaDetalleModal] = useState(null);
+  const [detalleMapActivos, setDetalleMapActivos] = useState([]);
+  const [loadingDetalleMap, setLoadingDetalleMap] = useState(false);
+
+  // Hourly Seat Occupancy Viewer States
+  const [visLab, setVisLab] = useState(null);
+  const [visFecha, setVisFecha] = useState(new Date().toLocaleDateString('en-CA'));
+  const [visHorarios, setVisHorarios] = useState([]);
+  const [visHorarioSel, setVisHorarioSel] = useState(null);
+  const [visActivos, setVisActivos] = useState([]);
+  const [loadingVisHorarios, setLoadingVisHorarios] = useState(false);
+  const [loadingVisGrid, setLoadingVisGrid] = useState(false);
   
   // Icons for Sidebar
   const Icon = {
@@ -80,6 +95,71 @@ function Admin() {
     fetchHistorialReservas();
   }, []);
 
+  // Cargar activos para el visualizador del mapa al abrir el detalle de reserva
+  useEffect(() => {
+    if (reservaDetalleModal) {
+      const fetchDetalleActivos = async () => {
+        setLoadingDetalleMap(true);
+        try {
+          const data = await laboratorioService.getActivosPorLab(
+            reservaDetalleModal.id_laboratorio,
+            reservaDetalleModal.id_horario
+          );
+          setDetalleMapActivos(data);
+        } catch (err) {
+          console.error("Error al cargar activos del detalle de la reserva", err);
+        } finally {
+          setLoadingDetalleMap(false);
+        }
+      };
+      fetchDetalleActivos();
+    } else {
+      setDetalleMapActivos([]);
+    }
+  }, [reservaDetalleModal]);
+
+  // Cargar horarios del visualizador de ocupación
+  useEffect(() => {
+    if (vista === 'visualizador' && visLab && visFecha) {
+      const loadVisHorarios = async () => {
+        setLoadingVisHorarios(true);
+        setVisHorarios([]);
+        setVisHorarioSel(null);
+        setVisActivos([]);
+        try {
+          const data = await reservaService.getTodosLosHorariosPorLabYFecha(visLab.id_laboratorio, visFecha);
+          setVisHorarios(data);
+        } catch (err) {
+          console.error("Error al cargar horarios del visualizador", err);
+        } finally {
+          setLoadingVisHorarios(false);
+        }
+      };
+      loadVisHorarios();
+    }
+  }, [vista, visLab, visFecha]);
+
+  // Cargar grilla física del visualizador de ocupación
+  useEffect(() => {
+    if (vista === 'visualizador' && visHorarioSel && visLab) {
+      const loadVisGrid = async () => {
+        setLoadingVisGrid(true);
+        setVisActivos([]);
+        try {
+          const data = await laboratorioService.getActivosPorLab(visLab.id_laboratorio, visHorarioSel.id_horario);
+          setVisActivos(data);
+        } catch (err) {
+          console.error("Error al cargar grilla del visualizador", err);
+        } finally {
+          setLoadingVisGrid(false);
+        }
+      };
+      loadVisGrid();
+    } else {
+      setVisActivos([]);
+    }
+  }, [vista, visHorarioSel, visLab]);
+
   // Temporizador para mensajes (3 segundos)
   useEffect(() => {
     if (feedbackMsg) {
@@ -87,6 +167,11 @@ function Admin() {
       return () => clearTimeout(timer);
     }
   }, [feedbackMsg]);
+
+  // Resetear paginación de usuarios al filtrar o buscar
+  useEffect(() => {
+    setUserPage(1);
+  }, [userSearchTerm, filterRol]);
 
   const fetchReservas = async () => {
     try {
@@ -203,6 +288,25 @@ function Admin() {
     }
   };
 
+  const handleVisActivoSelect = async (activo) => {
+    if (activo && activo.id_reserva) {
+      const localRes = reservas.find(r => r.id_reserva === activo.id_reserva);
+      if (localRes) {
+        setReservaDetalleModal(localRes);
+      } else {
+        try {
+          const detailData = await reservaService.getReservaById(activo.id_reserva);
+          if (detailData) {
+            setReservaDetalleModal(detailData);
+          }
+        } catch (err) {
+          console.error("Error al cargar detalle de reserva por ID desde el visualizador", err);
+          alert("No se pudo obtener la información de la reserva.");
+        }
+      }
+    }
+  };
+
   const handleDeleteReserva = async (id) => {
     if (window.confirm("¿Estás seguro de eliminar esta reserva?")) {
       try {
@@ -231,7 +335,15 @@ function Admin() {
     try {
       await userService.crearUsuario(nuevoUsuario);
       setMostrarFormUsuario(false);
-      setNuevoUsuario({ nombre: "", email: "", codigo_universitario: "", id_rol: 2 });
+      setNuevoUsuario({
+        nombre: "",
+        email: "",
+        codigo_universitario: "",
+        id_rol: 2,
+        carrera: "",
+        departamento: "",
+        ciclo: 1
+      });
       fetchUsuarios();
     } catch (error) {
       alert("Error al crear usuario. Verifica los datos.");
@@ -318,6 +430,10 @@ function Admin() {
             <Icon.Users /> <span>Usuarios</span>
           </button>
 
+          <button className={`menu-title ${vista === 'visualizador' ? 'active' : ''}`} onClick={() => setVista("visualizador")}>
+            <Icon.Calendar /> <span>Visualizador</span>
+          </button>
+
           <div className="admin-theme-section" style={{ marginTop: 'auto', padding: '20px 0' }}>
             <span style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '10px' }}>Apariencia</span>
             <ThemeToggle fixed={false} />
@@ -386,6 +502,7 @@ function Admin() {
                   <th>Laboratorio</th>
                   <th>Fecha</th>
                   <th>Hora</th>
+                  <th>Estado</th>
                   <th>Opciones</th>
                 </tr>
               </thead>
@@ -408,14 +525,16 @@ function Admin() {
                     <td>{r.fecha_reserva}</td>
                     <td>{r.hora_inicio} - {r.hora_fin}</td>
                     <td>
+                      <span className={`status-pill ${r.estado.toLowerCase()}`}>{r.estado}</span>
+                    </td>
+                    <td>
                       <div className="option-buttons">
-                        {r.estado === 'Programada' || r.estado === 'Pendiente' ? (
+                        <button className="view-btn" onClick={() => setReservaDetalleModal(r)} style={{ background: 'var(--accent-color)', color: '#fff' }}>Ver</button>
+                        {(r.estado === 'Programada' || r.estado === 'Pendiente') && (
                           <>
                             <button className="asistio-btn" onClick={() => handleAsistencia(r.id_reserva, true)}>Asistió</button>
                             <button className="noshow-btn" onClick={() => handleAsistencia(r.id_reserva, false)}>No-Show</button>
                           </>
-                        ) : (
-                          <span className={`status-pill ${r.estado.toLowerCase()}`}>{r.estado}</span>
                         )}
                         <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
                         <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
@@ -425,7 +544,7 @@ function Admin() {
                 ))}
                 {reservas.length === 0 && (
                   <tr>
-                    <td colSpan="6" style={{textAlign: 'center'}}>No hay reservas para hoy.</td>
+                    <td colSpan="7" style={{textAlign: 'center'}}>No hay reservas para hoy.</td>
                   </tr>
                 )}
               </tbody>
@@ -493,6 +612,7 @@ function Admin() {
                   <th>Laboratorio</th>
                   <th>Fecha</th>
                   <th>Hora</th>
+                  <th>Estado</th>
                   <th>Opciones</th>
                 </tr>
               </thead>
@@ -511,7 +631,11 @@ function Admin() {
                     <td>{r.fecha_reserva}</td>
                     <td>{r.hora_inicio} - {r.hora_fin}</td>
                     <td>
+                      <span className={`status-pill ${r.estado.toLowerCase()}`}>{r.estado}</span>
+                    </td>
+                    <td>
                       <div className="option-buttons">
+                        <button className="view-btn" onClick={() => setReservaDetalleModal(r)} style={{ background: 'var(--accent-color)', color: '#fff' }}>Ver</button>
                         <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
                         <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
                       </div>
@@ -758,7 +882,43 @@ function Admin() {
                   <tr><td colSpan="7" style={{ textAlign: 'center', padding: 20, opacity: 0.5 }}>No hay registros de cambios aún.</td></tr>
                 ) : historialReservas.map(h => (
                   <tr key={h.id_historial}>
-                    <td><strong>#{h.reserva_id}</strong></td>
+                    <td>
+                      <button 
+                        onClick={() => {
+                          const resObj = reservas.find(r => r.id_reserva === h.reserva_id);
+                          if (resObj) {
+                            setReservaDetalleModal(resObj);
+                          } else {
+                            setReservaDetalleModal({
+                              id_reserva: h.reserva_id,
+                              usuario_nombre: h.usuario_nombre || 'Sistema',
+                              usuario_rol: h.usuario_rol || 'Automático',
+                              laboratorio_nombre: h.laboratorio,
+                              estado: h.estado_nuevo,
+                              fecha_reserva: new Date(h.fecha_cambio).toLocaleDateString('en-CA'),
+                              hora_inicio: '—',
+                              hora_fin: '—',
+                              cantidad_alumnos: 0,
+                              activos: [],
+                              id_laboratorio: null,
+                              id_horario: null
+                            });
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-color)',
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                          padding: 0,
+                          textDecoration: 'underline',
+                          fontFamily: 'inherit'
+                        }}
+                      >
+                        #{h.reserva_id}
+                      </button>
+                    </td>
                     <td>{h.laboratorio}</td>
                     <td><span className="status-pill gray">{h.estado_anterior}</span></td>
                     <td><span className={`status-pill ${h.estado_nuevo === 'Completada' ? 'green' : h.estado_nuevo === 'No-show' ? 'red' : 'orange'}`}>{h.estado_nuevo}</span></td>
@@ -862,43 +1022,335 @@ function Admin() {
               </form>
             )}
 
-            <table>
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Nombre</th>
-                  <th>Email</th>
-                  <th>Rol</th>
-                  <th>Opciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.filter(u => {
-                  const matchesSearch = u.nombre.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
-                                        u.codigo_universitario.toLowerCase().includes(userSearchTerm.toLowerCase());
-                  const matchesRol = filterRol === "todos" || u.rol.toLowerCase() === filterRol;
-                  return matchesSearch && matchesRol;
-                }).slice(0, 20).map(u => (
-                  <tr key={u.id_usuario}>
-                    <td><strong>{u.codigo_universitario}</strong></td>
-                    <td>{u.nombre}</td>
-                    <td>{u.email}</td>
-                    <td><span className={`badge-rol ${u.rol.toLowerCase()}`}>{u.rol}</span></td>
-                    <td>
-                      <div className="option-buttons">
-                        <button className="delete-btn" onClick={() => handleDeleteUsuario(u.id_usuario)}>Eliminar</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {usuarios.length === 0 && <tr><td colSpan="5" style={{textAlign: 'center', opacity: 0.5}}>No hay usuarios cargados.</td></tr>}
-              </tbody>
-            </table>
+            {(() => {
+              const filteredUsers = usuarios.filter(u => {
+                const matchesSearch = u.nombre.toLowerCase().includes(userSearchTerm.toLowerCase()) || 
+                                      u.codigo_universitario.toLowerCase().includes(userSearchTerm.toLowerCase());
+                const matchesRol = filterRol === "todos" || u.rol.toLowerCase() === filterRol;
+                return matchesSearch && matchesRol;
+              });
+              const usersPerPage = 5;
+              const totalUserPages = Math.ceil(filteredUsers.length / usersPerPage) || 1;
+              const paginatedUsers = filteredUsers.slice((userPage - 1) * usersPerPage, userPage * usersPerPage);
+
+              return (
+                <>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Opciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedUsers.map(u => (
+                        <tr key={u.id_usuario}>
+                          <td><strong>{u.codigo_universitario}</strong></td>
+                          <td>{u.nombre}</td>
+                          <td>{u.email}</td>
+                          <td><span className={`badge-rol ${u.rol.toLowerCase()}`}>{u.rol}</span></td>
+                          <td>
+                            <div className="option-buttons">
+                              <button className="delete-btn" onClick={() => handleDeleteUsuario(u.id_usuario)}>Eliminar</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{textAlign: 'center', opacity: 0.5}}>No hay usuarios cargados.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* CONTROL DE PAGINACIÓN DE USUARIOS */}
+                  {filteredUsers.length > 0 && (
+                    <div className="pagination" style={{ marginTop: 20, display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
+                      <button 
+                        disabled={userPage === 1} 
+                        onClick={() => setUserPage(userPage - 1)}
+                        style={{
+                          opacity: userPage === 1 ? 0.4 : 1,
+                          cursor: userPage === 1 ? 'not-allowed' : 'pointer',
+                          padding: '6px 12px',
+                          fontSize: 13
+                        }}
+                      >
+                        Anterior
+                      </button>
+                      <span style={{ fontSize: 13, opacity: 0.8, color: 'var(--text-main)', fontWeight: 600 }}>
+                        Página {userPage} de {totalUserPages}
+                      </span>
+                      <button 
+                        disabled={userPage === totalUserPages} 
+                        onClick={() => setUserPage(userPage + 1)}
+                        style={{
+                          opacity: userPage === totalUserPages ? 0.4 : 1,
+                          cursor: userPage === totalUserPages ? 'not-allowed' : 'pointer',
+                          padding: '6px 12px',
+                          fontSize: 13
+                        }}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
-        {/* # VISTA USUARIOS ... */}
+        {/* # VISTA VISUALIZADOR DE OCUPACIÓN HORA POR HORA */}
+        {vista === "visualizador" && (
+          <div className="table-section">
+            <h2>Visualizador de Ocupación por Horarios</h2>
+            <p style={{ opacity: 0.7, marginBottom: 20 }}>
+              Consulta interactiva de puestos ocupados y disponibles en tiempo real seleccionando un laboratorio, fecha y horario.
+            </p>
+
+            {/* SELECCIÓN DE LAB Y FECHA */}
+            <div style={{ display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Seleccionar Laboratorio</label>
+                <select 
+                  className="filter-select" 
+                  style={{ width: '100%', padding: '10px 14px' }}
+                  value={visLab ? visLab.id_laboratorio : ''} 
+                  onChange={e => {
+                    const lab = laboratorios.find(l => l.id_laboratorio === parseInt(e.target.value));
+                    setVisLab(lab || null);
+                  }}
+                >
+                  <option value="">Seleccione un laboratorio...</option>
+                  {laboratorios.map(lab => (
+                    <option key={lab.id_laboratorio} value={lab.id_laboratorio}>
+                      {lab.nombre} ({lab.codigo_patrimonio})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ width: 180 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Fecha de Consulta</label>
+                <input 
+                  type="date" 
+                  className="search-input" 
+                  style={{ width: '100%', padding: '9px 12px' }}
+                  value={visFecha} 
+                  onChange={e => setVisFecha(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            {/* LISTA DE HORARIOS / SLOTS */}
+            {visLab && (
+              <div style={{ marginBottom: 30 }}>
+                <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 8, marginBottom: 12 }}>Bloques de Horarios</h3>
+                {loadingVisHorarios ? (
+                  <div style={{ padding: 20, opacity: 0.6 }}>Cargando horarios...</div>
+                ) : visHorarios.length > 0 ? (
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {visHorarios.map(slot => {
+                      const isSel = visHorarioSel?.id_horario === slot.id_horario;
+                      const cap = slot.capacidad_total;
+                      const ocu = slot.capacidad_ocupada || 0;
+                      const libres = cap - ocu;
+                      
+                      return (
+                        <button
+                          key={slot.id_horario}
+                          onClick={() => setVisHorarioSel(slot)}
+                          style={{
+                            padding: '12px 18px',
+                            borderRadius: 10,
+                            border: isSel ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
+                            background: isSel ? 'rgba(59,130,246,0.1)' : 'var(--bg-main)',
+                            color: isSel ? 'var(--accent-color)' : 'inherit',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            minWidth: 150,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <strong style={{ display: 'block', fontSize: 14 }}>{slot.hora_inicio.substring(0, 5)} - {slot.hora_fin.substring(0, 5)}</strong>
+                          <span style={{ fontSize: 12, opacity: 0.7, marginTop: 4, display: 'block' }}>
+                            {libres === 0 ? '🚫 Lleno' : `🟢 ${libres} libres`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ opacity: 0.6, fontSize: 13 }}>No hay horarios programados en el laboratorio para la fecha seleccionada.</p>
+                )}
+              </div>
+            )}
+
+            {/* GRILLA FÍSICA CORRESPONDIENTE */}
+            {visHorarioSel && (
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0 }}>Mapa del Laboratorio ({visHorarioSel.hora_inicio.substring(0,5)} - {visHorarioSel.hora_fin.substring(0,5)})</h3>
+                  <div style={{ fontSize: 13, background: 'rgba(59,130,246,0.1)', color: 'var(--accent-color)', padding: '4px 12px', borderRadius: 20, fontWeight: 600 }}>
+                    Capacidad: {visHorarioSel.capacidad_total - (visHorarioSel.capacidad_ocupada || 0)} / {visHorarioSel.capacidad_total} Libres
+                  </div>
+                </div>
+
+                {loadingVisGrid ? (
+                  <div style={{ textAlign: 'center', padding: 50, opacity: 0.6 }}>Cargando grilla de puestos...</div>
+                ) : visActivos.length > 0 ? (
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: 12, padding: 20, background: 'var(--bg-main)' }}>
+                    <LabMap 
+                      activos={visActivos} 
+                      activoSel={null} 
+                      onSelect={handleVisActivoSelect} 
+                      columnas={6}
+                      adminMode={false}
+                    />
+                  </div>
+                ) : (
+                  <p style={{ opacity: 0.6 }}>No hay equipos cargados.</p>
+                )}
+              </div>
+            )}
+            
+            {!visLab && (
+              <div style={{ textAlign: 'center', padding: '60px 20px', background: 'rgba(255,255,255,0.01)', borderRadius: 12, border: '1px dashed var(--border-color)', marginTop: 20 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 64, height: 64, color: 'var(--accent-color)', opacity: 0.6, marginBottom: 16 }}>
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                  <path d="M6 7h2v2H6V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zm-8 4h2v2H6v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z" />
+                </svg>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: 18, color: 'var(--text-main)' }}>Visualizador Físico de Laboratorios</h3>
+                <p style={{ margin: 0, opacity: 0.7, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto', fontSize: 14 }}>
+                  Seleccione un laboratorio, una fecha y el horario deseado en el panel superior para visualizar la distribución interactiva de los equipos y su estado de ocupación.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
         
+        {/* MODAL DETALLE COMPLETO DE RESERVA CON GRILLA VISUAL */}
+        {reservaDetalleModal && (
+          <div className="modal-overlay" onClick={() => setReservaDetalleModal(null)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 20px' }}>
+            <div className="modal-content modal-content--wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+                <h2 style={{ margin: 0 }}>Detalle de Reserva #{reservaDetalleModal.id_reserva}</h2>
+                <button className="activo-drawer-close" onClick={() => setReservaDetalleModal(null)} style={{ position: 'static' }}>×</button>
+              </div>
+
+              <div className="reserva-detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, marginBottom: 20 }}>
+                {/* FICHA INFORMATIVA */}
+                <div className="reserva-detail-card" style={{ background: 'var(--bg-main)', padding: 16, borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                  <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 8, color: 'var(--accent-color)' }}>Información General</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
+                    <div><strong>Usuario:</strong> {reservaDetalleModal.usuario_nombre}</div>
+                    <div>
+                      <strong>Rol:</strong> <span className={`badge-rol ${reservaDetalleModal.usuario_rol?.toLowerCase()}`} style={{ fontSize: 11, padding: '2px 8px' }}>
+                        {reservaDetalleModal.usuario_rol}
+                      </span>
+                    </div>
+                    <div><strong>Laboratorio:</strong> {reservaDetalleModal.laboratorio_nombre}</div>
+                    <div><strong>Fecha:</strong> {reservaDetalleModal.fecha_reserva}</div>
+                    <div><strong>Horario:</strong> {reservaDetalleModal.hora_inicio} - {reservaDetalleModal.hora_fin}</div>
+                    <div><strong>Asientos Reservados:</strong> {reservaDetalleModal.cantidad_alumnos}</div>
+                    <div>
+                      <strong>Estado:</strong> <span className={`status-pill ${reservaDetalleModal.estado.toLowerCase()}`} style={{ fontSize: 11, padding: '2px 8px' }}>
+                        {reservaDetalleModal.estado}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* EQUIPOS DETALLADOS */}
+                <div className="reserva-detail-card" style={{ background: 'var(--bg-main)', padding: 16, borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                  <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 8, color: 'var(--accent-color)' }}>Equipos Reservados</h3>
+                  {reservaDetalleModal.activos && reservaDetalleModal.activos.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 160, overflowY: 'auto', paddingRight: 4 }}>
+                      {reservaDetalleModal.activos.map(act => (
+                        <div key={act.id_activo} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 6, fontSize: 13 }}>
+                          <div>
+                            <strong>{act.tipo_activo_nombre}:</strong> {act.codigo_patrimonio || 'Sin Código'}
+                          </div>
+                          <small style={{ opacity: 0.7 }}>Serie: {act.num_serie}</small>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ opacity: 0.6, fontSize: 13 }}>No hay equipos específicos guardados para esta reserva.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* HISTORIAL DE CAMBIOS Y LÍNEA DE TIEMPO */}
+              {reservaDetalleModal.historial_cambios && reservaDetalleModal.historial_cambios.length > 0 && (
+                <div className="reserva-detail-card" style={{ background: 'var(--bg-main)', padding: 16, borderRadius: 8, border: '1px solid var(--border-color)', marginBottom: 20 }}>
+                  <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 8, color: 'var(--accent-color)' }}>Historial de Estados y Transiciones</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                    {reservaDetalleModal.historial_cambios.map((log, index) => (
+                      <div key={index} style={{ display: 'flex', gap: 12, fontSize: 13, borderLeft: '2px solid var(--accent-color)', paddingLeft: 12, position: 'relative' }}>
+                        <div style={{
+                          position: 'absolute',
+                          left: -6,
+                          top: 4,
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          background: 'var(--accent-color)'
+                        }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                            <span>
+                              {log.estado_anterior} ➔ <span className={`status-pill ${log.estado_nuevo.toLowerCase()}`} style={{ fontSize: 10, padding: '1px 6px' }}>{log.estado_nuevo}</span>
+                            </span>
+                            <span style={{ opacity: 0.6, fontSize: 11 }}>{log.fecha_cambio}</span>
+                          </div>
+                          {log.observacion && (
+                            <div style={{ marginTop: 4, opacity: 0.8, fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: 4 }}>
+                              💬 {log.observacion}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* MAPA VISUAL */}
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 20 }}>
+                <h3 style={{ marginTop: 0, marginBottom: 12 }}>Mapa de Ubicación Física</h3>
+                {loadingDetalleMap ? (
+                  <div style={{ textAlign: 'center', padding: '30px 0', opacity: 0.6, fontSize: 14 }}>Cargando ubicación en mapa...</div>
+                ) : detalleMapActivos.length > 0 ? (
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: 12, background: 'var(--bg-main)' }}>
+                    <LabMap
+                      activos={detalleMapActivos}
+                      activoSel={(reservaDetalleModal.activos || []).map(act => act.id_activo)}
+                      onSelect={() => {}}
+                      columnas={6}
+                      adminMode={false}
+                    />
+                  </div>
+                ) : (
+                  <p style={{ opacity: 0.6, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No se pudo cargar la grilla física del aula.</p>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24, borderTop: '1px solid var(--border-color)', paddingTop: 16 }}>
+                <button className="cancel-btn" onClick={() => setReservaDetalleModal(null)} style={{ margin: 0, padding: '8px 20px' }}>Cerrar Vista</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODAL EDITAR RESERVA */}
         {showModalEdit && (
           <div className="modal-overlay">

@@ -77,3 +77,15 @@ input:checked + .slider:before {
 .slider.round:before {
   border-radius: 50%;
 }
+
+/* Forzar visualización de botón de tema flotando arriba a la derecha en móviles */
+@media (max-width: 768px) {
+  .theme-switch-wrapper {
+    position: fixed !important;
+    top: 16px !important;
+    right: 16px !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 99999 !important;
+  }
+}

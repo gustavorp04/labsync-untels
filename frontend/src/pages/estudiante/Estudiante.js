@@ -73,6 +73,7 @@ function Estudiante() {
 
   // DJ
   const [aceptaDJ, setAceptaDJ]   = useState(false);
+  const [showDJ, setShowDJ]       = useState(false);
 
   // User Data (Normalizada para compatibilidad)
   const userId   = localStorage.getItem("userId") || localStorage.getItem("id_usuario") || "";
@@ -390,12 +391,48 @@ function Estudiante() {
               </div>
             )}
             {paso === 4 && (
-              <div className="est-section">
+              <div className="est-section est-confirm">
                 <h2>Confirmar Reserva</h2>
-                <div className="est-dj-box">
-                  <label><input type="checkbox" checked={aceptaDJ} onChange={e=>setAceptaDJ(e.target.checked)}/> Acepto Declaración Jurada</label>
+
+                <div className="est-confirm-card">
+                  <div className="est-confirm-row"><span>Laboratorio</span><strong>{labSel?.nombre}</strong></div>
+                  <div className="est-confirm-row"><span>Código</span><strong>{labSel?.codigo_patrimonio}</strong></div>
+                  <div className="est-confirm-row"><span>Fecha</span><strong>{horarioSel?.fecha}</strong></div>
+                  <div className="est-confirm-row"><span>Horario</span><strong>{horarioSel?.hora_inicio?.slice(0,5)} – {horarioSel?.hora_fin?.slice(0,5)}</strong></div>
+                  <div className="est-confirm-row"><span>Equipo</span><strong>{activoSel?.codigo_patrimonio || activoSel?.num_serie || '1 equipo'}</strong></div>
                 </div>
-                <button className="est-btn-primary" onClick={handleSubmitReserva} disabled={!aceptaDJ}>Finalizar</button>
+
+                {/* Declaración Jurada */}
+                <div className="est-dj-box">
+                  <div className="est-dj-header" onClick={() => setShowDJ(!showDJ)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon.Shield />
+                    <span>Declaración Jurada Digital</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.6 }}>{showDJ ? '▲ Ocultar' : '▼ Leer'}</span>
+                  </div>
+                  {showDJ && (
+                    <div className="est-dj-text" style={{ marginTop: 12 }}>
+                      <p>Yo, <strong>{nombre}</strong>, declaro bajo juramento que:</p>
+                      <ol style={{ paddingLeft: 20, marginTop: 8 }}>
+                        <li style={{ marginBottom: 6 }}>Asumo plena responsabilidad sobre el equipo <strong>{activoSel?.codigo_patrimonio || 'asignado'}</strong> del laboratorio <strong>{labSel?.nombre}</strong> durante el horario reservado.</li>
+                        <li style={{ marginBottom: 6 }}>Me comprometo a reportar cualquier daño, rayadura o anomalía física al asistente de laboratorio de forma inmediata.</li>
+                        <li style={{ marginBottom: 6 }}>El equipo informático será utilizado exclusivamente para fines académicos y de investigación.</li>
+                        <li style={{ marginBottom: 6 }}>Entiendo que el mal uso, retiro de periféricos o daños intencionales generará la cancelación de mi acceso y las penalizaciones académicas correspondientes.</li>
+                      </ol>
+                    </div>
+                  )}
+                  <label className="est-dj-check" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={aceptaDJ} onChange={e => setAceptaDJ(e.target.checked)} style={{ cursor: 'pointer' }} />
+                    <span>He leído y acepto la Declaración Jurada de Responsabilidad Estudiantil</span>
+                  </label>
+                </div>
+
+                <button 
+                  className="est-btn-primary" 
+                  onClick={handleSubmitReserva} 
+                  disabled={loading || !aceptaDJ}
+                >
+                  {loading ? 'Procesando...' : 'Confirmar y Finalizar Reserva'}
+                </button>
               </div>
             )}
           </div>

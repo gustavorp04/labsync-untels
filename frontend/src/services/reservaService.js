@@ -24,6 +24,12 @@ const getTodasLasReservas = async () => {
   return res.data;
 };
 
+/** Obtener detalle de una reserva individual (admin) */
+const getReservaById = async (id) => {
+  const res = await api.get(`/v1/reservas/${id}/`);
+  return res.data;
+};
+
 /** Cancelar reserva */
 const cancelarReserva = async (idReserva, userId) => {
   const res = await api.patch(`/reservas/${idReserva}/cancelar/`, { user_id: userId });
@@ -54,16 +60,24 @@ const getHistorialReservas = async () => {
   return res.data;
 };
 
+/** Todos los horarios por lab y fecha (con cualquier estado para el admin) */
+const getTodosLosHorariosPorLabYFecha = async (idLab, fecha) => {
+  const res = await api.get(`/v1/horarios/?id_laboratorio=${idLab}&fecha=${fecha}`);
+  return res.data;
+};
+
 const reservaService = {
   crearReserva,
   crearReservaEstudiante,
   getMisReservas,
   getTodasLasReservas,
+  getReservaById,
   cancelarReserva,
   marcarAsistencia,
   eliminarReserva,
   getHorariosPorLab,
   getHistorialReservas,
+  getTodosLosHorariosPorLabYFecha,
 };
 
 export default reservaService;

@@ -47,9 +47,11 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
             ).select_related('id_reserva')
             
             estado_map = {d.id_activo_id: d.id_reserva.estado for d in detalles}
+            reserva_id_map = {d.id_activo_id: d.id_reserva_id for d in detalles}
             
             for activo in queryset:
                 activo.estado_reserva = estado_map.get(activo.id_activo, None)
+                activo.reserva_id = reserva_id_map.get(activo.id_activo, None)
         
         return queryset
 
@@ -58,11 +60,13 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         data = serializer.data
         
-        # Inyectar el campo estado_reserva en la respuesta JSON
+        # Inyectar el campo estado_reserva e id_reserva en la respuesta JSON
         if request.query_params.get('id_horario'):
             estado_map = {a.id_activo: getattr(a, 'estado_reserva', None) for a in queryset}
+            reserva_id_map = {a.id_activo: getattr(a, 'reserva_id', None) for a in queryset}
             for item in data:
                 item['estado_reserva'] = estado_map.get(item['id_activo'], None)
+                item['id_reserva'] = reserva_id_map.get(item['id_activo'], None)
                 # Mantenemos 'reservado' por compatibilidad temporal
                 item['reservado'] = bool(item['estado_reserva'])
         

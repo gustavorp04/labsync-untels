@@ -121,7 +121,7 @@
 .submenu button {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted);
   padding: 10px 14px;
   border-radius: 8px;
   text-align: left;
@@ -559,7 +559,7 @@ td {
 .lab-card-body h4 {
   font-size: 16px;
   margin-bottom: 4px;
-  color: #fff;
+  color: var(--text-main);
 }
 
 .lab-card-body p {
@@ -967,4 +967,125 @@ td {
   background: var(--untels-blue);
   color: white;
   border-color: transparent;
+}
+
+/* --- RESPONSIVIDAD GENERAL PARA CELULARES Y TABLETS (ADMIN) --- */
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    padding: 16px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    gap: 12px;
+  }
+
+  .logo {
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  
+  .logo h2 {
+    font-size: 20px;
+  }
+  
+  .logo p {
+    font-size: 11px;
+  }
+
+  .menu {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  
+  .menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .menu-section {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .menu-title {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    border-radius: 8px;
+    justify-content: center;
+  }
+
+  .logout-btn {
+    margin-top: 0 !important;
+    padding: 8px 12px;
+    font-size: 13px;
+    align-self: center;
+    white-space: nowrap;
+  }
+
+  .main-content {
+    padding: 20px 14px;
+    width: 100%;
+  }
+
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .search-group {
+    width: 100% !important;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .action-buttons button, .btn-new-user {
+    flex: 1;
+    text-align: center;
+    padding: 10px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Hacer las tablas HTML desplazables horizontalmente en celulares */
+  .table-section {
+    padding: 16px 12px;
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  /* Formularios y modales adaptativos */
+  .user-form-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .modal-content {
+    width: 95% !important;
+    padding: 20px;
+  }
+
+  /* Drawer de activos en móviles */
+  .activo-drawer {
+    width: 100% !important;
+  }
 }

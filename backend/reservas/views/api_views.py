@@ -16,8 +16,17 @@ class LaboratorioViewSet(viewsets.ModelViewSet):
     serializer_class = LaboratorioListSerializer
 
 class ReservaViewSet(viewsets.ModelViewSet):
-    queryset = Reserva.objects.all().order_by('-created_at')
     serializer_class = ReservaSerializer
+
+    def get_queryset(self):
+        # Ejecutar la purga automática de reservas pendientes expiradas (5 min) para el quórum
+        try:
+            from ..services import reserva_service
+            reserva_service.purgar_pendientes_vencidos()
+        except Exception as e:
+            print(f"WARN: Error en purgar_pendientes_vencidos en ReservaViewSet: {e}")
+        
+        return Reserva.objects.all().order_by('-created_at')
 
 class IncidenciaViewSet(viewsets.ModelViewSet):
     queryset = Incidencia.objects.all().order_by('-fecha_reporte')
@@ -28,5 +37,14 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
     serializer_class = AsistenciaSerializer
 
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
-    queryset = HorarioDisponible.objects.filter(estado='Disponible').order_by('fecha', 'hora_inicio')
     serializer_class = HorarioDisponibleSerializer
+
+    def get_queryset(self):
+        queryset = HorarioDisponible.objects.all().order_by('fecha', 'hora_inicio')
+        id_lab = self.request.query_params.get('id_laboratorio')
+        if id_lab:
+            queryset = queryset.filter(id_laboratorio=id_lab)
+        fecha = self.request.query_params.get('fecha')
+        if fecha:
+            queryset = queryset.filter(fecha=fecha)
+        return queryset
