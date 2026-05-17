@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
@@ -61,6 +61,11 @@ function Estudiante() {
   const [horarioSel, setHorarioSel] = useState(() => JSON.parse(sessionStorage.getItem("est_horarioSel")) || null);
   const [activoSel, setActivoSel]   = useState(() => JSON.parse(sessionStorage.getItem("est_activoSel")) || null);
   const [labSearchTerm, setLabSearchTerm] = useState("");
+
+  const activoSelRef = useRef(activoSel);
+  useEffect(() => {
+    activoSelRef.current = activoSel;
+  }, [activoSel]);
 
   useEffect(() => { sessionStorage.setItem("est_labSel", JSON.stringify(labSel)); }, [labSel]);
   useEffect(() => { sessionStorage.setItem("est_horarioSel", JSON.stringify(horarioSel)); }, [horarioSel]);
@@ -129,6 +134,7 @@ function Estudiante() {
     }
   }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize]);
 
+  // Carga de horarios en Paso 2
   useEffect(() => {
     if (paso === 2 && labSel) {
       setLoading(true);
@@ -137,13 +143,53 @@ function Estudiante() {
         .catch(() => showToast('error', 'Error al cargar horarios'))
         .finally(() => setLoading(false));
     }
-    if (paso === 3 && horarioSel) {
-      setLoading(true);
-      laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario)
-        .then(data => setActivos(data))
-        .catch(() => showToast('error', 'Error al cargar equipos'))
-        .finally(() => setLoading(false));
+  }, [paso, labSel]);
+
+  // Carga y Polling reactivo en tiempo real de equipos en Paso 3
+  useEffect(() => {
+    let intervalId = null;
+
+    if (paso === 3 && labSel && horarioSel) {
+      const cargarEquipos = async (showLoading = false) => {
+        if (showLoading) setLoading(true);
+        try {
+          const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario);
+          setActivos(data);
+          
+          // Verificar si el equipo seleccionado por el estudiante fue ocupado o inhabilitado por otro
+          if (activoSelRef.current) {
+            const pcActualizada = data.find(a => a.id_activo === activoSelRef.current.id_activo);
+            if (
+              pcActualizada && 
+              (pcActualizada.reservado || 
+               pcActualizada.estado_reserva === "Pendiente" || 
+               pcActualizada.estado !== "Operativo")
+            ) {
+              setActivoSel(null);
+              showToast('error', 'El equipo seleccionado ha sido reservado o inhabilitado por otro usuario.');
+            }
+          }
+        } catch (err) {
+          console.error("Error al refrescar equipos:", err);
+        } finally {
+          if (showLoading) setLoading(false);
+        }
+      };
+
+      // Carga inicial con spinner
+      cargarEquipos(true);
+
+      // Polling en segundo plano cada 3 segundos (actualización silenciosa)
+      intervalId = setInterval(() => {
+        cargarEquipos(false);
+      }, 3000);
     }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [paso, labSel, horarioSel]);
 
   const handleSubmitReserva = async () => {

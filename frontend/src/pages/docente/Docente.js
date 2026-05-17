@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
@@ -64,6 +64,11 @@ function Docente() {
   const [activosSel, setActivosSel]     = useState([]);
   const [labSearchTerm, setLabSearchTerm] = useState("");
 
+  const activosSelRef = useRef(activosSel);
+  useEffect(() => {
+    activosSelRef.current = activosSel;
+  }, [activosSel]);
+
   // Data
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios]         = useState([]);
@@ -111,13 +116,54 @@ function Docente() {
     }
   }, [paso, labSel]);
 
-  // Fetch activos when schedule selected
+  // Fetch activos e implementar Polling reactivo en tiempo real para Docente
   useEffect(() => {
+    let intervalId = null;
+
     if (paso === 4 && labSel && horarioSel) {
-      laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario)
-        .then(data => setActivos(data.filter(a => a.tipo_activo_nombre === 'CPU' || a.tipo_activo_nombre === 'Mesa')))
-        .catch(() => showToast('error', 'Error al cargar equipos'));
+      const cargarEquipos = async (showLoading = false) => {
+        if (showLoading) setLoading(true);
+        try {
+          const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario);
+          // Filtrar por CPU o Mesa
+          const CPUoMesa = data.filter(a => a.tipo_activo_nombre === 'CPU' || a.tipo_activo_nombre === 'Mesa');
+          setActivos(CPUoMesa);
+
+          // Si el docente ya seleccionó equipos, verificar si alguno fue reservado en paralelo por alumnos
+          if (activosSelRef.current.length > 0) {
+            const disponibles = CPUoMesa.filter(a => 
+              a.estado === 'Operativo' && 
+              !a.reservado && 
+              a.estado_reserva !== 'Pendiente'
+            ).map(a => a.id_activo);
+
+            const nuevosSeleccionados = activosSelRef.current.filter(id => disponibles.includes(id));
+            if (nuevosSeleccionados.length !== activosSelRef.current.length) {
+              setActivosSel(nuevosSeleccionados);
+              showToast('error', 'Algunos de los equipos que seleccionaste acaban de ser ocupados o inhabilitados.');
+            }
+          }
+        } catch (err) {
+          console.error("Error al actualizar equipos en docente:", err);
+        } finally {
+          if (showLoading) setLoading(false);
+        }
+      };
+
+      // Carga inicial
+      cargarEquipos(true);
+
+      // Polling reactivo cada 3 segundos
+      intervalId = setInterval(() => {
+        cargarEquipos(false);
+      }, 3000);
     }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [paso, labSel, horarioSel]);
 
   // Fetch my reservations
