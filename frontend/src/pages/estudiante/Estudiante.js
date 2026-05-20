@@ -281,10 +281,12 @@ function Estudiante() {
                 </div>
                 {loading ? <div className="est-loading">Cargando laboratorios...</div> : (
                   <div className="est-lab-grid">
-                    {laboratorios.filter(lab => 
-                      lab.nombre.toLowerCase().includes(labSearchTerm.toLowerCase()) || 
-                      lab.codigo_patrimonio.toLowerCase().includes(labSearchTerm.toLowerCase())
-                    ).map(lab => (
+                    {laboratorios.filter(lab => {
+                      const term = labSearchTerm.toLowerCase();
+                      const nombre = (lab.nombre || '').toLowerCase();
+                      const codigo = (lab.codigo_patrimonio || '').toLowerCase();
+                      return nombre.includes(term) || codigo.includes(term);
+                    }).map(lab => (
                       <button key={lab.id_laboratorio} className="est-lab-card" onClick={()=>{
                         setLabSel(lab); 
                         setHorarioSel(null);

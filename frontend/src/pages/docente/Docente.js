@@ -387,10 +387,12 @@ function Docente() {
                 </div>
                 {loading ? <div className="doc-loading">Cargando laboratorios…</div> : (
                   <div className="doc-lab-grid">
-                    {laboratorios.filter(lab => 
-                      lab.nombre.toLowerCase().includes(labSearchTerm.toLowerCase()) || 
-                      lab.codigo_patrimonio.toLowerCase().includes(labSearchTerm.toLowerCase())
-                    ).map(lab => (
+                    {laboratorios.filter(lab => {
+                      const term = labSearchTerm.toLowerCase();
+                      const nombre = (lab.nombre || '').toLowerCase();
+                      const codigo = (lab.codigo_patrimonio || '').toLowerCase();
+                      return nombre.includes(term) || codigo.includes(term);
+                    }).map(lab => (
                       <button
                         key={lab.id_laboratorio}
                         className={`doc-lab-card ${!lab.habilitado ? 'disabled' : ''}`}

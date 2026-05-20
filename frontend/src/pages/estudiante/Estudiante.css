@@ -559,3 +559,94 @@
 [data-theme='dark'] .est-dj-check {
   color: #fbbf24;
 }
+
+/* ─── DARK MODE: Toasts ─── */
+[data-theme='dark'] .est-toast--ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+[data-theme='dark'] .est-toast--error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ─── DARK MODE: Category tag ─── */
+[data-theme='dark'] .est-category-tag {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+/* ─── DARK MODE: Info banner ─── */
+[data-theme='dark'] .est-info-banner {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+}
+
+/* ─── DARK MODE: Selected seat ─── */
+[data-theme='dark'] .est-seat.selected {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: #3b82f6;
+}
+
+/* ─── DARK MODE: Selected info ─── */
+[data-theme='dark'] .est-selected-info {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+}
+
+/* ─── DARK MODE: Lab badges ─── */
+[data-theme='dark'] .est-lab-badge.ok {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+[data-theme='dark'] .est-lab-badge.ko {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+/* ─── DARK MODE: Logout button ─── */
+[data-theme='dark'] .est-logout {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+[data-theme='dark'] .est-logout:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* ─── DARK MODE: Calendar slot blocked ─── */
+[data-theme='dark'] .est-cal-slot.blocked {
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+/* ─── DARK MODE: Welcome text ─── */
+[data-theme='dark'] .est-welcome h1 {
+  color: #f3f4f6;
+}
+
+/* ─── DARK MODE: Section headings ─── */
+[data-theme='dark'] .est-section h2 {
+  color: #f3f4f6;
+}
+
+/* ─── DARK MODE: Confirm row labels ─── */
+[data-theme='dark'] .est-confirm-row span {
+  color: #9ca3af;
+}
+[data-theme='dark'] .est-confirm-row strong {
+  color: #f3f4f6;
+}
+
+/* ─── DARK MODE: Cancel button ─── */
+[data-theme='dark'] .est-btn-cancel {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+[data-theme='dark'] .est-btn-cancel:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
