@@ -19,8 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el proyecto
 COPY . /app/
 
-# Exponer el puerto de Django
-EXPOSE 8000
-
-# Comando para iniciar con Gunicorn
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Cloud Run inyecta automáticamente la variable $PORT (usualmente 8080)
+# Usamos workers y threads para manejar la alta concurrencia de la prueba
+CMD gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --threads 8
