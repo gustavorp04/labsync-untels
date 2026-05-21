@@ -117,7 +117,11 @@ function Estudiante() {
   }, [vista, paso, labSel, horarioSel, activoSel]);
 
   useEffect(() => {
-    if (vista === 'mis-reservas') fetchMisReservas();
+    let intervalId = null;
+    if (vista === 'mis-reservas') {
+      fetchMisReservas();
+      intervalId = setInterval(fetchMisReservas, 10000);
+    }
     if (vista === 'nueva-reserva') {
       setLoading(true);
       laboratorioService.getLaboratorios()
@@ -133,6 +137,9 @@ function Estudiante() {
         .catch(() => showToast('error', 'Error al cargar laboratorios'))
         .finally(() => setLoading(false));
     }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize]);
 
   // Carga de horarios en Paso 2
@@ -303,6 +310,9 @@ function Estudiante() {
             )}
             {paso === 2 && (
               <div className="est-section">
+                <button className="est-back" onClick={() => setPaso(1)} style={{ marginBottom: 16 }}>
+                  <Icon.ChevronLeft /> Volver
+                </button>
                 <h2>Horarios Disponibles</h2>
                 <div className="est-calendar">
                   {Object.entries(horariosByDate).map(([fecha, slots]) => (
@@ -332,6 +342,9 @@ function Estudiante() {
             )}
             {paso === 3 && (
               <div className="est-section">
+                <button className="est-back" onClick={() => setPaso(2)} style={{ marginBottom: 16 }}>
+                  <Icon.ChevronLeft /> Volver
+                </button>
                 <h2>Mapa de Equipos</h2>
                 <LabMap activos={activos} activoSel={activoSel} onSelect={setActivoSel} columnas={labSel?.codigo_patrimonio === 'A1-1' ? 6 : 6} />
                 
@@ -394,6 +407,9 @@ function Estudiante() {
             )}
             {paso === 4 && (
               <div className="est-section est-confirm">
+                <button className="est-back" onClick={() => setPaso(3)} style={{ marginBottom: 16 }}>
+                  <Icon.ChevronLeft /> Volver
+                </button>
                 <h2>Confirmar Reserva</h2>
 
                 <div className="est-confirm-card">

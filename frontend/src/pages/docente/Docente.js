@@ -176,7 +176,14 @@ function Docente() {
   }, [userId]);
 
   useEffect(() => {
-    if (vista === "mis-reservas") fetchMisReservas();
+    let intervalId = null;
+    if (vista === "mis-reservas") {
+      fetchMisReservas();
+      intervalId = setInterval(fetchMisReservas, 10000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [vista, fetchMisReservas]);
 
   const toggleActivo = (id) => {
@@ -538,7 +545,6 @@ function Docente() {
           <div className="doc-section">
             <div className="doc-section-header">
               <h2>Mis Reservas</h2>
-              <button className="doc-btn-sm" onClick={fetchMisReservas}>↻ Actualizar</button>
             </div>
             {misReservas.length === 0 ? (
               <div className="doc-empty-state">

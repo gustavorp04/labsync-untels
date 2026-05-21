@@ -23,6 +23,9 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
         if horario_db.fecha < manana:
             return None, "Las reservas deben hacerse con al menos 24 horas de anticipación."
 
+        if Reserva.objects.filter(id_usuario=usuario, id_horario=horario_db, estado='Programada').exists():
+            return None, "Ya tienes una reserva para este horario."
+
         # PBI-06: Si hay alumnos en 'Pendiente', el docente tiene prioridad absoluta.
         # Se cancelan las reservas de alumnos para dar paso al docente.
         estudiantes_pendientes = Reserva.objects.filter(id_horario=horario_db, estado='Pendiente')
@@ -87,6 +90,9 @@ def crear_reserva_estudiante(usuario, id_horario, id_activo, acepta_dj):
         manana = timezone.now().date() + timedelta(days=1)
         if horario_db.fecha < manana:
             return None, "La reserva debe hacerse con al menos 1 día de anticipación."
+
+        if Reserva.objects.filter(id_usuario=usuario, id_horario=horario_db, estado__in=['Programada', 'Pendiente']).exists():
+            return None, "Ya tienes una reserva para este horario."
 
         if ReservaDetalle.objects.filter(id_activo=activo, id_reserva__id_horario=horario_db, id_reserva__estado__in=['Programada', 'Pendiente']).exists():
             return None, "El equipo ya está reservado para este horario."
@@ -199,9 +205,7 @@ def cerrar_dia_reservas():
 def purgar_pendientes_vencidos():
     """PBI-06: Los alumnos tienen solo 5 minutos para llegar al quórum de 10.
     Si no se llega, las reservas 'Pendiente' expiran."""
-    import datetime
-    # Usar datetime.datetime.utcnow() para comparar de forma precisa y evitar TypeError con offset-naive datetimes de la BD
-    limite = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+    limite = timezone.now() - timedelta(minutes=5)
     
     # Buscamos reservas pendientes creadas hace más de 5 min
     pendientes = Reserva.objects.filter(
