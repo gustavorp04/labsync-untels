@@ -628,7 +628,7 @@ function Admin() {
                   const hoyStr = new Date().toLocaleDateString('en-CA');
                   const matchesSearch = r.usuario_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                         r.laboratorio_nombre.toLowerCase().includes(searchTerm.toLowerCase());
-                  return r.fecha_reserva > hoyStr && matchesSearch;
+                  return r.fecha_reserva >= hoyStr && matchesSearch && (r.estado === 'Programada' || r.estado === 'Pendiente');
                 }).map(r => (
                   <tr key={r.id_reserva}>
                     <td>{r.usuario_rol || 'Usuario'}</td>
@@ -669,9 +669,9 @@ function Admin() {
             {feedbackMsg && (
               <div style={{
                 padding: '12px 20px', borderRadius: 8, marginBottom: 20,
-                background: feedbackMsg.tipo === 'ok' ? '#d1fae5' : '#fee2e2',
-                color: feedbackMsg.tipo === 'ok' ? '#065f46' : '#7f1d1d',
-                border: `1px solid ${feedbackMsg.tipo === 'ok' ? '#6ee7b7' : '#fca5a5'}`
+                background: feedbackMsg.tipo === 'ok' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                color: feedbackMsg.tipo === 'ok' ? '#10b981' : '#f87171',
+                border: `1px solid ${feedbackMsg.tipo === 'ok' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
               }}>
                 {feedbackMsg.texto}
                 <button onClick={() => setFeedbackMsg(null)} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>×</button>
@@ -871,7 +871,6 @@ function Admin() {
           <div className="table-section">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <h2>Historial de Cambios en Reservas</h2>
-              <button className="btn-refresh" onClick={fetchHistorialReservas}>Actualizar</button>
             </div>
 
             <table>

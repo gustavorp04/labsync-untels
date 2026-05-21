@@ -81,6 +81,9 @@ function Docente() {
   const [aceptaDJ, setAceptaDJ]         = useState(false);
   const [showDJ, setShowDJ]             = useState(false);
 
+  // Detalle de reserva modal
+  const [reservaDetalle, setReservaDetalle] = useState(null);
+
   const userId   = localStorage.getItem("id_usuario") || "";
   const depto    = localStorage.getItem("departamento") || "";
   const nombre   = localStorage.getItem("nombre") || "Docente";
@@ -264,6 +267,59 @@ function Docente() {
         <div className={`doc-toast doc-toast--${toast.tipo}`}>
           {toast.tipo === 'ok' ? <Icon.Check /> : '⚠'}
           <span>{toast.texto}</span>
+        </div>
+      )}
+
+      {/* MODAL DETALLE RESERVA */}
+      {reservaDetalle && (
+        <div className="modal-overlay" onClick={() => setReservaDetalle(null)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 20px', zIndex: 9000 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, width: '90%', borderRadius: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Detalle de Reserva #{reservaDetalle.id_reserva}</h2>
+              <button onClick={() => setReservaDetalle(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
+              {[
+                ['Laboratorio', reservaDetalle.laboratorio_nombre],
+                ['Fecha', reservaDetalle.fecha_reserva],
+                ['Horario', `${String(reservaDetalle.hora_inicio).slice(0,5)} – ${String(reservaDetalle.hora_fin).slice(0,5)}`],
+                ['Alumnos', reservaDetalle.cantidad_alumnos],
+                ['Estado', null],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: 8 }}>
+                  <span style={{ opacity: 0.6 }}>{label}</span>
+                  {label === 'Estado'
+                    ? <StatusBadge estado={reservaDetalle.estado} />
+                    : <strong>{val}</strong>
+                  }
+                </div>
+              ))}
+              {reservaDetalle.activos && reservaDetalle.activos.length > 0 && (
+                <div>
+                  <div style={{ opacity: 0.6, marginBottom: 8 }}>Equipo(s) reservado(s):</div>
+                  {reservaDetalle.activos.map(a => (
+                    <div key={a.id_activo} style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '8px 12px', marginBottom: 6, fontSize: 13 }}>
+                      <strong>{a.tipo_activo_nombre}</strong> · {a.codigo_patrimonio || a.num_serie}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {reservaDetalle.historial_cambios && reservaDetalle.historial_cambios.length > 0 && (
+                <div>
+                  <div style={{ opacity: 0.6, marginBottom: 8 }}>Historial de estados:</div>
+                  {reservaDetalle.historial_cambios.map((log, i) => (
+                    <div key={i} style={{ fontSize: 12, background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '6px 12px', marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{log.estado_anterior} ➔ <strong>{log.estado_nuevo}</strong></span>
+                      <span style={{ opacity: 0.5 }}>{log.fecha_cambio}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="cancel-btn" onClick={() => setReservaDetalle(null)} style={{ padding: '8px 20px', borderRadius: 8, cursor: 'pointer' }}>Cerrar</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -565,6 +621,12 @@ function Docente() {
                     </div>
                     <div className="doc-reserva-right">
                       <StatusBadge estado={r.estado} />
+                      <button
+                        onClick={() => setReservaDetalle(r)}
+                        style={{ padding: '4px 12px', fontSize: 12, background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-main)' }}
+                      >
+                        Ver detalle
+                      </button>
                       {r.estado === 'Programada' && (
                         <button className="doc-btn-cancel" onClick={() => handleCancelar(r.id_reserva)}>Cancelar</button>
                       )}

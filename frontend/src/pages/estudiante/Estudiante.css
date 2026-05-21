@@ -20,8 +20,8 @@
   animation: estSlideIn 0.3s ease;
 }
 .est-toast svg { width: 18px; height: 18px; flex-shrink: 0; }
-.est-toast--ok    { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-.est-toast--error { background: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; }
+.est-toast--ok    { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.4); }
+.est-toast--error { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
 @keyframes estSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
 /* ─── SIDEBAR ─── */
@@ -650,3 +650,53 @@
 [data-theme='dark'] .est-btn-cancel:hover {
   background: rgba(239, 68, 68, 0.12);
 }
+
+/* ─── VOLVER BUTTON ─── */
+.est-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.est-back svg { width: 16px; height: 16px; }
+.est-back:hover { background: var(--bg-card); color: var(--text-main); border-color: var(--untels-blue); }
+
+/* ─── MODAL DETALLE ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(3px);
+  z-index: 8000;
+}
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 28px;
+  color: var(--text-main);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.cancel-btn {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+.cancel-btn:hover { opacity: 0.8; }
+
+/* ─── EMPTY STATE ─── */
+.est-empty { opacity: 0.5; font-size: 14px; text-align: center; padding: 30px 0; }
