@@ -21,7 +21,7 @@ class CrearReservaSerializer(serializers.Serializer):
 
         # Regla: 1 día de anticipación como mínimo
         fecha_reserva = horario.fecha
-        manana = timezone.now().date() + timedelta(days=1)
+        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
         if fecha_reserva < manana:
             raise serializers.ValidationError("La reserva debe realizarse con al menos 1 día de anticipación.")
 
@@ -58,8 +58,8 @@ class ReservaSerializer(serializers.ModelSerializer):
         return f"{lab.nombre} ({lab.codigo_patrimonio})"
 
     def get_activos(self, obj):
-        from ..models import ReservaDetalle
-        detalles = ReservaDetalle.objects.filter(id_reserva=obj)
+        # Usamos all() para aprovechar prefetch_related y evitar N+1 queries
+        detalles = obj.reservadetalle_set.all()
         return [
             {
                 'id_activo': d.id_activo.id_activo,
@@ -72,8 +72,11 @@ class ReservaSerializer(serializers.ModelSerializer):
         ]
 
     def get_historial_cambios(self, obj):
-        from ..models import HistorialReserva
-        logs = HistorialReserva.objects.filter(reserva=obj).order_by('fecha_cambio')
+        # Usamos all() y ordenamos en memoria para aprovechar prefetch_related y evitar N+1 queries
+        logs = sorted(
+            obj.historialreserva_set.all(),
+            key=lambda x: x.fecha_cambio if x.fecha_cambio else timezone.now()
+        )
         return [
             {
                 'estado_anterior': log.estado_anterior,
@@ -83,6 +86,7 @@ class ReservaSerializer(serializers.ModelSerializer):
             }
             for log in logs
         ]
+
 
 class AsistenciaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -100,10 +104,8 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
         fields = ['id_horario', 'laboratorio_nombre', 'tipo_nombre', 'aforo_maximo', 'fecha', 'hora_inicio', 'hora_fin', 'estado', 'capacidad_total', 'es_reservable']
 
     def get_es_reservable(self, obj):
-        ahora = timezone.now()
-        fecha_limite = ahora + timedelta(hours=24)
-        dt_inicio = timezone.make_aware(timezone.datetime.combine(obj.fecha, obj.hora_inicio))
-        return dt_inicio > fecha_limite
+        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
+        return obj.fecha >= manana
 
     def get_laboratorio_nombre(self, obj):
         lab = obj.id_laboratorio

@@ -1,6 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario
 from ..serializers.inventario_serializers import (
@@ -9,18 +10,22 @@ from ..serializers.inventario_serializers import (
 )
 from .. import services
 from ..services import laboratorio_service
+from ..utils.auth import IsAdminOrJefatura
 
 
 class CategoriaActivoListView(generics.ListAPIView):
     """Lista todas las categorías de activos"""
+    permission_classes = [IsAuthenticated]
     queryset = CategoriaActivo.objects.all()
     serializer_class = CategoriaActivoSerializer
 
 
 class TipoActivoListView(generics.ListAPIView):
     """Lista todos los tipos de activos"""
+    permission_classes = [IsAuthenticated]
     queryset = TipoActivo.objects.all()
     serializer_class = TipoActivoSerializer
+
 
 
 class ActivosPorLaboratorioView(generics.ListAPIView):
@@ -28,6 +33,7 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
     Lista todos los activos de un laboratorio.
     Si se provee 'id_horario', marca cuáles están ocupados (reservados).
     """
+    permission_classes = [IsAuthenticated]
     serializer_class = ActivoLaboratorioSerializer
 
     def get_queryset(self):
@@ -78,12 +84,24 @@ class ActivoUpdateView(generics.UpdateAPIView):
     Permite al Admin cambiar el estado de un equipo (Operativo / Mantenimiento / Dado de baja).
     Registra automáticamente en HISTORIAL_MANTENIMIENTO y recalcula habilitación del lab.
     """
+    permission_classes = [IsAdminOrJefatura]
     queryset = ActivoLaboratorio.objects.all()
     serializer_class = ActivoLaboratorioSerializer
     lookup_field = 'id_activo'
 
     def update(self, request, *args, **kwargs):
+        id_laboratorio = kwargs.get('id_laboratorio')
         id_activo = kwargs.get('id_activo')
+
+        # Validar que el activo pertenezca al laboratorio indicado
+        try:
+            activo_check = ActivoLaboratorio.objects.get(pk=id_activo, id_laboratorio=id_laboratorio)
+        except ActivoLaboratorio.DoesNotExist:
+            return Response(
+                {"error": "El activo especificado no pertenece al laboratorio indicado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         nuevo_estado = request.data.get('estado')
         motivo = request.data.get('motivo', 'Cambio de estado manual')
 
@@ -94,8 +112,8 @@ class ActivoUpdateView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Obtener usuario admin del request (fallback al primer admin si no hay auth)
-        usuario_id = request.data.get('registrado_por')
+        # Obtener usuario admin del request de forma segura (con fallback a lo que envíe el cliente)
+        usuario_id = request.user.id_usuario if request.user and hasattr(request.user, 'id_usuario') else request.data.get('registrado_por')
 
         activo, laboratorio, mensajes, error = laboratorio_service.actualizar_estado_activo(
             id_activo, nuevo_estado, motivo, usuario_id
@@ -116,10 +134,17 @@ class ActivoUpdateView(generics.UpdateAPIView):
 
 class HistorialPorActivoView(generics.ListAPIView):
     """Lista el historial de cambios de un activo específico"""
+    permission_classes = [IsAdminOrJefatura]
     serializer_class = HistorialMantenimientoSerializer
 
     def get_queryset(self):
+        id_laboratorio = self.kwargs['id_laboratorio']
         id_activo = self.kwargs['id_activo']
+        
+        # Validar que el activo pertenezca al laboratorio indicado
+        if not ActivoLaboratorio.objects.filter(pk=id_activo, id_laboratorio=id_laboratorio).exists():
+            return HistorialMantenimiento.objects.none()
+            
         return HistorialMantenimiento.objects.filter(
             id_activo=id_activo
         ).order_by('-fecha_cambio')
@@ -127,7 +152,9 @@ class HistorialPorActivoView(generics.ListAPIView):
 
 class HistorialPorLaboratorioView(generics.ListAPIView):
     """Lista todo el historial de mantenimiento de un laboratorio"""
+    permission_classes = [IsAdminOrJefatura]
     serializer_class = HistorialMantenimientoSerializer
+
 
     def get_queryset(self):
         id_lab = self.kwargs['id_laboratorio']

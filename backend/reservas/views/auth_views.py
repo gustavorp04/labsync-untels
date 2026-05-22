@@ -1,8 +1,12 @@
 import logging
+import secrets
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
+from ..models import SesionUsuario, PerfilEstudiante
 
 logger = logging.getLogger('reservas')
 
@@ -25,10 +29,9 @@ def _base_login(request, expected_role):
 
         user_data = UserSerializer(user).data
         
-        # PBI-04: Forzado de datos de carrera para Estudiantes
+        # PBI-04: Datos de carrera dinámicos para Estudiantes
         if expected_role == 'estudiante':
             print("!!! DIAGNOSTICO: PROCESANDO LOGIN DE ESTUDIANTE !!!")
-            from ..models import PerfilEstudiante
             # Búsqueda ultra-robusta del perfil
             try:
                 perfil = PerfilEstudiante.objects.get(id_usuario=user)
@@ -36,30 +39,32 @@ def _base_login(request, expected_role):
                 perfil = PerfilEstudiante.objects.filter(id_usuario_id=user.id_usuario).first()
 
             if perfil:
-                # Obtenemos el ID de carrera de forma segura
-                id_carrera = perfil.id_carrera.id_carrera if hasattr(perfil.id_carrera, 'id_carrera') else perfil.id_carrera_id
-                
-                if id_carrera == 1:
-                    user_data['carrera'] = 'Sistemas'
-                elif id_carrera == 3:
-                    user_data['carrera'] = 'Electronica'
-                else:
-                    user_data['carrera'] = 'Ambiental'
-                
+                # Obtenemos el nombre de la carrera directamente de la BD
+                user_data['carrera'] = perfil.id_carrera.nombre if perfil.id_carrera else 'Desconocida'
                 user_data['ciclo'] = perfil.ciclo
             else:
-                # Si llegamos aquí, el usuario no tiene perfil en la BD
                 user_data['carrera'] = 'Desconocida'
                 user_data['ciclo'] = 0
+
+        # Crear sesión y token de acceso
+        token = secrets.token_hex(32)
+        fecha_expiracion = timezone.now() + timedelta(hours=24)
+        SesionUsuario.objects.create(
+            id_usuario=user,
+            token=token,
+            fecha_expiracion=fecha_expiracion
+        )
 
         logger.info(f"Login exitoso para usuario: {data['usuario']} con rol {expected_role}")
         return Response({
             'mensaje': 'Login exitoso',
+            'token': token,
             **user_data
         })
     except Exception as e:
         logger.error(f"Error en login para {request.data.get('usuario')}: {str(e)}")
         return Response({"error": "Error interno del servidor"}, status=500)
+
 
 @api_view(['POST'])
 def login_estudiante(request):

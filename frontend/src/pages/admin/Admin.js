@@ -252,8 +252,9 @@ function Admin() {
       return;
     }
     try {
-      const adminId = localStorage.getItem('userId');
+      const adminId = localStorage.getItem('userId') || localStorage.getItem('id_usuario');
       await laboratorioService.actualizarEstadoActivo(
+        labSeleccionado.id_laboratorio,
         activoModal.id_activo,
         cambioEstado.estado,
         cambioEstado.motivo,

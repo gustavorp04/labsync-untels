@@ -205,3 +205,10 @@ LOGGING = {
         },
     },
 }
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'reservas.utils.auth.CustomTokenAuthentication',
+    ],
+}
+

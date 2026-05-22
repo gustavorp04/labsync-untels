@@ -1,18 +1,22 @@
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from reservas.models import Laboratorio, ActivoLaboratorio
 from reservas.serializers.laboratorio_serializers import (
     LaboratorioListSerializer, 
     LaboratorioDetailSerializer, 
     ActivoLaboratorioSerializer
 )
+from ..utils.auth import IsAdminOrJefatura
 
 class LaboratorioListView(generics.ListAPIView):
     """Devuelve la lista general de laboratorios (para el Dashboard)"""
+    permission_classes = [IsAuthenticated]
     queryset = Laboratorio.objects.all()
     serializer_class = LaboratorioListSerializer
 
 class LaboratorioDetailView(generics.RetrieveAPIView):
     """Devuelve el detalle de un lab y sus PCs"""
+    permission_classes = [IsAuthenticated]
     queryset = Laboratorio.objects.all()
     serializer_class = LaboratorioDetailSerializer
     lookup_field = 'id_laboratorio'
@@ -22,9 +26,11 @@ from reservas.services import laboratorio_service
 
 class ActivoLaboratorioUpdateView(generics.UpdateAPIView):
     """Permite cambiar el estado de una PC (Operativo/Mantenimiento)"""
+    permission_classes = [IsAdminOrJefatura]
     queryset = ActivoLaboratorio.objects.all()
     serializer_class = ActivoLaboratorioSerializer
     lookup_field = 'id_activo'
+
 
     def update(self, request, *args, **kwargs):
         # Obtenemos el ID de la URL y el nuevo estado del body JSON

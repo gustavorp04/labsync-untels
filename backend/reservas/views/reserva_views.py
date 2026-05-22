@@ -1,4 +1,5 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
@@ -9,147 +10,150 @@ from ..services import reserva_service
 from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle, HistorialReserva
 
 
-@api_view(['POST'])
-def crear_reserva(request):
-    """Endpoint PBI-03: Docente crea una reserva de laboratorio completo."""
-    serializer = CrearReservaSerializer(data=request.data)
-    if not serializer.is_valid():
-        primer_error = list(serializer.errors.values())[0][0]
-        return Response({'error': str(primer_error)}, status=400)
-
-    data = serializer.validated_data
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'error': "Falta el id de usuario (user_id)."}, status=400)
-
-    try:
-        usuario = Usuario.objects.get(pk=user_id)
-    except Usuario.DoesNotExist:
-        return Response({'error': "Usuario no válido."}, status=401)
-
-    if usuario.id_rol.nombre != 'docente':
-        return Response({'error': "Solo los docentes pueden realizar reservas de laboratorios."}, status=403)
-
-    reserva, error = reserva_service.crear_reserva_docente(
-        usuario=usuario,
-        horario=data['horario_obj'],
-        cantidad_alumnos=data['cantidad_alumnos'],
-        acepta_dj=data['acepto_declaracion_jurada'],
-        activos_ids=request.data.get('activos_ids', [])
-    )
-
-    if error:
-        return Response({'error': error}, status=409)
-
-    return Response({
-        'mensaje': 'Reserva creada con éxito.',
-        'reserva_id': reserva.id_reserva
-    }, status=201)
-
-
-@api_view(['POST'])
-def crear_reserva_estudiante(request):
-    """Endpoint PBI-04: Estudiante reserva una máquina específica."""
-    try:
-        reserva_service.purgar_pendientes_vencidos()
-    except Exception as e:
-        print(f"WARN: Error en purgar_pendientes_vencidos en crear_reserva_estudiante: {e}")
-
-    user_id = request.data.get('user_id')
-    id_horario = request.data.get('id_horario')
-    id_activo = request.data.get('id_activo')
-    acepta_dj = request.data.get('acepto_declaracion_jurada', False)
-
-    if not all([user_id, id_horario, id_activo]):
-        return Response({'error': "Faltan campos: user_id, id_horario, id_activo."}, status=400)
-
-    if not acepta_dj:
-        return Response({'error': "Debe aceptar la declaración jurada para reservar."}, status=400)
-
-    try:
-        usuario = Usuario.objects.get(pk=user_id)
-    except Usuario.DoesNotExist:
-        return Response({'error': "Usuario no válido."}, status=401)
-
-    # Verificar penalización activa
-    ahora = timezone.now()
-    penalizacion_activa = Penalizacion.objects.filter(
-        id_usuario=usuario,
-        fecha_fin__gt=ahora
-    ).first()
-    if penalizacion_activa:
-        return Response({
-            'error': f"Tienes una penalización activa hasta {penalizacion_activa.fecha_fin.strftime('%d/%m/%Y')}. No puedes realizar reservas."
-        }, status=403)
-
-    try:
-        reserva, error = reserva_service.crear_reserva_estudiante(
-            usuario=usuario,
-            id_horario=id_horario,
-            id_activo=id_activo,
-            acepta_dj=acepta_dj
-        )
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return Response({'error': f"Error interno: {str(e)}"}, status=500)
-
-    if error:
-        return Response({'error': error}, status=409)
-
-    return Response({
-        'mensaje': 'Reserva de equipo creada con éxito.',
-        'reserva_id': reserva.id_reserva
-    }, status=201)
-
-
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def horarios_por_laboratorio(request, id_laboratorio):
-    """Devuelve los horarios disponibles de un laboratorio específico."""
-    manana = timezone.now().date()
-    horarios = HorarioDisponible.objects.filter(
-        id_laboratorio=id_laboratorio,
-        fecha__gte=manana,
-        estado='Disponible'
-    ).order_by('fecha', 'hora_inicio')
+    """Devuelve los horarios de un laboratorio específico.
+    Si se proporciona el parámetro 'fecha' en la consulta, se filtrará exactamente por esa fecha
+    (mostrando todos los horarios, útil para la vista del administrador).
+    De lo contrario, se devuelven los horarios futuros que estén 'Disponible' (para reserva).
+    """
+    fecha = request.query_params.get('fecha')
+    if fecha:
+        horarios = HorarioDisponible.objects.filter(
+            id_laboratorio=id_laboratorio,
+            fecha=fecha
+        ).order_by('hora_inicio')
+    else:
+        hoy = timezone.localtime(timezone.now()).date()
+        horarios = HorarioDisponible.objects.filter(
+            id_laboratorio=id_laboratorio,
+            fecha__gte=hoy,
+            estado='Disponible'
+        ).order_by('fecha', 'hora_inicio')
+    
     serializer = HorarioDisponibleSerializer(horarios, many=True)
     return Response(serializer.data)
 
 
-@api_view(['GET'])
-def mis_reservas(request):
-    """Devuelve las reservas del usuario indicado por user_id."""
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def mis_reservas(request, id_usuario):
+    """
+    GET: Devuelve las reservas del usuario indicado por id_usuario en la ruta anidada.
+    POST: Crea una reserva para el usuario indicado por id_usuario en la ruta anidada
+          (estudiante o docente según el rol del usuario).
+    """
+    # Validar permisos: el usuario autenticado debe coincidir con el id_usuario de la ruta (o ser admin/jefatura)
+    if str(request.user.id_usuario) != str(id_usuario) and request.user.id_rol.nombre not in ('admin_lab', 'jefatura'):
+        return Response({'error': 'No tienes permiso para acceder a las reservas de este usuario.'}, status=403)
+
     try:
-        reserva_service.purgar_pendientes_vencidos()
-    except Exception as e:
-        print(f"WARN: Error en purgar_pendientes_vencidos en mis_reservas: {e}")
+        usuario = Usuario.objects.get(pk=id_usuario)
+    except Usuario.DoesNotExist:
+        return Response({'error': "Usuario no encontrado."}, status=404)
 
-    user_id = request.query_params.get('user_id')
-    if not user_id:
-        return Response({'error': "Falta user_id."}, status=400)
+    if request.method == 'GET':
+        try:
+            reserva_service.purgar_pendientes_vencidos()
+        except Exception as e:
+            print(f"WARN: Error en purgar_pendientes_vencidos en mis_reservas: {e}")
 
-    from ..serializers.reserva_serializers import ReservaSerializer
-    reservas = Reserva.objects.filter(id_usuario=user_id).order_by('-created_at')
-    serializer = ReservaSerializer(reservas, many=True)
-    return Response(serializer.data)
+        from ..serializers.reserva_serializers import ReservaSerializer
+        reservas = Reserva.objects.filter(id_usuario=id_usuario).order_by('-created_at')
+        serializer = ReservaSerializer(reservas, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        rol = usuario.id_rol.nombre
+        if rol == 'docente':
+            serializer = CrearReservaSerializer(data=request.data)
+            if not serializer.is_valid():
+                primer_error = list(serializer.errors.values())[0][0]
+                return Response({'error': str(primer_error)}, status=400)
+
+            data = serializer.validated_data
+            reserva, error = reserva_service.crear_reserva_docente(
+                usuario=usuario,
+                horario=data['horario_obj'],
+                cantidad_alumnos=data['cantidad_alumnos'],
+                acepta_dj=data['acepto_declaracion_jurada'],
+                activos_ids=request.data.get('activos_ids', [])
+            )
+            if error:
+                return Response({'error': error}, status=409)
+
+            return Response({
+                'mensaje': 'Reserva creada con éxito.',
+                'reserva_id': reserva.id_reserva
+            }, status=201)
+
+        elif rol == 'estudiante':
+            try:
+                reserva_service.purgar_pendientes_vencidos()
+            except Exception as e:
+                print(f"WARN: Error en purgar_pendientes_vencidos en crear_reserva_estudiante: {e}")
+
+            id_horario = request.data.get('id_horario')
+            id_activo = request.data.get('id_activo')
+            acepta_dj = request.data.get('acepto_declaracion_jurada', False)
+
+            if not all([id_horario, id_activo]):
+                return Response({'error': "Faltan campos: id_horario, id_activo."}, status=400)
+
+            if not acepta_dj:
+                return Response({'error': "Debe aceptar la declaración jurada para reservar."}, status=400)
+
+            # Verificar penalización activa
+            ahora = timezone.now()
+            penalizacion_activa = Penalizacion.objects.filter(
+                id_usuario=usuario,
+                fecha_fin__gt=ahora
+            ).first()
+            if penalizacion_activa:
+                return Response({
+                    'error': f"Tienes una penalización activa hasta {penalizacion_activa.fecha_fin.strftime('%d/%m/%Y')}. No puedes realizar reservas."
+                }, status=403)
+
+            try:
+                reserva, error = reserva_service.crear_reserva_estudiante(
+                    usuario=usuario,
+                    id_horario=id_horario,
+                    id_activo=id_activo,
+                    acepta_dj=acepta_dj
+                )
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return Response({'error': f"Error interno: {str(e)}"}, status=500)
+
+            if error:
+                return Response({'error': error}, status=409)
+
+            return Response({
+                'mensaje': 'Reserva de equipo creada con éxito.',
+                'reserva_id': reserva.id_reserva
+            }, status=201)
+        else:
+            return Response({'error': f"El rol '{rol}' no está autorizado para crear reservas."}, status=403)
 
 
 @api_view(['PATCH'])
-def cancelar_reserva(request, id_reserva):
-    """Cancela una reserva existente."""
-    user_id = request.data.get('user_id')
-    
-    if not user_id:
-        return Response({'error': "Falta el id de usuario (user_id)."}, status=400)
+@permission_classes([IsAuthenticated])
+def cancelar_reserva(request, id_usuario, id_reserva):
+    """Cancela una reserva existente a través de la ruta anidada del usuario."""
+    # Validar permisos: el usuario autenticado debe coincidir con el id_usuario de la ruta (o ser admin/jefatura)
+    if str(request.user.id_usuario) != str(id_usuario) and request.user.id_rol.nombre not in ('admin_lab', 'jefatura'):
+        return Response({'error': 'No tienes permiso para cancelar esta reserva.'}, status=403)
 
     try:
         reserva = Reserva.objects.get(pk=id_reserva)
     except Reserva.DoesNotExist:
         return Response({'error': "Reserva no encontrada."}, status=404)
 
-    # Uso de id_usuario_id para evitar carga perezosa y errores de DoesNotExist si el usuario fue borrado (DO_NOTHING)
-    if str(reserva.id_usuario_id) != str(user_id):
-        return Response({'error': "No tienes permiso para cancelar esta reserva."}, status=403)
+    # Validar que la reserva en efecto pertenezca al usuario del path
+    if str(reserva.id_usuario_id) != str(id_usuario):
+        return Response({'error': "La reserva especificada no pertenece al usuario indicado."}, status=400)
 
     if reserva.estado not in ('Programada', 'Pendiente'):
         return Response({'error': f"Solo puedes cancelar reservas en estado Programada o Pendiente. Estado actual: {reserva.estado}"}, status=400)
@@ -172,7 +176,7 @@ def cancelar_reserva(request, id_reserva):
                     horario.estado = 'Disponible'
                 horario.save()
 
-            # PBI-05: Log de la cancelación usando ID directo
+            # Log de la cancelación usando ID directo
             try:
                 HistorialReserva.objects.create(
                     reserva=reserva,
@@ -182,7 +186,7 @@ def cancelar_reserva(request, id_reserva):
                     observacion="Reserva cancelada por el usuario."
                 )
             except Exception as log_err:
-                print(f"WARN: No se pudo crear el historial de reserva (posible tabla faltante): {log_err}")
+                print(f"WARN: No se pudo crear el historial de reserva: {log_err}")
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:
@@ -196,6 +200,7 @@ def cancelar_reserva(request, id_reserva):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def marcar_asistencia(request, id_reserva):
     """PBI-06: Administrador marca asistencia o No-Show."""
     asistio = request.data.get('asistio', False)
@@ -207,7 +212,9 @@ def marcar_asistencia(request, id_reserva):
     estado = 'Completada' if asistio else 'No-show'
     return Response({'mensaje': f'Reserva marcada como {estado}.'})
 
+
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_historial_reservas(request):
     """Devuelve el historial global de cambios de estado de todas las reservas."""
     from ..models import HistorialReserva
@@ -216,5 +223,3 @@ def get_historial_reservas(request):
     historial = HistorialReserva.objects.all().order_by('-fecha_cambio')[:100]
     serializer = HistorialReservaSerializer(historial, many=True)
     return Response(serializer.data)
-
-

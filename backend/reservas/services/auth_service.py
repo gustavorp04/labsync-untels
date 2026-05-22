@@ -1,4 +1,5 @@
 import re
+import hashlib
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils.crypto import get_random_string
 from django.core.mail import EmailMultiAlternatives
@@ -24,13 +25,15 @@ def solicitar_recuperacion_password(email):
     try:
         user = Usuario.objects.get(email=email)
         token = get_random_string(6).upper()
+        token_hashed = hashlib.sha256(token.encode('utf-8')).hexdigest()
         
         # Limpiar antiguos y crear nuevo
         PasswordReset.objects.filter(id_usuario=user).delete()
         PasswordReset.objects.create(
             id_usuario=user,
-            token_hash=token,
-            fecha_expiracion=timezone.now() + timedelta(minutes=15)
+            token_hash=token_hashed,
+            fecha_expiracion=timezone.now() + timedelta(minutes=15),
+            usado=False
         )
         
         enviar_email_reset(email, token)
@@ -60,8 +63,9 @@ def enviar_email_reset(email, token):
 
 def resetear_password(token, password):
     try:
+        token_hashed = hashlib.sha256(token.strip().upper().encode('utf-8')).hexdigest()
         reset_entry = PasswordReset.objects.get(
-            token_hash=token, 
+            token_hash=token_hashed, 
             usado=False, 
             fecha_expiracion__gt=timezone.now()
         )
@@ -77,8 +81,10 @@ def resetear_password(token, password):
         return False, "El código es incorrecto, expiró o ya fue utilizado."
 
 def verificar_token(token):
+    token_hashed = hashlib.sha256(token.strip().upper().encode('utf-8')).hexdigest()
     return PasswordReset.objects.filter(
-        token_hash=token, 
+        token_hash=token_hashed, 
         usado=False, 
         fecha_expiracion__gt=timezone.now()
     ).exists()
+

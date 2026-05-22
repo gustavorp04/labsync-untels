@@ -8,7 +8,10 @@ import "./LabMap.css";
 export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, adminMode = false }) {
   
   const pcs = useMemo(
-    () => activos.filter((a) => a.tipo_activo_nombre === "CPU" || a.tipo_activo_nombre === "Mesa"),
+    () => activos.filter((a) => {
+      const typeName = a.tipo_activo || a.tipo_activo_nombre;
+      return typeName === "CPU" || typeName === "Mesa";
+    }),
     [activos]
   );
 

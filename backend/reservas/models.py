@@ -11,7 +11,7 @@ class ActivoLaboratorio(models.Model):
     updated_at = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'activo_laboratorio'
 
 
@@ -23,7 +23,7 @@ class Asistencia(models.Model):
     asistio = models.BooleanField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'asistencia'
 
 
@@ -33,7 +33,7 @@ class Carrera(models.Model):
     nombre = models.CharField(max_length=100)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'carrera'
 
 
@@ -43,7 +43,7 @@ class CategoriaActivo(models.Model):
     descripcion = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'categoria_activo'
 
 
@@ -52,7 +52,7 @@ class Facultad(models.Model):
     nombre = models.CharField(unique=True, max_length=100)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'facultad'
 
 
@@ -67,7 +67,7 @@ class HorarioDisponible(models.Model):
     estado = models.CharField(max_length=20)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'horario_disponible'
         unique_together = (('id_laboratorio', 'fecha', 'hora_inicio'),)
 
@@ -81,7 +81,7 @@ class Incidencia(models.Model):
     estado_activo_post = models.CharField(max_length=20)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'incidencia'
 
 
@@ -95,7 +95,7 @@ class Laboratorio(models.Model):
     habilitado = models.BooleanField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'laboratorio'
 
 
@@ -106,7 +106,7 @@ class PasswordReset(models.Model):
     usado = models.BooleanField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'password_reset'
 
 
@@ -118,7 +118,7 @@ class Penalizacion(models.Model):
     fecha_fin = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'penalizacion'
 
 
@@ -128,7 +128,7 @@ class PerfilDocente(models.Model):
     departamento = models.CharField(max_length=100)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'perfil_docente'
 
 
@@ -139,7 +139,7 @@ class PerfilEstudiante(models.Model):
     ciclo = models.SmallIntegerField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'perfil_estudiante'
 
 
@@ -154,7 +154,7 @@ class Reserva(models.Model):
     updated_at = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'reserva'
 
 
@@ -164,7 +164,7 @@ class ReservaDetalle(models.Model):
     id_activo = models.ForeignKey(ActivoLaboratorio, models.DO_NOTHING, db_column='id_activo')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'reserva_detalle'
         unique_together = (('id_reserva', 'id_activo'),)
 
@@ -174,7 +174,7 @@ class Rol(models.Model):
     nombre = models.CharField(unique=True, max_length=50)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'rol'
 
 
@@ -185,7 +185,7 @@ class TipoActivo(models.Model):
     descripcion = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'tipo_activo'
 
 
@@ -196,7 +196,7 @@ class TipoLaboratorio(models.Model):
     tipo_equipo_minimo = models.CharField(max_length=20)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'tipo_laboratorio'
 
 
@@ -209,8 +209,12 @@ class Usuario(models.Model):
     codigo_universitario = models.CharField(unique=True, max_length=20)
     created_at = models.DateTimeField()
 
+    @property
+    def is_authenticated(self):
+        return True
+
     class Meta:
-        managed = False
+        managed = True
         db_table = 'usuario'
 
 
@@ -225,7 +229,7 @@ class HistorialMantenimiento(models.Model):
     registrado_por = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='registrado_por')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'historial_mantenimiento'
 
 
@@ -237,8 +241,9 @@ class ConfiguracionSistema(models.Model):
     updated_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'configuracion_sistema'
+
 
 class HistorialReserva(models.Model):
     id_historial = models.AutoField(primary_key=True)
@@ -250,5 +255,17 @@ class HistorialReserva(models.Model):
     observacion = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'historial_reserva'
+
+
+class SesionUsuario(models.Model):
+    id_sesion = models.AutoField(primary_key=True)
+    id_usuario = models.ForeignKey('Usuario', models.CASCADE, db_column='id_usuario')
+    token = models.CharField(max_length=255, unique=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_expiracion = models.DateTimeField()
+
+    class Meta:
+        managed = True
+        db_table = 'sesion_usuario'

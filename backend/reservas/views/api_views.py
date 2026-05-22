@@ -1,5 +1,7 @@
 from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 from reservas.models import Usuario, Laboratorio, Reserva, Incidencia, Asistencia, HorarioDisponible
+from ..utils.auth import IsAdminOrJefatura, IsAdminOrJefaturaOrSelf, IsAdminOrJefaturaOrReadOnly
 
 # Importaciones corregidas apuntando a tus archivos actuales
 from ..serializers.auth_serializers import UsuarioSerializer
@@ -8,14 +10,22 @@ from ..serializers.reserva_serializers import ReservaSerializer, AsistenciaSeria
 from ..serializers.incidencia_serializers import IncidenciaSerializer
 
 class UsuarioViewSet(viewsets.ModelViewSet):
-    queryset = Usuario.objects.all()
+    permission_classes = [IsAdminOrJefaturaOrSelf]
     serializer_class = UsuarioSerializer
 
+    def get_queryset(self):
+        # Solución a N+1 queries en usuarios
+        return Usuario.objects.all().select_related(
+            'id_rol', 'perfildocente', 'perfilestudiante', 'perfilestudiante__id_carrera'
+        )
+
 class LaboratorioViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminOrJefaturaOrReadOnly]
     queryset = Laboratorio.objects.all()
     serializer_class = LaboratorioListSerializer
 
 class ReservaViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     serializer_class = ReservaSerializer
 
     def get_queryset(self):
@@ -26,21 +36,80 @@ class ReservaViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"WARN: Error en purgar_pendientes_vencidos en ReservaViewSet: {e}")
         
-        return Reserva.objects.all().order_by('-created_at')
+        user = self.request.user
+        base_qs = Reserva.objects.all().select_related(
+            'id_usuario', 'id_usuario__id_rol',
+            'id_horario', 'id_horario__id_laboratorio'
+        ).prefetch_related(
+            'reservadetalle_set__id_activo__id_tipo_activo',
+            'historialreserva_set'
+        ).order_by('-created_at')
+
+        if user.id_rol.nombre in ('admin_lab', 'jefatura'):
+            return base_qs
+        return base_qs.filter(id_usuario=user)
+
+    def get_permissions(self):
+        # Para operaciones de detalle, validamos propiedad
+        from rest_framework import permissions
+        class IsOwnerOrAdmin(permissions.BasePermission):
+            def has_object_permission(self, request, view, obj):
+                if request.user.id_rol.nombre in ('admin_lab', 'jefatura'):
+                    return True
+                return obj.id_usuario == request.user
+
+        if self.action in ('retrieve', 'update', 'partial_update', 'destroy'):
+            return [IsAuthenticated(), IsOwnerOrAdmin()]
+        return super().get_permissions()
 
 class IncidenciaViewSet(viewsets.ModelViewSet):
-    queryset = Incidencia.objects.all().order_by('-fecha_reporte')
+    permission_classes = [IsAuthenticated]
     serializer_class = IncidenciaSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        base_qs = Incidencia.objects.all().select_related(
+            'id_detalle', 'id_detalle__id_reserva', 'id_activo', 'id_activo__id_tipo_activo'
+        ).order_by('-fecha_reporte')
+        
+        if user.id_rol.nombre in ('admin_lab', 'jefatura'):
+            return base_qs
+        # Los usuarios normales solo ven las incidencias de sus reservas
+        return base_qs.filter(id_detalle__id_reserva__id_usuario=user)
+
+    def get_permissions(self):
+        # Solo admin o jefatura pueden crear o modificar incidencias directamente mediante este ViewSet
+        if self.action not in ('list', 'retrieve'):
+            return [IsAdminOrJefatura()]
+        return super().get_permissions()
+
 class AsistenciaViewSet(viewsets.ModelViewSet):
-    queryset = Asistencia.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = AsistenciaSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        base_qs = Asistencia.objects.all().select_related('id_reserva', 'id_reserva__id_usuario')
+        if user.id_rol.nombre in ('admin_lab', 'jefatura'):
+            return base_qs
+        return base_qs.filter(id_reserva__id_usuario=user)
+
+    def get_permissions(self):
+        # Solo admin o jefatura pueden crear/modificar asistencias
+        if self.action not in ('list', 'retrieve'):
+            return [IsAdminOrJefatura()]
+        return super().get_permissions()
+
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminOrJefaturaOrReadOnly]
     serializer_class = HorarioDisponibleSerializer
 
     def get_queryset(self):
-        queryset = HorarioDisponible.objects.all().order_by('fecha', 'hora_inicio')
+        # Optimizar N+1 queries con select_related
+        queryset = HorarioDisponible.objects.all().select_related(
+            'id_laboratorio', 'id_laboratorio__id_tipo'
+        ).order_by('fecha', 'hora_inicio')
+        
         id_lab = self.request.query_params.get('id_laboratorio')
         if id_lab:
             queryset = queryset.filter(id_laboratorio=id_lab)

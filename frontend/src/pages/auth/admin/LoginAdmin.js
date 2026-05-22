@@ -25,6 +25,7 @@ const LoginAdmin = () => {
     try {
       const data = await loginUser(username, password, 'admin_lab');
       
+      localStorage.setItem('token', data.token || '');
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('role', data.rol);
       localStorage.setItem('username', data.nombre);

@@ -2,19 +2,21 @@ import api from "./api";
 
 /** PBI-03: Docente crea reserva de aula completa */
 const crearReserva = async (reservaData) => {
-  const res = await api.post(`/reservas/crear/`, reservaData);
+  const userId = reservaData.user_id;
+  const res = await api.post(`/v1/usuarios/${userId}/reservas/`, reservaData);
   return res.data;
 };
 
 /** PBI-04: Estudiante reserva una máquina específica */
 const crearReservaEstudiante = async (data) => {
-  const res = await api.post(`/reservas/crear-estudiante/`, data);
+  const userId = data.user_id;
+  const res = await api.post(`/v1/usuarios/${userId}/reservas/`, data);
   return res.data;
 };
 
-/** Mis reservas filtradas por usuario */
+/** Mis reservas filtradas por usuario usando la ruta anidada RESTful */
 const getMisReservas = async (userId) => {
-  const res = await api.get(`/reservas/mis-reservas/?user_id=${userId}`);
+  const res = await api.get(`/v1/usuarios/${userId}/reservas/`);
   return res.data;
 };
 
@@ -30,15 +32,15 @@ const getReservaById = async (id) => {
   return res.data;
 };
 
-/** Cancelar reserva */
+/** Cancelar reserva usando la ruta anidada RESTful */
 const cancelarReserva = async (idReserva, userId) => {
-  const res = await api.patch(`/reservas/${idReserva}/cancelar/`, { user_id: userId });
+  const res = await api.patch(`/v1/usuarios/${userId}/reservas/${idReserva}/cancelar/`);
   return res.data;
 };
 
 /** Marcar asistencia (admin) */
 const marcarAsistencia = async (idReserva, asistio) => {
-  const res = await api.post(`/reservas/${idReserva}/asistencia/`, { asistio });
+  const res = await api.post(`/v1/reservas/${idReserva}/asistencia/`, { asistio });
   return res.data;
 };
 
@@ -50,19 +52,19 @@ const eliminarReserva = async (id) => {
 
 /** Horarios disponibles por laboratorio (con anticipación mínima de 1 día) */
 const getHorariosPorLab = async (idLab) => {
-  const res = await api.get(`/laboratorios/${idLab}/horarios/`);
+  const res = await api.get(`/v1/laboratorios/${idLab}/horarios/`);
   return res.data;
 };
 
 /** Historial global de cambios de estado de reservas */
 const getHistorialReservas = async () => {
-  const res = await api.get(`/reservas/historial/`);
+  const res = await api.get(`/v1/reservas/historial/`);
   return res.data;
 };
 
 /** Todos los horarios por lab y fecha (con cualquier estado para el admin) */
 const getTodosLosHorariosPorLabYFecha = async (idLab, fecha) => {
-  const res = await api.get(`/v1/horarios/?id_laboratorio=${idLab}&fecha=${fecha}`);
+  const res = await api.get(`/v1/laboratorios/${idLab}/horarios/?fecha=${fecha}`);
   return res.data;
 };
 

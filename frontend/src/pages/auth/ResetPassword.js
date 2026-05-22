@@ -10,6 +10,7 @@ const ResetPassword = () => {
     const navigate = useNavigate();
     const token = searchParams.get('token');
 
+    const [manualToken, setManualToken] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -19,13 +20,24 @@ const ResetPassword = () => {
         e.preventDefault();
         setError('');
 
+        const activeToken = token || manualToken.trim();
+        if (!activeToken) {
+            setError("Por favor ingresa el código de seguridad de 6 dígitos.");
+            return;
+        }
+
         if (password !== confirmPassword) {
             setError("Las contraseñas no coinciden.");
             return;
         }
 
+        if (password.length < 8) {
+            setError("La nueva contraseña debe tener al menos 8 caracteres.");
+            return;
+        }
+
         try {
-            await authService.resetPassword(token, password);
+            await authService.resetPassword(activeToken, password);
             setSuccess("Contraseña actualizada con éxito.");
             setTimeout(() => navigate('/'), 2000);
         } catch (err) {
@@ -48,6 +60,27 @@ const ResetPassword = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="neo-form-group" style={{ gap: '1.25rem' }}>
+                    {!token && (
+                        <div className="neo-form-group">
+                            <label className="neo-label">Código de Seguridad (6 dígitos)</label>
+                            <input
+                                className="neo-input"
+                                type="text"
+                                placeholder="Ej. AB12CD"
+                                value={manualToken}
+                                onChange={(e) => setManualToken(e.target.value)}
+                                maxLength={6}
+                                style={{ 
+                                    textTransform: 'uppercase', 
+                                    textAlign: 'center', 
+                                    letterSpacing: '4px', 
+                                    fontWeight: 'bold',
+                                    fontSize: '1.2rem'
+                                }}
+                            />
+                        </div>
+                    )}
+
                     <div className="neo-form-group">
                         <label className="neo-label">Nueva Contraseña</label>
                         <PasswordInput 

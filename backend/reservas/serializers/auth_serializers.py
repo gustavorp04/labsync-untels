@@ -17,6 +17,17 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id_rol': {'write_only': True}
         }
 
+    def validate(self, data):
+        request = self.context.get('request')
+        if request and request.user:
+            # Si no es admin/jefatura, no puede cambiar su id_rol ni su codigo_universitario
+            if request.user.id_rol.nombre not in ('admin_lab', 'jefatura'):
+                if 'id_rol' in data:
+                    raise serializers.ValidationError({"id_rol": "No tienes permiso para modificar tu rol."})
+                if 'codigo_universitario' in data:
+                    raise serializers.ValidationError({"codigo_universitario": "No tienes permiso para modificar tu código universitario."})
+        return data
+
     def create(self, validated_data):
         from django.contrib.auth.hashers import make_password
         from django.utils import timezone

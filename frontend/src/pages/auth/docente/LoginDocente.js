@@ -25,6 +25,7 @@ const LoginDocente = () => {
     try {
       const data = await loginUser(username, password, 'docente');
       
+      localStorage.setItem('token', data.token || '');
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('role', data.rol);
       localStorage.setItem('username', data.nombre);

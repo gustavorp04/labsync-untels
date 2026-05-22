@@ -14,7 +14,7 @@ router.register(r'horarios', api_views.HorarioDisponibleViewSet, basename='api-h
 
 urlpatterns = [
     # -------------------------------------------------------------------------
-    # AUTH & CUENTAS
+    # AUTH & CUENTAS (Top-level)
     # -------------------------------------------------------------------------
     path('api/auth/estudiante/login/', auth_views.login_estudiante, name='login-estudiante'),
     path('api/auth/docente/login/', auth_views.login_docente, name='login-docente'),
@@ -26,25 +26,28 @@ urlpatterns = [
     path('api/verify-token/', auth_views.verify_token, name='verify-token'),
     
     # -------------------------------------------------------------------------
-    # LABORATORIOS E INVENTARIO (ESPECÍFICOS)
     # -------------------------------------------------------------------------
-    path('api/laboratorios/', laboratorio_views.LaboratorioListView.as_view(), name='laboratorio-list'),
-    path('api/laboratorios/<int:id_laboratorio>/activos/', inventario_views.ActivosPorLaboratorioView.as_view(), name='activos-por-lab'),
-    path('api/laboratorios/<int:id_laboratorio>/historial/', inventario_views.HistorialPorLaboratorioView.as_view(), name='historial-por-lab'),
-    path('api/laboratorios/<int:id_laboratorio>/detalle/', laboratorio_views.LaboratorioDetailView.as_view(), name='laboratorio-detail'),
-    path('api/activos/<int:id_activo>/estado/', inventario_views.ActivoUpdateView.as_view(), name='activo-update-estado'),
-    path('api/activos/<int:id_activo>/historial/', inventario_views.HistorialPorActivoView.as_view(), name='historial-por-activo'),
+    # API V1: LABORATORIOS E INVENTARIO
+    # -------------------------------------------------------------------------
+    path('api/v1/laboratorios/', laboratorio_views.LaboratorioListView.as_view(), name='v1-laboratorio-list'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/', laboratorio_views.LaboratorioDetailView.as_view(), name='v1-laboratorio-detail'),
+
+    # Rutas Anidadas RESTful v1 (Laboratorios)
+    path('api/v1/laboratorios/<int:id_laboratorio>/activos/', inventario_views.ActivosPorLaboratorioView.as_view(), name='v1-activos-por-lab'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/activos/<int:id_activo>/estado/', inventario_views.ActivoUpdateView.as_view(), name='v1-activo-update-estado'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/activos/<int:id_activo>/historial/', inventario_views.HistorialPorActivoView.as_view(), name='v1-historial-por-activo'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/horarios/', reserva_views.horarios_por_laboratorio, name='v1-horarios-por-lab'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/historial/', inventario_views.HistorialPorLaboratorioView.as_view(), name='v1-historial-por-lab'),
+
+    # -------------------------------------------------------------------------
+    # API V1: RESERVAS
+    # -------------------------------------------------------------------------
+    path('api/v1/reservas/<int:id_reserva>/asistencia/', reserva_views.marcar_asistencia, name='v1-marcar-asistencia'),
+    path('api/v1/reservas/historial/', reserva_views.get_historial_reservas, name='v1-historial-reservas'),
     
-    # -------------------------------------------------------------------------
-    # RESERVAS
-    # -------------------------------------------------------------------------
-    path('api/reservas/crear/', reserva_views.crear_reserva, name='crear-reserva'),
-    path('api/reservas/crear-estudiante/', reserva_views.crear_reserva_estudiante, name='crear-reserva-estudiante'),
-    path('api/reservas/mis-reservas/', reserva_views.mis_reservas, name='mis-reservas'),
-    path('api/reservas/<int:id_reserva>/cancelar/', reserva_views.cancelar_reserva, name='cancelar-reserva'),
-    path('api/reservas/<int:id_reserva>/asistencia/', reserva_views.marcar_asistencia, name='marcar-asistencia'),
-    path('api/reservas/historial/', reserva_views.get_historial_reservas, name='historial-reservas'),
-    path('api/laboratorios/<int:id_laboratorio>/horarios/', reserva_views.horarios_por_laboratorio, name='horarios-por-lab'),
+    # Rutas Anidadas RESTful v1 (Usuarios)
+    path('api/v1/usuarios/<int:id_usuario>/reservas/', reserva_views.mis_reservas, name='v1-mis-reservas'),
+    path('api/v1/usuarios/<int:id_usuario>/reservas/<int:id_reserva>/cancelar/', reserva_views.cancelar_reserva, name='v1-cancelar-reserva'),
 
     # -------------------------------------------------------------------------
     # SISTEMA
@@ -53,8 +56,7 @@ urlpatterns = [
     path('api/admin/run-seed/', system_views.run_seed_emergency, name='run-seed-emergency'),
 
     # -------------------------------------------------------------------------
-    # API V1 (RUTAS AUTOMÁTICAS)
+    # API V1 (RUTAS AUTOMÁTICAS DEL ROUTER)
     # -------------------------------------------------------------------------
-    # Aquí es donde tu compañero consumirá Reservas, Incidencias, etc.
     path('api/v1/', include(router.urls)),
 ]

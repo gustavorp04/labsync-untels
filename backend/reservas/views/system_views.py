@@ -33,6 +33,10 @@ def run_seed_emergency(request):
     """
     Ruta de emergencia para ejecutar el seed y corregir el esquema desde el navegador.
     """
+    from django.conf import settings
+    if not settings.DEBUG:
+        return Response({"status": "forbidden", "message": "Acción no permitida en producción"}, status=403)
+
     from seed import main as run_seed
     try:
         from fix_and_inject import main as run_fix

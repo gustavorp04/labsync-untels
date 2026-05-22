@@ -18,13 +18,21 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
         if horario_db.estado != 'Disponible':
             return None, "Este horario ya fue reservado o ha alcanzado su capacidad máxima."
 
-        # PBI-03: Anticipación de 24 horas para docentes también
-        manana = timezone.now().date() + timedelta(days=1)
+        # PBI-03: Anticipación de 24 horas usando hora local de Perú
+        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
         if horario_db.fecha < manana:
             return None, "Las reservas deben hacerse con al menos 24 horas de anticipación."
 
-        if Reserva.objects.filter(id_usuario=usuario, id_horario=horario_db, estado='Programada').exists():
-            return None, "Ya tienes una reserva para este horario."
+        # Prevenir doble reserva en el mismo bloque temporal en cualquier laboratorio
+        coincidencias = Reserva.objects.filter(
+            id_usuario=usuario,
+            estado='Programada',
+            id_horario__fecha=horario_db.fecha,
+            id_horario__hora_inicio=horario_db.hora_inicio,
+            id_horario__hora_fin=horario_db.hora_fin
+        )
+        if coincidencias.exists():
+            return None, "Ya tienes una reserva programada en este mismo bloque horario."
 
         # PBI-06: Si hay alumnos en 'Pendiente', el docente tiene prioridad absoluta.
         # Se cancelan las reservas de alumnos para dar paso al docente.
@@ -87,12 +95,21 @@ def crear_reserva_estudiante(usuario, id_horario, id_activo, acepta_dj):
         if activo.estado != 'Operativo':
             return None, "El equipo seleccionado no está operativo."
 
-        manana = timezone.now().date() + timedelta(days=1)
+        # Anticipación de 24 horas usando hora local de Perú
+        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
         if horario_db.fecha < manana:
             return None, "La reserva debe hacerse con al menos 1 día de anticipación."
 
-        if Reserva.objects.filter(id_usuario=usuario, id_horario=horario_db, estado__in=['Programada', 'Pendiente']).exists():
-            return None, "Ya tienes una reserva para este horario."
+        # Prevenir doble reserva en el mismo bloque temporal en cualquier laboratorio
+        coincidencias = Reserva.objects.filter(
+            id_usuario=usuario,
+            estado__in=['Programada', 'Pendiente'],
+            id_horario__fecha=horario_db.fecha,
+            id_horario__hora_inicio=horario_db.hora_inicio,
+            id_horario__hora_fin=horario_db.hora_fin
+        )
+        if coincidencias.exists():
+            return None, "Ya tienes una reserva programada o pendiente en este mismo bloque horario."
 
         if ReservaDetalle.objects.filter(id_activo=activo, id_reserva__id_horario=horario_db, id_reserva__estado__in=['Programada', 'Pendiente']).exists():
             return None, "El equipo ya está reservado para este horario."
@@ -102,6 +119,10 @@ def crear_reserva_estudiante(usuario, id_horario, id_activo, acepta_dj):
         total_interesados = Reserva.objects.filter(id_horario=horario_db, estado__in=['Programada', 'Pendiente']).aggregate(total=models.Sum('cantidad_alumnos'))['total'] or 0
         nuevo_total = total_interesados + 1
         
+        # Validación de aforo preventivo
+        if nuevo_total > horario_db.capacidad_total:
+            return None, "El laboratorio ha alcanzado su capacidad máxima para este horario."
+
         # Se activa si hay docente O si llegamos a 10 alumnos
         estado_inicial = 'Pendiente'
         if docente_presente or nuevo_total >= 10:
