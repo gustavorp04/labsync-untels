@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'categoria_activo',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'configuracion_sistema',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'historial_mantenimiento',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'historial_reserva',
-                'managed': False,
+                'managed': True,
             },
         ),
     ]

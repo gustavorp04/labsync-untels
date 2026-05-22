@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'activo_laboratorio',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'asistencia',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'carrera',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -57,7 +57,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'facultad',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -73,7 +73,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'horario_disponible',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -86,7 +86,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'incidencia',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -100,7 +100,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'laboratorio',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -113,7 +113,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'password_reset',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -125,7 +125,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'penalizacion',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -136,7 +136,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'perfil_docente',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -147,7 +147,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'perfil_estudiante',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -162,7 +162,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'reserva',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -172,7 +172,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'reserva_detalle',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -183,7 +183,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'rol',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -194,7 +194,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'tipo_activo',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -207,7 +207,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'tipo_laboratorio',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -222,7 +222,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'usuario',
-                'managed': False,
+                'managed': True,
             },
         ),
     ]

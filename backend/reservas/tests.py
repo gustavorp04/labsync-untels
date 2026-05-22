@@ -13,7 +13,7 @@ class LaboratorioAPITests(TestCase):
         mock_get_queryset.return_value = []
         
         # Hacemos la petición a la URL
-        url = reverse('laboratorio-list')
+        url = reverse('v1-laboratorio-list')
         response = self.client.get(url)
         
         # Validamos que el servidor responda con Éxito (Estado HTTP 200 OK)
