@@ -161,3 +161,39 @@ class HistorialPorLaboratorioView(generics.ListAPIView):
         return HistorialMantenimiento.objects.filter(
             id_activo__id_laboratorio=id_lab
         ).select_related('id_activo', 'registrado_por').order_by('-fecha_cambio')
+
+
+# =============================================================================
+# PBI-12 — Endpoint para inhabilitar laboratorio manualmente
+# =============================================================================
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework import status
+from ..services.laboratorio_service import inhabilitar_laboratorio
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrJefatura])
+def inhabilitar_laboratorio_view(request, id_laboratorio):
+    """
+    PBI-12: Inhabilita un laboratorio, cancela reservas futuras y notifica afectados.
+    Body: { "motivo": "Descripción del motivo" }
+    """
+    motivo = request.data.get('motivo', 'Inhabilitación manual por administrador.')
+    if not motivo.strip():
+        return Response({'error': 'Debe indicar el motivo de inhabilitación.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    laboratorio, notificados, error = inhabilitar_laboratorio(
+        id_laboratorio=id_laboratorio,
+        motivo=motivo,
+        usuario_id=request.data.get('usuario_id')
+    )
+
+    if error:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        'mensaje': f'Laboratorio "{laboratorio.nombre}" inhabilitado correctamente.',
+        'reservas_canceladas': len(notificados),
+        'usuarios_notificados': notificados
+    }, status=status.HTTP_200_OK)

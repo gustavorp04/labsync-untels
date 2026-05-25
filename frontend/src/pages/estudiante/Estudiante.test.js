@@ -121,35 +121,21 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     userEvent.click(screen.getByRole('button', { name: /Reservar/i }));
 
     // Paso 1: seleccionar laboratorio
-    await waitFor(() =>
-      expect(screen.getByText('Lab Cómputo A1')).toBeInTheDocument()
-    );
-    userEvent.click(screen.getByText('Lab Cómputo A1'));
+    userEvent.click(await screen.findByText('Lab Cómputo A1'));
 
     // Paso 2: seleccionar horario disponible
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /08:00/i })).toBeInTheDocument()
-    );
-    userEvent.click(screen.getByRole('button', { name: /08:00/i }));
+    userEvent.click(await screen.findByRole('button', { name: /08:00/i }));
 
     // Paso 3: mapa de equipos — seleccionar la PC
-    await waitFor(() =>
-      expect(screen.getByTestId('equipo-55')).toBeInTheDocument()
-    );
-    userEvent.click(screen.getByTestId('equipo-55'));
+    userEvent.click(await screen.findByTestId('equipo-55'));
 
     // Esperar que el botón "Continuar" quede habilitado y avanzar
-    const btnContinuar = await waitFor(() => {
-      const btn = screen.getByRole('button', { name: /Continuar/i });
-      expect(btn).not.toBeDisabled();
-      return btn;
-    });
+    const btnContinuar = await screen.findByRole('button', { name: /Continuar/i });
+    expect(btnContinuar).not.toBeDisabled();
     userEvent.click(btnContinuar);
 
     // Paso 4: aceptar declaración jurada y confirmar
-    await waitFor(() =>
-      expect(screen.getByText(/Confirmar Reserva/i)).toBeInTheDocument()
-    );
+    await screen.findByText(/Confirmar Reserva/i);
     userEvent.click(screen.getByRole('checkbox'));
 
     const btnConfirmar = screen.getByRole('button', { name: /Confirmar y Finalizar/i });
@@ -167,9 +153,7 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     );
 
     // Toast de confirmación debe aparecer
-    await waitFor(() =>
-      expect(screen.getByText(/Reserva registrada/i)).toBeInTheDocument()
-    );
+    await screen.findByText(/Reserva registrada/i);
   });
 
   // ── Test 2 ─────────────────────────────────────────────────────────────────
@@ -183,9 +167,7 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     userEvent.click(screen.getByRole('button', { name: /Mis Reservas/i }));
 
     // Esperar que aparezca la reserva cargada
-    await waitFor(() =>
-      expect(screen.getByText('Lab Cómputo A1')).toBeInTheDocument()
-    );
+    await screen.findByText('Lab Cómputo A1');
 
     // Disparar cancelación
     userEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
@@ -196,10 +178,6 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     );
 
     // Toast de éxito debe aparecer
-    await waitFor(() =>
-      expect(
-        screen.getByText(/Reserva cancelada correctamente/i)
-      ).toBeInTheDocument()
-    );
+    await screen.findByText(/Reserva cancelada correctamente/i);
   });
 });
