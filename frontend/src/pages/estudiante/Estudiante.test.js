@@ -1,0 +1,205 @@
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import Estudiante from './Estudiante';
+import laboratorioService from '../../services/laboratorioService';
+import reservaService from '../../services/reservaService';
+
+// ─── Mocks de módulos ────────────────────────────────────────────────────────
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+}));
+
+jest.mock('../../services/laboratorioService');
+jest.mock('../../services/reservaService');
+
+// ThemeToggle usa CSS variables que no existen en jsdom
+jest.mock('../../components/ThemeToggle', () => () => null);
+
+// LabMap simplificado: renderiza un botón por activo para que los tests puedan
+// seleccionar equipos sin depender del layout SVG real
+jest.mock('../../components/LabMap', () => ({ activos = [], onSelect }) => (
+  <div data-testid="lab-map">
+    {activos.map((a) => (
+      <button
+        key={a.id_activo}
+        data-testid={`equipo-${a.id_activo}`}
+        onClick={() => onSelect(a)}
+      >
+        {a.codigo_patrimonio || a.num_serie}
+      </button>
+    ))}
+  </div>
+));
+
+// ─── Fixtures ────────────────────────────────────────────────────────────────
+
+const LAB = {
+  id_laboratorio: 1,
+  nombre: 'Lab Cómputo A1',
+  codigo_patrimonio: 'A1-1',
+  tipo_nombre: 'computo',
+  equipos_operativos: 10,
+  aforo_maximo: 12,
+};
+
+const HORARIO = {
+  id_horario: 100,
+  fecha: '2026-06-10',
+  hora_inicio: '08:00:00',
+  hora_fin: '10:00:00',
+  es_reservable: true,
+};
+
+const ACTIVO = {
+  id_activo: 55,
+  tipo_activo: 'CPU',
+  tipo_activo_nombre: 'CPU',
+  codigo_patrimonio: 'CP-055',
+  num_serie: 'SN-A1-1-01',
+  estado: 'Operativo',
+  reservado: false,
+  estado_reserva: null,
+};
+
+const RESERVA_PROGRAMADA = {
+  id_reserva: 200,
+  laboratorio_nombre: 'Lab Cómputo A1',
+  fecha_reserva: '2026-06-10',
+  hora_inicio: '08:00:00',
+  hora_fin: '10:00:00',
+  estado: 'Programada',
+};
+
+// ─── Helper ──────────────────────────────────────────────────────────────────
+
+function renderEstudiante() {
+  return render(
+    <MemoryRouter>
+      <Estudiante />
+    </MemoryRouter>
+  );
+}
+
+// ─── Suite ───────────────────────────────────────────────────────────────────
+
+describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Simular sesión de estudiante de Sistemas (filtra labs tipo "computo")
+    localStorage.setItem('userId', '42');
+    localStorage.setItem('nombre', 'Carlos Pérez');
+    localStorage.setItem('carrera', 'Ingeniería de Sistemas');
+    localStorage.setItem('ciclo', '5');
+
+    // Defaults de servicios para cada test
+    laboratorioService.getLaboratorios.mockResolvedValue([LAB]);
+    laboratorioService.getActivosPorLab.mockResolvedValue([ACTIVO]);
+    reservaService.getHorariosPorLab.mockResolvedValue([HORARIO]);
+    reservaService.getMisReservas.mockResolvedValue([]);
+    reservaService.crearReservaEstudiante.mockResolvedValue({ id_reserva: 201 });
+    reservaService.cancelarReserva.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    jest.restoreAllMocks();
+  });
+
+  // ── Test 1 ─────────────────────────────────────────────────────────────────
+  test('(1) estudiante crea una reserva válida recorriendo los 4 pasos del wizard', async () => {
+    renderEstudiante();
+
+    // Abrir wizard de reserva desde la barra lateral
+    userEvent.click(screen.getByRole('button', { name: /Reservar/i }));
+
+    // Paso 1: seleccionar laboratorio
+    await waitFor(() =>
+      expect(screen.getByText('Lab Cómputo A1')).toBeInTheDocument()
+    );
+    userEvent.click(screen.getByText('Lab Cómputo A1'));
+
+    // Paso 2: seleccionar horario disponible
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /08:00/i })).toBeInTheDocument()
+    );
+    userEvent.click(screen.getByRole('button', { name: /08:00/i }));
+
+    // Paso 3: mapa de equipos — seleccionar la PC
+    await waitFor(() =>
+      expect(screen.getByTestId('equipo-55')).toBeInTheDocument()
+    );
+    userEvent.click(screen.getByTestId('equipo-55'));
+
+    // Esperar que el botón "Continuar" quede habilitado y avanzar
+    const btnContinuar = await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /Continuar/i });
+      expect(btn).not.toBeDisabled();
+      return btn;
+    });
+    userEvent.click(btnContinuar);
+
+    // Paso 4: aceptar declaración jurada y confirmar
+    await waitFor(() =>
+      expect(screen.getByText(/Confirmar Reserva/i)).toBeInTheDocument()
+    );
+    userEvent.click(screen.getByRole('checkbox'));
+
+    const btnConfirmar = screen.getByRole('button', { name: /Confirmar y Finalizar/i });
+    expect(btnConfirmar).not.toBeDisabled();
+    userEvent.click(btnConfirmar);
+
+    // El servicio debe recibir el payload completo del wizard
+    await waitFor(() =>
+      expect(reservaService.crearReservaEstudiante).toHaveBeenCalledWith({
+        user_id: '42',
+        id_horario: 100,
+        id_activo: 55,
+        acepto_declaracion_jurada: true,
+      })
+    );
+
+    // Toast de confirmación debe aparecer
+    await waitFor(() =>
+      expect(screen.getByText(/Reserva registrada/i)).toBeInTheDocument()
+    );
+  });
+
+  // ── Test 2 ─────────────────────────────────────────────────────────────────
+  test('(2) estudiante cancela una reserva existente exitosamente', async () => {
+    reservaService.getMisReservas.mockResolvedValue([RESERVA_PROGRAMADA]);
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderEstudiante();
+
+    // Navegar a "Mis Reservas"
+    userEvent.click(screen.getByRole('button', { name: /Mis Reservas/i }));
+
+    // Esperar que aparezca la reserva cargada
+    await waitFor(() =>
+      expect(screen.getByText('Lab Cómputo A1')).toBeInTheDocument()
+    );
+
+    // Disparar cancelación
+    userEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
+
+    // El servicio debe llamarse con el id de reserva y el userId de sesión
+    await waitFor(() =>
+      expect(reservaService.cancelarReserva).toHaveBeenCalledWith(200, '42')
+    );
+
+    // Toast de éxito debe aparecer
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Reserva cancelada correctamente/i)
+      ).toBeInTheDocument()
+    );
+  });
+});
