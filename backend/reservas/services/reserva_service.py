@@ -235,15 +235,16 @@ def purgar_pendientes_vencidos():
     )
     
     count = 0
+    emails_quorum = []
     with transaction.atomic():
         for r in pendientes:
             # Solo purgamos si para ese horario NO se llegó a 10
             total_horario = Reserva.objects.filter(id_horario=r.id_horario, estado__in=['Programada', 'Pendiente']).aggregate(total=models.Sum('cantidad_alumnos'))['total'] or 0
-            
+
             if total_horario < 10:
                 r.estado = 'Cancelada'
                 r.save()
-                
+
                 # Liberar capacidad en el horario
                 h = r.id_horario
                 h.capacidad_ocupada = max(0, h.capacidad_ocupada - 1)
@@ -258,5 +259,25 @@ def purgar_pendientes_vencidos():
                     )
                 except:
                     pass
+
+                usuario = r.id_usuario
+                if usuario.id_rol.nombre == 'estudiante':
+                    emails_quorum.append({
+                        'email': usuario.email,
+                        'nombre_usuario': usuario.nombre,
+                        'nombre_lab': h.id_laboratorio.nombre,
+                        'fecha_reserva': h.fecha.strftime('%d/%m/%Y'),
+                    })
+
                 count += 1
+
+    from .laboratorio_service import enviar_email_quorum_no_alcanzado
+    for email_data in emails_quorum:
+        enviar_email_quorum_no_alcanzado(
+            email=email_data['email'],
+            nombre_usuario=email_data['nombre_usuario'],
+            nombre_lab=email_data['nombre_lab'],
+            fecha_reserva=email_data['fecha_reserva'],
+        )
+
     return count

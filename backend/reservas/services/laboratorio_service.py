@@ -69,6 +69,8 @@ def _cancelar_y_notificar_reservas_futuras(laboratorio, motivo):
 def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None):
     """Actualiza equipo, recalcula lab (PBI-02) y reasigna (PBI-04). Propaga PBI-12 si el lab se inhabilita."""
     emails_a_enviar = []
+    emails_pc_reasignada = []
+    emails_pc_cancelada = []
     mensajes = []
     success = False
     error_msg = None
@@ -152,6 +154,16 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                             d.id_activo = libre
                             d.save()
                             mensajes.append(f"Reserva {horario.fecha} reasignada a {libre.num_serie}")
+                            usuario = d.id_reserva.id_usuario
+                            if usuario.id_rol.nombre == 'estudiante':
+                                emails_pc_reasignada.append({
+                                    'email': usuario.email,
+                                    'nombre_usuario': usuario.nombre,
+                                    'num_serie_original': activo.num_serie,
+                                    'codigo_patrimonio_original': activo.codigo_patrimonio,
+                                    'codigo_patrimonio_nuevo': libre.codigo_patrimonio,
+                                    'fecha_reserva': horario.fecha.strftime('%d/%m/%Y'),
+                                })
                         else:
                             # Si no hay equipo libre de reemplazo, cancelamos la reserva de forma controlada
                             reserva = d.id_reserva
@@ -179,6 +191,14 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                                 horario.save()
 
                             mensajes.append(f"Reserva {horario.fecha} cancelada por falta de equipos operativos libres.")
+                            usuario = reserva.id_usuario
+                            if usuario.id_rol.nombre == 'estudiante':
+                                emails_pc_cancelada.append({
+                                    'email': usuario.email,
+                                    'nombre_usuario': usuario.nombre,
+                                    'num_serie_original': activo.num_serie,
+                                    'fecha_reserva': horario.fecha.strftime('%d/%m/%Y') if horario else 'Desconocida',
+                                })
 
                 success = True
         except Exception as e:
@@ -195,6 +215,24 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
             nombre_lab=email_data['nombre_lab'],
             fecha_reserva=email_data['fecha_reserva'],
             motivo=email_data['motivo']
+        )
+
+    for email_data in emails_pc_reasignada:
+        enviar_email_pc_reasignada(
+            email=email_data['email'],
+            nombre_usuario=email_data['nombre_usuario'],
+            num_serie_original=email_data['num_serie_original'],
+            codigo_patrimonio_original=email_data['codigo_patrimonio_original'],
+            codigo_patrimonio_nuevo=email_data['codigo_patrimonio_nuevo'],
+            fecha_reserva=email_data['fecha_reserva'],
+        )
+
+    for email_data in emails_pc_cancelada:
+        enviar_email_reserva_cancelada_sin_reemplazo(
+            email=email_data['email'],
+            nombre_usuario=email_data['nombre_usuario'],
+            num_serie_original=email_data['num_serie_original'],
+            fecha_reserva=email_data['fecha_reserva'],
         )
 
     # Si el estado es el mismo, el laboratorio de retorno se toma del activo
@@ -240,6 +278,134 @@ def enviar_email_inhabilitacion(email, nombre_usuario, nombre_lab, fecha_reserva
             </tr>
         </table>
         <p>Por favor, realiza una nueva reserva en otro laboratorio disponible.</p>
+        <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
+    </div>
+    """
+    try:
+        msg = EmailMultiAlternatives(subject, text_content, settings.EMAIL_HOST_USER, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+    except Exception as e:
+        print(f"WARN: No se pudo enviar email a {email}: {e}")
+
+
+def enviar_email_pc_reasignada(email, nombre_usuario, num_serie_original, codigo_patrimonio_original, codigo_patrimonio_nuevo, fecha_reserva):
+    """Envía email al titular cuando su PC fue inhabilitada y se le asignó una PC de reemplazo automáticamente."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+
+    subject = "LabSync — Tu PC fue reemplazada automáticamente"
+    text_content = (
+        f"Hola {nombre_usuario},\n\n"
+        f"Tu PC original (N/S: {num_serie_original} / Patrimonio: {codigo_patrimonio_original}) "
+        f"fue inhabilitada para tu reserva del {fecha_reserva}. "
+        f"Se te ha asignado automáticamente una PC de reemplazo (Patrimonio: {codigo_patrimonio_nuevo}).\n\n"
+        f"Tu reserva sigue vigente. No necesitas realizar ninguna acción adicional.\n\nEquipo LabSync UNTELS"
+    )
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;
+                border: 1px solid #ddd; border-radius: 10px; padding: 24px;">
+        <h2 style="color: #f57c00;">&#x1F504; PC Reemplazada — Reserva Actualizada</h2>
+        <p>Hola <strong>{nombre_usuario}</strong>,</p>
+        <p>La PC asignada a tu reserva del <strong>{fecha_reserva}</strong> fue <strong>inhabilitada</strong>.
+        Se te ha asignado automáticamente una PC de reemplazo.</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>PC original (N/S)</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{num_serie_original}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>PC original (Patrimonio)</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{codigo_patrimonio_original}</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>PC asignada (Patrimonio)</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;"><strong style="color:#2e7d32;">{codigo_patrimonio_nuevo}</strong></td>
+            </tr>
+        </table>
+        <p>Tu reserva sigue vigente. No necesitas realizar ninguna acción adicional.</p>
+        <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
+    </div>
+    """
+    try:
+        msg = EmailMultiAlternatives(subject, text_content, settings.EMAIL_HOST_USER, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+    except Exception as e:
+        print(f"WARN: No se pudo enviar email a {email}: {e}")
+
+
+def enviar_email_reserva_cancelada_sin_reemplazo(email, nombre_usuario, num_serie_original, fecha_reserva):
+    """Envía email al titular cuando su reserva fue cancelada porque su PC entró en mantenimiento sin equipo de reemplazo."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+
+    subject = "LabSync — Tu reserva fue cancelada por mantenimiento de equipo"
+    text_content = (
+        f"Hola {nombre_usuario},\n\n"
+        f"Tu reserva del {fecha_reserva} fue cancelada automáticamente porque la PC asignada "
+        f"(N/S: {num_serie_original}) entró en mantenimiento y no hay equipos de reemplazo disponibles.\n\n"
+        f"Puedes ingresar al sistema para realizar una nueva reserva.\n\nEquipo LabSync UNTELS"
+    )
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;
+                border: 1px solid #ddd; border-radius: 10px; padding: 24px;">
+        <h2 style="color: #d32f2f;">&#x26A0;&#xFE0F; Reserva Cancelada — Equipo en Mantenimiento</h2>
+        <p>Hola <strong>{nombre_usuario}</strong>,</p>
+        <p>Tu reserva fue <strong>cancelada automáticamente</strong> porque la PC asignada
+        entró en mantenimiento y no hay equipos de reemplazo disponibles.</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>PC afectada (N/S)</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{num_serie_original}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Fecha reservada</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{fecha_reserva}</td>
+            </tr>
+        </table>
+        <p>Puedes ingresar al sistema para realizar una nueva reserva en otro horario disponible.</p>
+        <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
+    </div>
+    """
+    try:
+        msg = EmailMultiAlternatives(subject, text_content, settings.EMAIL_HOST_USER, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+    except Exception as e:
+        print(f"WARN: No se pudo enviar email a {email}: {e}")
+
+
+def enviar_email_quorum_no_alcanzado(email, nombre_usuario, nombre_lab, fecha_reserva):
+    """Envía email al titular cuando su reserva fue cancelada por no alcanzar el quórum mínimo de 10 alumnos."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+
+    subject = f"LabSync — Tu reserva en {nombre_lab} no se concretó"
+    text_content = (
+        f"Hola {nombre_usuario},\n\n"
+        f"Tu reserva del {fecha_reserva} en {nombre_lab} no se concretó porque no se alcanzó "
+        f"el mínimo de 10 alumnos requerido para abrir el laboratorio.\n\n"
+        f"Puedes ingresar al sistema para realizar una nueva reserva.\n\nEquipo LabSync UNTELS"
+    )
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;
+                border: 1px solid #ddd; border-radius: 10px; padding: 24px;">
+        <h2 style="color: #1565c0;">&#x2139;&#xFE0F; Reserva No Concretada — Quórum Insuficiente</h2>
+        <p>Hola <strong>{nombre_usuario}</strong>,</p>
+        <p>Tu reserva no se concretó porque no se alcanzó el <strong>mínimo de 10 alumnos</strong>
+        requerido para abrir el laboratorio.</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Laboratorio</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{nombre_lab}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Fecha reservada</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{fecha_reserva}</td>
+            </tr>
+        </table>
+        <p>Puedes ingresar al sistema para realizar una nueva reserva en otro horario disponible.</p>
         <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
     </div>
     """
