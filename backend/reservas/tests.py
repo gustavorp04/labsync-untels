@@ -1,20 +1,32 @@
+# pyrefly: ignore [missing-import]
 from django.test import TestCase
+# pyrefly: ignore [missing-import]
 from django.urls import reverse
 from unittest.mock import patch
+# pyrefly: ignore [missing-import]
+from django.contrib.auth.models import User
+# pyrefly: ignore [missing-import]
+from rest_framework.test import APIClient
+# pyrefly: ignore [missing-import]
+from rest_framework.authtoken.models import Token
+
 
 class LaboratorioAPITests(TestCase):
-    
-    # El @patch intercepta la consulta a la base de datos antes de que suceda
+
+    def setUp(self):
+        """Crear usuario y token de prueba para autenticación"""
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+
     @patch('reservas.views.laboratorio_views.LaboratorioListView.get_queryset')
     def test_get_laboratorios_list(self, mock_get_queryset):
         """Prueba que el endpoint de laboratorios responda 200 usando Mocking"""
-        
-        # Le decimos a la prueba: "Finge que la BD nos devolvió una lista vacía"
         mock_get_queryset.return_value = []
-        
-        # Hacemos la petición a la URL
         url = reverse('v1-laboratorio-list')
         response = self.client.get(url)
-        
-        # Validamos que el servidor responda con Éxito (Estado HTTP 200 OK)
         self.assertEqual(response.status_code, 200)
