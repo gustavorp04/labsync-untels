@@ -184,6 +184,7 @@
   padding: 20px; background: var(--bg-input);
   border: 1.5px solid var(--border-color);
   border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.2s;
+  color: var(--text-main);
 }
 .est-lab-card:hover:not(.disabled) { border-color: #10b981; transform: translateY(-2px); }
 .est-lab-card.disabled { opacity: 0.45; cursor: not-allowed; }
@@ -205,6 +206,7 @@
   padding: 8px 14px; border-radius: 8px;
   border: 1.5px solid var(--border-color);
   background: var(--bg-card); cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--text-main);
   transition: all 0.15s;
 }
 .est-cal-slot svg { width: 13px; height: 13px; }
@@ -234,6 +236,7 @@
   background: var(--bg-input);
   border: 2px solid var(--border-color);
   border-radius: 10px; cursor: pointer; transition: all 0.15s;
+  color: var(--text-main);
   position: relative;
 }
 .est-seat:hover:not(:disabled) { transform: scale(1.06); border-color: #10b981; }

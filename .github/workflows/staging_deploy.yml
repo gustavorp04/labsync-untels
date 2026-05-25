@@ -2,11 +2,11 @@ name: Continuous Deployment to Staging
 
 on:
   push:
-    branches: [ main ] # Se activa automáticamente al hacer merge a la rama principal
+    branches: [ main ]
 
 jobs:
   # -------------------------------------------------------------------------
-  # REQUISITO: Ejecutar pruebas obligatoriamente antes de desplegar
+  # PASO 1: Pruebas con BD local aislada (no usa Supabase)
   # -------------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
@@ -27,43 +27,93 @@ jobs:
           --health-retries 5
 
     env:
-      # Inyectamos secretos como variables de entorno para que los tests pasen
-      DB_PASS: ${{ secrets.DB_PASS }} 
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_HOST: localhost
+      DB_PORT: 5432
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python 3.12
+
+      - name: Configurar Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' # Versión definida en la arquitectura del producto
-          
-      - name: Install Dependencies
-        run: |
-          pip install -r backend/requirements.txt
-          
-      - name: Run Unit Tests
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r backend/requirements.txt
+
+      - name: Ejecutar pruebas
         run: |
           cd backend
-          python manage.py test # Valida que el código sea funcional antes de Staging
+          python manage.py test --verbosity=2
 
   # -------------------------------------------------------------------------
-  # ACCIÓN CD: Despliegue automático (PBI-19)
+  # PASO 2: Deploy del backend a Google Cloud Run
   # -------------------------------------------------------------------------
-  deploy:
-    needs: test # Solo si las pruebas pasan (Job anterior), se procede al despliegue
+  deploy-backend:
+    needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3 # Preparar el entorno Docker[cite: 1]
 
-      - name: Deploying via Docker
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configurar gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy a Cloud Run
         run: |
-          echo "Desplegando incremento en entorno Staging realista..."
-          # El sistema se orquestará mediante Docker V2
-          docker compose build
-          # Aquí tu equipo añadiría el comando de subida a su servidor
+          gcloud run deploy labsync-backend \
+            --source ./backend \
+            --region us-central1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --update-env-vars DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --update-env-vars SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+            --update-env-vars DEBUG="False" \
+            --update-env-vars ALLOWED_HOSTS="*" \
+            --update-env-vars CORS_ALLOWED_ORIGINS="${{ secrets.CORS_ALLOWED_ORIGINS }}" \
+            --update-env-vars CSRF_TRUSTED_ORIGINS="${{ secrets.CSRF_TRUSTED_ORIGINS }}"
+
+  # -------------------------------------------------------------------------
+  # PASO 3: Deploy del frontend a Vercel
+  # -------------------------------------------------------------------------
+  deploy-frontend:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias del frontend
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build del frontend
+        env:
+          REACT_APP_API_URL: https://labsync-backend-90371338218.us-central1.run.app
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Deploy a Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'

@@ -266,6 +266,7 @@
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
+  color: var(--text-main);
   transition: all 0.2s;
 }
 .doc-lab-card:hover:not(.disabled) { border-color: var(--untels-blue); transform: translateY(-2px); }
@@ -287,6 +288,7 @@
   border: 1.5px solid var(--border-color);
   border-radius: 10px;
   cursor: pointer;
+  color: var(--text-main);
   transition: all 0.2s;
 }
 .doc-slot:hover    { border-color: var(--untels-blue); }
@@ -309,6 +311,7 @@
   border: 2px solid var(--border-color);
   border-radius: 10px;
   cursor: pointer;
+  color: var(--text-main);
   transition: all 0.15s;
   position: relative;
 }
