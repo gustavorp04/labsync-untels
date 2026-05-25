@@ -112,7 +112,6 @@ jobs:
       - name: Deploy a Vercel
         run: |
           npm install -g vercel@latest
-          cd frontend
           vercel --prod \
             --token=${{ secrets.VERCEL_TOKEN }} \
             --yes
