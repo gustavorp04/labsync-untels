@@ -5,7 +5,7 @@ class Migration(migrations.Migration):
     """ID-11: Agrega CHECK constraint a nivel de BD para el campo estado de Reserva."""
 
     dependencies = [
-        ('reservas', '0004_managed_true_and_sesionusuario'),
+        ('reservas', '0001_initial'),
     ]
 
     operations = [

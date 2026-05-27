@@ -110,39 +110,15 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                 anterior_habilitado = laboratorio.habilitado
                 nuevo_estado_lab = calcular_habilitacion_lab(laboratorio)
 
-                # Registro en historial — solo usa el usuario del request
-                usuario_registrador = None
-                if usuario_id:
-                    usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
-                # Si no hay usuario válido, busca el primer admin_lab registrado
+                # ID-12: el autor del historial DEBE ser el usuario real que hizo el cambio.
+                # No usamos fallback a otro admin para evitar registros de auditoría falsos.
+                if not usuario_id:
+                    return None, None, [], "Se requiere autenticación para modificar el estado de un activo."
+                usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
                 if not usuario_registrador:
-                    usuario_registrador = Usuario.objects.filter(id_rol__nombre='admin_lab').first()
+                    return None, None, [], f"Usuario con ID {usuario_id} no encontrado en el sistema."
 
-<<<<<<< HEAD
-            # ID-12: el autor del historial DEBE ser el usuario real que hizo el cambio.
-            # No usamos fallback a otro admin para evitar registros de auditoría falsos.
-            if not usuario_id:
-                return None, None, [], "Se requiere autenticación para modificar el estado de un activo."
-            usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
-            if not usuario_registrador:
-                return None, None, [], f"Usuario con ID {usuario_id} no encontrado en el sistema."
-
-            HistorialMantenimiento.objects.create(
-                id_activo=activo,
-                estado_anterior=estado_anterior,
-                estado_nuevo=nuevo_estado,
-                motivo=motivo,
-                fecha_cambio=timezone.now(),
-                registrado_por=usuario_registrador,
-            )
-
-            mensajes = []
-            if nuevo_estado != 'Operativo':
-                # PBI-04: Reasignar si el equipo entra en mantenimiento
-                detalles = ReservaDetalle.objects.filter(
-=======
                 HistorialMantenimiento.objects.create(
->>>>>>> 072252b1bb64772a59b0099df68eebdf25d855d2
                     id_activo=activo,
                     estado_anterior=estado_anterior,
                     estado_nuevo=nuevo_estado,
@@ -150,6 +126,8 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                     fecha_cambio=timezone.now(),
                     registrado_por=usuario_registrador,
                 )
+
+                mensajes = []
 
                 # PBI-12: Si el laboratorio se inhabilitó automáticamente debido a esta falla de equipo
                 if anterior_habilitado and not nuevo_estado_lab:
