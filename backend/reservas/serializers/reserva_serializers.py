@@ -38,6 +38,8 @@ class CrearReservaSerializer(serializers.Serializer):
 class ReservaSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.CharField(source='id_usuario.nombre', read_only=True)
     usuario_rol = serializers.CharField(source='id_usuario.id_rol.nombre', read_only=True)
+    # N-3: exponer el id del usuario dueño para que el admin pueda usar la ruta cancelar anidada
+    usuario_id = serializers.IntegerField(source='id_usuario.id_usuario', read_only=True)
     laboratorio_nombre = serializers.SerializerMethodField()
     fecha_reserva = serializers.DateField(source='id_horario.fecha', read_only=True)
     hora_inicio = serializers.TimeField(source='id_horario.hora_inicio', read_only=True)
@@ -49,8 +51,8 @@ class ReservaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reserva
         fields = [
-            'id_reserva', 'usuario_nombre', 'usuario_rol', 'laboratorio_nombre', 
-            'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos', 
+            'id_reserva', 'usuario_nombre', 'usuario_rol', 'usuario_id', 'laboratorio_nombre',
+            'fecha_reserva', 'hora_inicio', 'hora_fin', 'cantidad_alumnos',
             'estado', 'created_at', 'updated_at', 'activos', 'id_horario', 'id_laboratorio',
             'historial_cambios'
         ]

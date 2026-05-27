@@ -23,17 +23,26 @@ def horarios_por_laboratorio(request, id_laboratorio):
     """
     fecha = request.query_params.get('fecha')
     if fecha:
-        horarios = HorarioDisponible.objects.filter(
-            id_laboratorio=id_laboratorio,
-            fecha=fecha
-        ).order_by('hora_inicio')
+        # N-4: select_related evita N+1 al serializar tipo_nombre y aforo_maximo
+        horarios = (
+            HorarioDisponible.objects
+            .filter(id_laboratorio=id_laboratorio, fecha=fecha)
+            .select_related('id_laboratorio', 'id_laboratorio__id_tipo')
+            .order_by('hora_inicio')
+        )
     else:
         hoy = timezone.localtime(timezone.now()).date()
-        horarios = HorarioDisponible.objects.filter(
-            id_laboratorio=id_laboratorio,
-            fecha__gte=hoy,
-            estado='Disponible'
-        ).order_by('fecha', 'hora_inicio')
+        # N-4: select_related evita N+1 al serializar tipo_nombre y aforo_maximo
+        horarios = (
+            HorarioDisponible.objects
+            .filter(
+                id_laboratorio=id_laboratorio,
+                fecha__gte=hoy,
+                estado='Disponible',
+            )
+            .select_related('id_laboratorio', 'id_laboratorio__id_tipo')
+            .order_by('fecha', 'hora_inicio')
+        )
     
     serializer = HorarioDisponibleSerializer(horarios, many=True)
     return Response(serializer.data)

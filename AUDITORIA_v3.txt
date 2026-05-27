@@ -1,0 +1,347 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              AUDITORÍA DE CÓDIGO v3 — LabSync UNTELS                       ║
+║              Fecha: 2026-05-26  |  Modelo: Claude Sonnet 4.6               ║
+║              Basada en: AUDITORIA_v2 + análisis post-despliegue            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUMEN EJECUTIVO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Esta auditoría identifica el bug que causa el 403 en producción, archivos
+muertos que deben borrarse, inconsistencias estructurales y los pendientes
+que quedan de versiones anteriores del análisis.
+
+  CRÍTICO (producción rota): 1 bug confirmado
+  ALTO   (comportamiento incorrecto): 2 hallazgos
+  MEDIO  (inconsistencias / limpieza): 4 hallazgos
+  BAJO   (deuda técnica): 6 elementos
+  RESUELTOS en esta iteración: 10 issues anteriores ✓
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 1 — BUG CRÍTICO EN PRODUCCIÓN (origen del 403 reportado)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[P-1] 🔴 CRÍTICO — DJANGO_DEBUG defaultea 'True' → cookies cross-origin rotas
+─────────────────────────────────────────────────────────────────────────────
+Archivo:   backend/config/settings.py  línea 26
+Archivo:   backend/Dockerfile
+
+Error observado en producción:
+  GET https://labsync-backend-90371338218.us-central1.run.app/api/v1/usuarios/12/reservas/
+  → 403 Forbidden (AxiosError)
+
+DIAGNÓSTICO:
+
+  settings.py línea 26:
+    DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
+                                             ^^^^^^
+                                             DEFAULT ES 'True'  ← EL PROBLEMA
+
+  El Dockerfile NO establece DJANGO_DEBUG=False:
+    ENV PYTHONDONTWRITEBYTECODE 1
+    ENV PYTHONUNBUFFERED 1
+    # ← No hay DJANGO_DEBUG aquí
+
+  Cloud Run tampoco lo hereda a menos que esté en la consola GCP como
+  variable de entorno explícita.
+
+  Consecuencia directa: en producción DEBUG=True, entonces:
+
+    auth_views.py:
+      is_prod = not django_settings.DEBUG   ← False (porque DEBUG=True)
+
+    response.set_cookie(
+        key='auth_token',
+        samesite='None' if is_prod else 'Lax',   ← 'Lax' en producción ← ERROR
+        secure=is_prod,                           ←  False en producción ← ERROR
+    )
+
+  Una cookie SameSite=Lax + Secure=False NO es enviada por el navegador
+  en peticiones cross-origin (Vercel → GCP Cloud Run).
+  El backend no recibe ningún token → CustomTokenAuthentication retorna None
+  → IsAuthenticated falla → Django REST Framework responde 403.
+
+CORRECCIÓN (2 cambios):
+
+  1. settings.py — cambiar el default a 'False':
+     ────────────────────────────────────────────
+     ANTES: DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
+     DESPUÉS: DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+
+  2. Dockerfile — añadir la variable explícita:
+     ────────────────────────────────────────────
+     ENV PYTHONDONTWRITEBYTECODE 1
+     ENV PYTHONUNBUFFERED 1
+     ENV DJANGO_DEBUG False    ← AÑADIR ESTA LÍNEA
+
+  NOTA: Si DJANGO_DEBUG está seteada a 'True' en la consola de Cloud Run
+  como variable de entorno, también hay que cambiarla ahí a 'False'.
+
+  NOTA 2: Este fix requiere redeploy del backend en Cloud Run para tomar efecto.
+  Después del redeploy, los usuarios actuales necesitan cerrar sesión y volver
+  a ingresar (para obtener una nueva cookie SameSite=None; Secure=True).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 2 — ALTO (comportamiento incorrecto)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[A-1] 🟠 ALTO — api.js solo intercepta 401; el 403 deja la UI rota
+─────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/services/api.js  líneas 31-43
+
+  El interceptor de respuesta solo redirige al login cuando hay 401:
+    if (error.response && error.response.status === 401) {
+      ...
+      window.location.href = '/';
+    }
+
+  Pero IsAuthenticated de DRF devuelve 403 (no 401) cuando no hay ningún
+  autenticador que haya reclamado la solicitud (retorno None).
+  Resultado: cuando el cookie falta (sesión expirada, otro dispositivo,
+  etc.), el usuario ve una pantalla rota con errores de consola, en vez
+  de ser redirigido al login automáticamente.
+
+CORRECCIÓN:
+  api.js interceptor — extender a 403 con condición de sesión:
+  ─────────────────────────────────────────────────────────────
+  (error) => {
+    const status = error.response?.status;
+    if (status === 401 || (status === 403 && !localStorage.getItem('id_usuario'))) {
+      const theme = localStorage.getItem('app-theme');
+      localStorage.clear();
+      if (theme) localStorage.setItem('app-theme', theme);
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+
+  La condición "!localStorage.getItem('id_usuario')" distingue entre:
+  - 403 de sesión expirada (redirect al login) ← usuario no logueado
+  - 403 de permisos reales ("no tienes rol de admin") ← no redirigir
+
+[A-2] 🟠 ALTO — labService.js: archivo zombie con llamadas sin credentials
+─────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/services/labService.js
+
+  Este archivo usa axios directamente (sin withCredentials=true), sin el
+  interceptor de autenticación, y apunta a URLs que no existen o son
+  incorrectas:
+
+    axios.get(`${API_URL}/laboratorios/`)          ← debería ser /v1/laboratorios/
+    axios.get(`${API_URL}/laboratorios/${id}/activos/`)  ← falta /v1/
+    axios.put(`${API_URL}/activos/${id}/`, ...)    ← ruta inexistente
+    axios.get(`${API_URL}/v1/horarios/`)           ← ruta inexistente en urls.py
+
+  El archivo NO está importado por ningún componente actualmente (verificado).
+  Pero si alguien lo importa por error (autocompletar del IDE), todas las
+  llamadas fallarán con 401/404 y sin posibilidad de debug claro.
+
+CORRECCIÓN: Borrar el archivo.
+  git rm frontend/src/services/labService.js
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 3 — MEDIO (inconsistencias / limpieza que afectan calidad)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[M-A] 🟡 MEDIO — console.log en páginas de login en producción
+─────────────────────────────────────────────────────────────────────────────
+Archivos:
+  frontend/src/pages/auth/estudiante/LoginEstudiante.js  línea 47
+  frontend/src/pages/auth/docente/LoginDocente.js        línea 36
+
+  catch (err) {
+    console.log('ERROR LOGIN ESTUDIANTE:', err);   ← expone objeto error completo
+    ...
+  }
+
+  En producción, cualquier persona que abra DevTools ve el error de Axios
+  completo (URL, headers, respuesta del servidor) al intentar un login.
+  Esto incluye mensajes internos del backend.
+
+CORRECCIÓN: Reemplazar console.log por console.error (solo en dev):
+  catch (err) {
+    if (process.env.NODE_ENV !== 'production') console.error('Login error:', err);
+    ...
+  }
+
+[M-B] 🟡 MEDIO — userId vs id_usuario: clave muerta en localStorage
+─────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/estudiante/Estudiante.js  línea 83
+
+  const userId = localStorage.getItem("userId") || localStorage.getItem("id_usuario") || "";
+
+  LoginEstudiante.js solo guarda "id_usuario". La key "userId" nunca se
+  escribe. La primera mitad del || siempre es null, es código muerto.
+  (Issue M-4 de la v1, nunca resuelto)
+
+CORRECCIÓN: Simplificar a:
+  const userId = localStorage.getItem("id_usuario") || "";
+
+[M-C] 🟡 MEDIO — alert() en Admin.js: 3 funciones no usan feedbackMsg
+─────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/admin/Admin.js
+
+  handleCreateUsuario (línea ~359): alert("Error al crear usuario...")
+  handleDeleteUsuario (línea ~370): alert("Error al eliminar")
+  handleUpdateReserva (línea ~293): alert("Reserva actualizada correctamente")
+                                    alert("Error al actualizar")
+
+  El componente ya tiene setFeedbackMsg disponible (y ahora global y fijo).
+  Usar alert() rompe la UX: bloquea el hilo, estética distinta, inaccesible.
+
+CORRECCIÓN: Reemplazar alert() con setFeedbackMsg({ tipo: 'ok'/'error', texto: '...' })
+  en los tres handlers.
+
+[M-D] 🟡 MEDIO — LaboratorioViewSet definida pero nunca registrada en el router
+─────────────────────────────────────────────────────────────────────────────
+Archivo: backend/reservas/views/api_views.py  líneas 31-51
+
+  class LaboratorioViewSet(viewsets.ModelViewSet):
+      permission_classes = [IsAdminOrJefaturaOrReadOnly]
+      ...
+
+  El router en urls.py registra: usuarios, reservas, incidencias, asistencias,
+  horarios. NO registra laboratorios. Esta ViewSet nunca es alcanzada por
+  ninguna URL. Código muerto.
+
+  Los laboratorios se sirven desde laboratorio_views.LaboratorioListView
+  (/api/v1/laboratorios/) que sí está en urls.py.
+
+CORRECCIÓN: Borrar LaboratorioViewSet de api_views.py.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 4 — BAJO / LIMPIEZA ESTRUCTURAL (deuda técnica)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[L-1] 🔵 BAJO — RoleSelector.js: componente sin uso
+  Archivo: frontend/src/components/RoleSelector.js
+  Verificado: no está importado en ningún archivo del proyecto.
+  También importa "../styles/RoleSelector.css" (ese CSS también es dead).
+  Acción: borrar RoleSelector.js + styles/RoleSelector.css
+
+[L-2] 🔵 BAJO — reportWebVitals.js: boilerplate CRA huérfano
+  Archivo: frontend/src/reportWebVitals.js
+  El index.js fue limpiado y ya no importa reportWebVitals (verificado).
+  El archivo existe pero nunca es ejecutado.
+  Acción: borrar frontend/src/reportWebVitals.js
+
+[L-3] 🔵 BAJO — App.test.js: test default de CRA nunca actualizado
+  Archivo: frontend/src/App.test.js
+  Contiene el test por defecto "renders learn react link" de Create React App.
+  No testea nada de LabSync. Al correr "npm test" este test falla porque
+  el componente App ya no tiene ese texto.
+  Acción: actualizar o borrar el archivo.
+
+[L-4] 🔵 BAJO — Ruta duplicada api/auth/admin_lab/login/
+  Archivo: backend/reservas/urls.py  línea 23
+    path('api/auth/admin_lab/login/', auth_views.login_admin, name='login-admin-lab'),
+  Esta ruta es idéntica a la línea anterior (api/auth/admin/login/).
+  El frontend usa solo /api/auth/admin/login/. La variante admin_lab nunca
+  se usa. Aumenta superficie de ataque sin necesidad.
+  Acción: borrar la línea.
+
+[L-5] 🔵 BAJO — eliminarReserva() en reservaService.js: función que devuelve 405
+  Archivo: frontend/src/services/reservaService.js
+  La función eliminarReserva() llama a DELETE /api/v1/reservas/${id}/
+  que intencionalmente devuelve 405 (bloqueado en ReservaViewSet.destroy()).
+  Admin.js ya fue actualizado para usar cancelarReserva() en lugar de
+  eliminarReserva(), pero la función sigue existiendo en el servicio.
+  Si en algún futuro se llama por error, fallará silenciosamente.
+  Acción: borrar eliminarReserva() de reservaService.js y del export.
+
+[L-6] 🔵 BAJO — scripts/archivos temporales en la raíz del backend
+  Archivos: check_db.py, check_user.py, fix_and_inject.py,
+            inject_test_reservas.py, move_to_past.py, seed.py
+  Estos scripts de utilidad están en la raíz del proyecto junto con manage.py.
+  Están fuera de cualquier carpeta organizada y se copian al contenedor Docker
+  (no hay .dockerignore excluyéndolos).
+  Acción: moverlos a una carpeta backend/scripts/ y añadir al .dockerignore,
+  o borrarlos si ya no se necesitan.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 5 — PENDIENTES DE AUDITORÍAS ANTERIORES (todavía sin resolver)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[OLD-B1] Docente.js — filtro de laboratorios por departamento es client-side
+  Archivo: frontend/src/pages/docente/Docente.js  paso 2 (líneas ~102-110)
+    laboratorioService.getLaboratorios([], { signal })
+      .then(data => setLaboratorios(data.filter(l => l.tipo_nombre === categoriaSel)))
+  El filtro por categoría se hace en el cliente con .filter(). Un docente
+  podría cambiar su "departamento" en localStorage y ver laboratorios de
+  otras facultades.
+  Corrección: pasar la categoría como query param al servidor igual que
+  hace Estudiante.js: getLaboratorios(['Cómputo'], { signal }).
+
+[OLD-N6] Admin.js — handleUpdateReserva es un stub con alert()
+  Archivo: frontend/src/pages/admin/Admin.js  función handleUpdateReserva
+  La función llama alert("Reserva actualizada") sin tocar ningún endpoint.
+  El modal de edición existe pero no persiste los cambios.
+  Corrección: implementar el endpoint PATCH /api/v1/reservas/{id}/ en el
+  backend o eliminar el modal de edición hasta que se implemente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECCIÓN 6 — RESUELTOS EN ITERACIONES ANTERIORES ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✓ C-1  ProtectedRoute verifica id_usuario real (no "isAuthenticated" string)
+  ✓ C-2  Token migrado a httpOnly cookie (login, logout, auth middleware)
+  ✓ A-1  N+1 en mis_reservas → select_related + prefetch_related
+  ✓ A-2  N+1 en historial global → select_related
+  ✓ A-3  N+1 en LaboratorioListSerializer → annotate+Count
+  ✓ A-4  Regla 24h en reserva_service.py usa timedelta exacto
+  ✓ A-5  Validación de solapamiento de horarios
+  ✓ N-1  CrearReservaSerializer valida 24h exactas (consistente con service)
+  ✓ N-2  HorarioDisponibleSerializer.get_es_reservable con timedelta exacto
+  ✓ N-3  Admin usa cancelarReserva() + usuario_id en ReservaSerializer
+  ✓ N-4  select_related en horarios_por_laboratorio
+  ✓ M-1  showToast con useRef timer (sin memory leaks)
+  ✓ M-2  AbortController en 5 efectos de polling (Estudiante + Docente)
+  ✓ M-3  Errors de fetch en Admin.js visibles al usuario via feedbackMsg global
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PLAN DE ACCIÓN PRIORIZADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INMEDIATO (hoy, antes de cualquier otra cosa):
+  1. [P-1] settings.py: cambiar 'True' por 'False' como default de DJANGO_DEBUG
+  2. [P-1] Dockerfile: añadir ENV DJANGO_DEBUG False
+  3. Redeploy backend en Cloud Run
+  4. Verificar en GCP Console > Cloud Run > Variables de entorno que
+     DJANGO_DEBUG=False está seteado (o no está, para usar el nuevo default)
+  5. [A-1] api.js: extender interceptor para manejar 403 de sesión
+
+ESTA SEMANA (limpieza):
+  6. [A-2] Borrar frontend/src/services/labService.js
+  7. [L-1] Borrar RoleSelector.js + styles/RoleSelector.css
+  8. [L-2] Borrar reportWebVitals.js
+  9. [L-4] Borrar ruta duplicada admin_lab/login/ de urls.py
+  10. [L-5] Borrar eliminarReserva() de reservaService.js
+  11. [M-A] Quitar console.log en LoginEstudiante.js + LoginDocente.js
+  12. [M-B] Simplificar userId en Estudiante.js
+
+PRÓXIMA ITERACIÓN (mejoras de calidad):
+  13. [M-C] Reemplazar alert() en Admin.js con feedbackMsg
+  14. [M-D] Borrar LaboratorioViewSet de api_views.py
+  15. [L-3] Actualizar App.test.js con tests reales
+  16. [L-6] Mover scripts temporales a /scripts/ + .dockerignore
+  17. [OLD-B1] Docente: filtro de laboratorios server-side
+  18. [OLD-N6] Admin: implementar edición real o quitar el modal stub
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICACIÓN POST-FIX DEL 403
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Después de redeploy con DJANGO_DEBUG=False, verificar en el navegador:
+
+  1. Login → F12 → Application → Cookies → labsync-backend-90371338218...
+     Debe aparecer: auth_token | SameSite=None | Secure=✓ | HttpOnly=✓
+
+  2. Hacer cualquier request autenticado → Red →
+     Request Headers: debe incluir Cookie: auth_token=...
+     Response: 200 (no 403)
+
+  3. Si aparece "SameSite=Lax" en la cookie, DJANGO_DEBUG sigue en True.
+     Verificar la variable de entorno en Cloud Run Console.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIN DE AUDITORÍA v3
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
