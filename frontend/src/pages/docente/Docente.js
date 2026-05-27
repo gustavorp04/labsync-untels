@@ -149,7 +149,7 @@ function Docente() {
         .catch(() => showToast('error', 'Error al cargar horarios'))
         .finally(() => setLoading(false));
     }
-  }, [paso, labSel]);
+  }, [paso, labSel, showToast]);
 
   // Fetch activos e implementar Polling reactivo en tiempo real para Docente
   // M-2: AbortController para cancelar requests huérfanos al salir del paso
@@ -202,7 +202,7 @@ function Docente() {
       if (intervalId) clearInterval(intervalId);
       abortCtrl.abort();
     };
-  }, [paso, labSel, horarioSel]);
+  }, [paso, labSel, horarioSel, showToast]);
 
   // Fetch my reservations
   // M-2: acepta signal para cancelar requests en vuelo

@@ -16,8 +16,6 @@ function Admin() {
   const [reservas, setReservas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [historialReservas, setHistorialReservas] = useState([]);
-  const [reservaEditando, setReservaEditando] = useState(null);
-  const [showModalEdit, setShowModalEdit] = useState(false);
   const [mostrarFormUsuario, setMostrarFormUsuario] = useState(false);
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: "",

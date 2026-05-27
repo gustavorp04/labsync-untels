@@ -93,7 +93,7 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     sessionStorage.clear();
 
     // Simular sesión de estudiante de Sistemas (filtra labs tipo "computo")
-    localStorage.setItem('userId', '42');
+    localStorage.setItem('id_usuario', '42');
     localStorage.setItem('nombre', 'Carlos Pérez');
     localStorage.setItem('carrera', 'Ingeniería de Sistemas');
     localStorage.setItem('ciclo', '5');

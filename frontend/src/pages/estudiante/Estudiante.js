@@ -154,7 +154,7 @@ function Estudiante() {
       if (intervalId) clearInterval(intervalId);
       abortCtrl.abort();
     };
-  }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize]);
+  }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize, showToast]);
 
   // Carga de horarios en Paso 2
   useEffect(() => {
@@ -165,7 +165,7 @@ function Estudiante() {
         .catch(() => showToast('error', 'Error al cargar horarios'))
         .finally(() => setLoading(false));
     }
-  }, [paso, labSel]);
+  }, [paso, labSel, showToast]);
 
   // Carga y Polling reactivo en tiempo real de equipos en Paso 3
   // M-2: AbortController para cancelar requests huérfanos al salir del paso
@@ -215,7 +215,7 @@ function Estudiante() {
       if (intervalId) clearInterval(intervalId);
       abortCtrl.abort();
     };
-  }, [paso, labSel, horarioSel]);
+  }, [paso, labSel, horarioSel, showToast]);
 
   const handleSubmitReserva = async () => {
     if (!aceptaDJ) return showToast('error', 'Debes aceptar la declaración jurada.');
