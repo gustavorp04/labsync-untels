@@ -10,7 +10,7 @@ services:
     environment:
       - POSTGRES_DB=LabSyncUNTELS
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=daniel04
+      - POSTGRES_PASSWORD=${DB_PASS}
     ports:
       - "5432:5432"
 
@@ -25,12 +25,13 @@ services:
       - DB_HOST=db
       - DB_NAME=LabSyncUNTELS
       - DB_USER=postgres
-      - DB_PASS=daniel04
+      - DB_PASS=${DB_PASS}
       - DB_PORT=5432
+      - ENABLE_SCHEDULER=true   # ID-10: 1 solo proceso (runserver) → sin duplicados
     command: >
       sh -c "sleep 5 &&
              python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --reload"
     restart: on-failure
     depends_on:
       - db

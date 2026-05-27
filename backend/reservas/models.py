@@ -7,12 +7,23 @@ class ActivoLaboratorio(models.Model):
     id_tipo_activo = models.ForeignKey('TipoActivo', models.DO_NOTHING, db_column='id_tipo_activo')
     num_serie = models.CharField(unique=True, max_length=60)
     codigo_patrimonio = models.CharField(max_length=30, blank=True, null=True)
-    estado = models.CharField(max_length=20)
+    ESTADOS = [
+        ('Operativo', 'Operativo'),
+        ('Mantenimiento', 'Mantenimiento'),
+        ('Dado de baja', 'Dado de baja'),
+    ]
+    estado = models.CharField(max_length=20, choices=ESTADOS)
     updated_at = models.DateTimeField()
 
     class Meta:
         managed = True
         db_table = 'activo_laboratorio'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(estado__in=['Operativo', 'Mantenimiento', 'Dado de baja']),
+                name='activo_estado_valido',
+            )
+        ]
 
 
 class Asistencia(models.Model):
@@ -70,6 +81,10 @@ class HorarioDisponible(models.Model):
         managed = True
         db_table = 'horario_disponible'
         unique_together = (('id_laboratorio', 'fecha', 'hora_inicio'),)
+        indexes = [
+            models.Index(fields=['fecha', 'estado'], name='horario_fecha_estado_idx'),
+            models.Index(fields=['fecha'], name='horario_fecha_idx'),
+        ]
 
 
 class Incidencia(models.Model):
@@ -116,6 +131,9 @@ class Penalizacion(models.Model):
     id_reserva = models.OneToOneField('Reserva', models.DO_NOTHING, db_column='id_reserva')
     fecha_inicio = models.DateTimeField()
     fecha_fin = models.DateTimeField()
+    # PBI-07: motivo de la penalización y seguimiento de notificación de expiración
+    motivo = models.CharField(max_length=200, blank=True, null=True)
+    notificado_expiracion = models.BooleanField(default=False)
 
     class Meta:
         managed = True
@@ -144,18 +162,32 @@ class PerfilEstudiante(models.Model):
 
 
 class Reserva(models.Model):
+    ESTADOS = [
+        ('Programada', 'Programada'),
+        ('Pendiente', 'Pendiente'),
+        ('Cancelada', 'Cancelada'),
+        ('Completada', 'Completada'),
+        ('No-show', 'No-show'),
+    ]
     id_reserva = models.AutoField(primary_key=True)
     id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='id_usuario')
     id_horario = models.ForeignKey(HorarioDisponible, models.DO_NOTHING, db_column='id_horario')
     cantidad_alumnos = models.IntegerField()
     acepto_declaracion_jurada = models.BooleanField()
-    estado = models.CharField(max_length=20)
+    estado = models.CharField(max_length=20, choices=ESTADOS)
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
 
     class Meta:
         managed = True
         db_table = 'reserva'
+        constraints = [
+            # ID-11: constraint a nivel de BD — Django choices solo valida en forms/serializers.
+            models.CheckConstraint(
+                check=models.Q(estado__in=['Programada', 'Pendiente', 'Cancelada', 'Completada', 'No-show']),
+                name='reserva_estado_valido',
+            )
+        ]
 
 
 class ReservaDetalle(models.Model):
@@ -269,3 +301,23 @@ class SesionUsuario(models.Model):
     class Meta:
         managed = True
         db_table = 'sesion_usuario'
+
+
+class RecordatorioEnviado(models.Model):
+    """PBI-11: Registro de recordatorios enviados para evitar duplicados."""
+    TIPOS = [
+        ('24h', '24 horas antes'),
+    ]
+    id_recordatorio = models.AutoField(primary_key=True)
+    id_reserva = models.ForeignKey('Reserva', models.CASCADE, db_column='id_reserva',
+                                   related_name='recordatorios')
+    tipo = models.CharField(max_length=10, choices=TIPOS, default='24h')
+    fecha_envio = models.DateTimeField(auto_now_add=True)
+    exitoso = models.BooleanField(default=True)
+    detalle_error = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = True
+        db_table = 'recordatorio_enviado'
+        # Garantiza que por cada reserva solo se envíe UN recordatorio de cada tipo
+        unique_together = (('id_reserva', 'tipo'),)

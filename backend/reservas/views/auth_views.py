@@ -31,12 +31,16 @@ def _base_login(request, expected_role):
         
         # PBI-04: Datos de carrera dinámicos para Estudiantes
         if expected_role == 'estudiante':
-            print("!!! DIAGNOSTICO: PROCESANDO LOGIN DE ESTUDIANTE !!!")
             # Búsqueda ultra-robusta del perfil
             try:
                 perfil = PerfilEstudiante.objects.get(id_usuario=user)
-            except:
-                perfil = PerfilEstudiante.objects.filter(id_usuario_id=user.id_usuario).first()
+            except PerfilEstudiante.DoesNotExist:
+                perfil = None
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('reservas')
+                logger.warning("Error al obtener PerfilEstudiante para usuario %s: %s", user.id_usuario, e)
+                perfil = None
 
             if perfil:
                 # Obtenemos el nombre de la carrera directamente de la BD

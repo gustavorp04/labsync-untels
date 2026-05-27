@@ -49,13 +49,13 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
             laboratorio = activo.id_laboratorio
             calcular_habilitacion_lab(laboratorio)
 
-            # Registro en historial — solo usa el usuario del request
-            usuario_registrador = None
-            if usuario_id:
-                usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
-            # Si no hay usuario válido, busca el primer admin_lab registrado
+            # ID-12: el autor del historial DEBE ser el usuario real que hizo el cambio.
+            # No usamos fallback a otro admin para evitar registros de auditoría falsos.
+            if not usuario_id:
+                return None, None, [], "Se requiere autenticación para modificar el estado de un activo."
+            usuario_registrador = Usuario.objects.filter(pk=usuario_id).first()
             if not usuario_registrador:
-                usuario_registrador = Usuario.objects.filter(id_rol__nombre='admin_lab').first()
+                return None, None, [], f"Usuario con ID {usuario_id} no encontrado en el sistema."
 
             HistorialMantenimiento.objects.create(
                 id_activo=activo,
@@ -105,14 +105,14 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                                 observacion=f"Cancelación automática: Equipo {activo.num_serie} inhabilitado y sin reemplazo operativo libre."
                             )
                         except Exception as log_err:
-                            print(f"WARN: Error al registrar historial de cancelación automática: {log_err}")
+                            import logging
+                            logger = logging.getLogger('reservas')
+                            logger.warning("Error al registrar historial de cancelación automática: %s", log_err)
 
                         # Liberar capacidad ocupada del horario
                         if horario:
-                            horario.capacidad_ocupada = max(0, (horario.capacidad_ocupada or 0) - 1)
-                            if horario.estado == 'Completo':
-                                horario.estado = 'Disponible'
-                            horario.save()
+                            from .reserva_service import recalcular_capacidad
+                            recalcular_capacidad(horario)
 
                         mensajes.append(f"Reserva {horario.fecha} cancelada por falta de equipos operativos libres.")
 

@@ -16,7 +16,6 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --no-input
       python manage.py migrate
-      python seed.py
     startCommand: |
       cd backend
       gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
@@ -30,9 +29,11 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_HOSTS
-        value: "*"
+        value: "labsync-backend.onrender.com,labsync-backend-90371338218.us-central1.run.app"
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://labsync-backend.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://labsync-frontend.onrender.com"
 
   # Frontend Service
   - type: web

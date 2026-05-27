@@ -50,17 +50,20 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if rol_nombre == 'estudiante':
             carrera_nombre = data.get('carrera')
             ciclo = data.get('ciclo', 1)
+            
+            carrera_obj = None
             if carrera_nombre:
-                # Buscar o asignar carrera (fallback si no existe)
                 carrera_obj = Carrera.objects.filter(nombre__icontains=carrera_nombre).first()
+            if not carrera_obj:
+                carrera_obj = Carrera.objects.first()
                 if not carrera_obj:
-                    carrera_obj = Carrera.objects.first() # Primer disponible
+                    raise serializers.ValidationError({"carrera": "No hay carreras registradas en el sistema."})
                 
-                PerfilEstudiante.objects.create(
-                    id_usuario=user,
-                    id_carrera=carrera_obj,
-                    ciclo=ciclo
-                )
+            PerfilEstudiante.objects.create(
+                id_usuario=user,
+                id_carrera=carrera_obj,
+                ciclo=ciclo
+            )
 
         elif rol_nombre == 'docente':
             departamento = data.get('departamento', 'General')
@@ -74,7 +77,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
     def get_departamento(self, obj):
         try:
             return obj.perfildocente.departamento
-        except:
+        except AttributeError:
+            return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('reservas')
+            logger.warning("Error al obtener departamento para usuario %s: %s", obj.id_usuario, e)
             return None
 
     def get_carrera(self, obj):
@@ -87,7 +95,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 perfil = PerfilEstudiante.objects.filter(id_usuario=obj).first()
             
             return perfil.id_carrera.nombre if perfil else None
-        except:
+        except AttributeError:
+            return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('reservas')
+            logger.warning("Error al obtener carrera para usuario %s: %s", obj.id_usuario, e)
             return None
 
     def get_ciclo(self, obj):
@@ -97,7 +110,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
             if not perfil:
                 perfil = PerfilEstudiante.objects.filter(id_usuario=obj).first()
             return perfil.ciclo if perfil else None
-        except:
+        except AttributeError:
+            return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('reservas')
+            logger.warning("Error al obtener ciclo para usuario %s: %s", obj.id_usuario, e)
             return None
 class LoginSerializer(serializers.Serializer):
     # Aceptamos 'usuario', 'username' o 'email' y lo normalizamos a 'usuario'

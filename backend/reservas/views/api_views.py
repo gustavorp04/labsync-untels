@@ -29,13 +29,8 @@ class ReservaViewSet(viewsets.ModelViewSet):
     serializer_class = ReservaSerializer
 
     def get_queryset(self):
-        # Ejecutar la purga automática de reservas pendientes expiradas (5 min) para el quórum
-        try:
-            from ..services import reserva_service
-            reserva_service.purgar_pendientes_vencidos()
-        except Exception as e:
-            print(f"WARN: Error en purgar_pendientes_vencidos en ReservaViewSet: {e}")
-        
+        # N-03: La purga se maneja vía scheduler (apps.py) cada 5 min.
+        # Evitamos escrituras en operaciones de lectura.
         user = self.request.user
         base_qs = Reserva.objects.all().select_related(
             'id_usuario', 'id_usuario__id_rol',

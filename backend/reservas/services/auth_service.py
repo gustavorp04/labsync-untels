@@ -13,13 +13,16 @@ from ..models import Usuario, PasswordReset
 def autenticar_usuario(codigo_universitario, password, rol_nombre):
     try:
         user = Usuario.objects.get(codigo_universitario=codigo_universitario)
-        if not check_password(password, user.password_hash):
-            return None, "Contraseña incorrecta"
-        if user.id_rol.nombre != rol_nombre:
-            return None, "Rol incorrecto"
-        return user, None
+        password_ok = check_password(password, user.password_hash)
     except Usuario.DoesNotExist:
-        return None, "Usuario no existe"
+        check_password(password, 'pbkdf2_sha256$dummy$dummy$dummy')
+        return None, "Credenciales inválidas"
+        
+    if not password_ok:
+        return None, "Credenciales inválidas"
+    if user.id_rol.nombre != rol_nombre:
+        return None, "Credenciales inválidas"
+    return user, None
 
 def solicitar_recuperacion_password(email):
     try:
@@ -40,6 +43,11 @@ def solicitar_recuperacion_password(email):
         return True, "Correo enviado"
     except Usuario.DoesNotExist:
         return False, "Email no existe"
+    except Exception as e:
+        import logging
+        logger = logging.getLogger('reservas')
+        logger.error("Error en solicitar_recuperacion_password para %s: %s", email, e)
+        return False, "No se pudo enviar el correo. Intente más tarde."
 
 def enviar_email_reset(email, token):
     subject = "Tu código de seguridad - LabSync"
@@ -58,8 +66,11 @@ def enviar_email_reset(email, token):
     msg.attach_alternative(html_content, "text/html")
     try:
         msg.send()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger('reservas')
+        logger.error("Error al enviar email de recuperación a %s: %s", email, e)
+        raise
 
 def resetear_password(token, password):
     try:
@@ -76,6 +87,14 @@ def resetear_password(token, password):
         
         reset_entry.usado = True
         reset_entry.save()
+        
+        # N-06: Invalidar todas las sesiones activas del usuario
+        from ..models import SesionUsuario
+        SesionUsuario.objects.filter(
+            id_usuario=user,
+            fecha_expiracion__gt=timezone.now()
+        ).delete()
+        
         return True, "¡Contraseña actualizada con éxito!"
     except PasswordReset.DoesNotExist:
         return False, "El código es incorrecto, expiró o ya fue utilizado."

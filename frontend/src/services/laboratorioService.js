@@ -1,8 +1,13 @@
 import api from "./api";
 
-/** Lista todos los laboratorios con estado calculado */
-const getLaboratorios = async () => {
-  const res = await api.get(`/v1/laboratorios/`);
+/** Lista laboratorios con estado calculado.
+ * ID-07: si se pasan tiposPermitidos, el filtro se aplica en el servidor,
+ * nunca en el cliente (no es bypasseable desde el navegador). */
+const getLaboratorios = async (tiposPermitidos = []) => {
+  const params = tiposPermitidos.length > 0
+    ? `?tipo_nombres=${tiposPermitidos.join(',')}`
+    : '';
+  const res = await api.get(`/v1/laboratorios/${params}`);
   return res.data;
 };
 
@@ -23,11 +28,10 @@ const getHistorialLab = async (idLab) => {
 };
 
 /** Cambia el estado de un equipo individual */
-const actualizarEstadoActivo = async (idLab, idActivo, estado, motivo, registradoPor) => {
+const actualizarEstadoActivo = async (idLab, idActivo, estado, motivo) => {
   const res = await api.patch(`/v1/laboratorios/${idLab}/activos/${idActivo}/estado/`, {
     estado,
     motivo,
-    registrado_por: registradoPor,
   });
   return res.data;
 };

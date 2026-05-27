@@ -12,3 +12,4 @@ django-cors-headers
 dj-database-url
 gunicorn
 whitenoise
+apscheduler==3.10.4

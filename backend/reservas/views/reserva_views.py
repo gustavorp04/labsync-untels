@@ -8,7 +8,10 @@ from datetime import timedelta
 from ..serializers.reserva_serializers import CrearReservaSerializer, HorarioDisponibleSerializer
 from ..services import reserva_service
 from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle, HistorialReserva
+import logging
+from ..utils.auth import IsAdminOrJefatura  # ID-05/06
 
+logger = logging.getLogger('reservas')
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -57,7 +60,7 @@ def mis_reservas(request, id_usuario):
         try:
             reserva_service.purgar_pendientes_vencidos()
         except Exception as e:
-            print(f"WARN: Error en purgar_pendientes_vencidos en mis_reservas: {e}")
+            logger.warning("Error en purgar_pendientes_vencidos en mis_reservas: %s", e)
 
         from ..serializers.reserva_serializers import ReservaSerializer
         reservas = Reserva.objects.filter(id_usuario=id_usuario).order_by('-created_at')
@@ -92,7 +95,7 @@ def mis_reservas(request, id_usuario):
             try:
                 reserva_service.purgar_pendientes_vencidos()
             except Exception as e:
-                print(f"WARN: Error en purgar_pendientes_vencidos en crear_reserva_estudiante: {e}")
+                logger.warning("Error en purgar_pendientes_vencidos en crear_reserva_estudiante: %s", e)
 
             id_horario = request.data.get('id_horario')
             id_activo = request.data.get('id_activo')
@@ -104,15 +107,23 @@ def mis_reservas(request, id_usuario):
             if not acepta_dj:
                 return Response({'error': "Debe aceptar la declaración jurada para reservar."}, status=400)
 
-            # Verificar penalización activa
+            # PBI-07: Verificar penalización activa antes de crear la reserva
             ahora = timezone.now()
             penalizacion_activa = Penalizacion.objects.filter(
                 id_usuario=usuario,
                 fecha_fin__gt=ahora
-            ).first()
+            ).order_by('-fecha_fin').first()
             if penalizacion_activa:
+                dias_restantes = (penalizacion_activa.fecha_fin.date() - ahora.date()).days
                 return Response({
-                    'error': f"Tienes una penalización activa hasta {penalizacion_activa.fecha_fin.strftime('%d/%m/%Y')}. No puedes realizar reservas."
+                    'error': (
+                        f"Tienes una penalización activa hasta el "
+                        f"{penalizacion_activa.fecha_fin.strftime('%d/%m/%Y')} "
+                        f"({dias_restantes} día(s) restante(s)). "
+                        f"No puedes realizar reservas."
+                    ),
+                    'fecha_fin_penalizacion': penalizacion_activa.fecha_fin.isoformat(),
+                    'motivo': penalizacion_activa.motivo or 'No-show',
                 }, status=403)
 
             try:
@@ -165,16 +176,12 @@ def cancelar_reserva(request, id_usuario, id_reserva):
             reserva.updated_at = timezone.now()  # Forzar actualización de timestamp
             reserva.save()
             
-            # Liberar el horario de forma segura
+            # ID-03: Liberar el horario usando la fuente de verdad
+            # (recalcular_capacidad cuenta desde la BD real, no resta manualmente)
             horario = reserva.id_horario
             if horario:
-                cap_actual = horario.capacidad_ocupada or 0
-                cant_reserva = reserva.cantidad_alumnos or 1
-                
-                horario.capacidad_ocupada = max(0, cap_actual - cant_reserva)
-                if horario.estado == 'Completo':
-                    horario.estado = 'Disponible'
-                horario.save()
+                from ..services.reserva_service import recalcular_capacidad
+                recalcular_capacidad(horario)
 
             # Log de la cancelación usando ID directo
             try:
@@ -186,13 +193,11 @@ def cancelar_reserva(request, id_usuario, id_reserva):
                     observacion="Reserva cancelada por el usuario."
                 )
             except Exception as log_err:
-                print(f"WARN: No se pudo crear el historial de reserva: {log_err}")
+                logger.warning("No se pudo crear el historial de reserva: %s", log_err)
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"ERROR al cancelar reserva {id_reserva}: {str(e)}\n{error_trace}")
+        logger.error("Error al cancelar reserva %s: %s", id_reserva, e, exc_info=True)
         return Response({
             'error': "Error interno al procesar la cancelación.",
             'detalle': str(e)
@@ -200,7 +205,7 @@ def cancelar_reserva(request, id_usuario, id_reserva):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminOrJefatura])  # ID-05: solo admin/jefatura
 def marcar_asistencia(request, id_reserva):
     """PBI-06: Administrador marca asistencia o No-Show."""
     asistio = request.data.get('asistio', False)
@@ -214,7 +219,7 @@ def marcar_asistencia(request, id_reserva):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsAdminOrJefatura])  # ID-06: solo admin/jefatura
 def get_historial_reservas(request):
     """Devuelve el historial global de cambios de estado de todas las reservas."""
     from ..models import HistorialReserva

@@ -63,7 +63,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False   # ID-08: usa la whitelist de CORS_ALLOWED_ORIGINS
 
 ROOT_URLCONF = 'config.urls'
 
@@ -95,10 +95,7 @@ import dj_database_url
 # Render provee DATABASE_URL automáticamente. Usamos el string local como fallback en desarrollo.
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get(
-            'DATABASE_URL',
-            f"postgres://{os.environ.get('DB_USER', 'postgres')}:{os.environ.get('DB_PASS', 'daniel04')}@{os.environ.get('DB_HOST', 'localhost')}:{os.environ.get('DB_PORT', '5432')}/{os.environ.get('DB_NAME', 'LabSyncUNTELS')}"
-        ),
+        default=os.environ.get('DATABASE_URL'),
         conn_max_age=600,
         conn_health_checks=True,
     )

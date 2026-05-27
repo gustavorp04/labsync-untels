@@ -112,8 +112,10 @@ class ActivoUpdateView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Obtener usuario admin del request de forma segura (con fallback a lo que envíe el cliente)
-        usuario_id = request.user.id_usuario if request.user and hasattr(request.user, 'id_usuario') else request.data.get('registrado_por')
+        # Validar usuario del request
+        if not request.user or not hasattr(request.user, 'id_usuario'):
+            return Response({"error": "Usuario no autenticado correctamente."}, status=status.HTTP_401_UNAUTHORIZED)
+        usuario_id = request.user.id_usuario
 
         activo, laboratorio, mensajes, error = laboratorio_service.actualizar_estado_activo(
             id_activo, nuevo_estado, motivo, usuario_id

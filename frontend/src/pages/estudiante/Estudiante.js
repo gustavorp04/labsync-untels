@@ -127,16 +127,10 @@ function Estudiante() {
     }
     if (vista === 'nueva-reserva') {
       setLoading(true);
-      laboratorioService.getLaboratorios()
-        .then(data => {
-          console.log("DEBUG - Laboratorios recibidos:", data);
-          const filtrados = data.filter(l => {
-            if (tiposEspecialidad.length === 0) return true; // Fallback
-            const labTipoNorm = normalize(l.tipo_nombre);
-            return tiposPermitidos.includes(labTipoNorm);
-          });
-          setLaboratorios(filtrados);
-        })
+      // ID-07: el filtro por carrera ahora lo aplica el servidor mediante ?tipo_nombres=
+      // No hay lógica de filtrado en el cliente que pueda ser bypasseada.
+      laboratorioService.getLaboratorios(tiposPermitidos)
+        .then(data => setLaboratorios(data))
         .catch(() => showToast('error', 'Error al cargar laboratorios'))
         .finally(() => setLoading(false));
     }
