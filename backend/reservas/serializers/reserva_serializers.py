@@ -61,38 +61,44 @@ class ReservaSerializer(serializers.ModelSerializer):
         try:
             lab = obj.id_horario.id_laboratorio
             return f"{lab.nombre} ({lab.codigo_patrimonio})"
-        except AttributeError:
+        except Exception:
             return "Laboratorio no disponible"
 
     def get_activos(self, obj):
         # Usamos all() para aprovechar prefetch_related y evitar N+1 queries
         detalles = obj.reservadetalle_set.all()
-        return [
-            {
-                'id_activo': d.id_activo.id_activo,
-                'num_serie': d.id_activo.num_serie,
-                'codigo_patrimonio': d.id_activo.codigo_patrimonio,
-                'tipo_activo_nombre': d.id_activo.id_tipo_activo.nombre,
-                'estado': d.id_activo.estado
-            }
-            for d in detalles
-        ]
+        result = []
+        for d in detalles:
+            try:
+                result.append({
+                    'id_activo': d.id_activo.id_activo,
+                    'num_serie': d.id_activo.num_serie,
+                    'codigo_patrimonio': d.id_activo.codigo_patrimonio,
+                    'tipo_activo_nombre': d.id_activo.id_tipo_activo.nombre,
+                    'estado': d.id_activo.estado
+                })
+            except Exception:
+                continue
+        return result
 
     def get_historial_cambios(self, obj):
         # Usamos all() y ordenamos en memoria para aprovechar prefetch_related y evitar N+1 queries
-        logs = sorted(
-            obj.historialreserva_set.all(),
-            key=lambda x: x.fecha_cambio if x.fecha_cambio else timezone.now()
-        )
-        return [
-            {
-                'estado_anterior': log.estado_anterior,
-                'estado_nuevo': log.estado_nuevo,
-                'fecha_cambio': log.fecha_cambio.strftime('%d/%m/%Y %H:%M:%S') if log.fecha_cambio else '',
-                'observacion': log.observacion
-            }
-            for log in logs
-        ]
+        try:
+            logs = sorted(
+                obj.historialreserva_set.all(),
+                key=lambda x: x.fecha_cambio if x.fecha_cambio else timezone.now()
+            )
+            return [
+                {
+                    'estado_anterior': log.estado_anterior,
+                    'estado_nuevo': log.estado_nuevo,
+                    'fecha_cambio': log.fecha_cambio.strftime('%d/%m/%Y %H:%M:%S') if log.fecha_cambio else '',
+                    'observacion': log.observacion
+                }
+                for log in logs
+            ]
+        except Exception:
+            return []
 
 
 class AsistenciaSerializer(serializers.ModelSerializer):
