@@ -1,0 +1,14 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+entorno/
+env/
+venv/
+db.sqlite3
+scripts/
+scratch/
+scripts sql/

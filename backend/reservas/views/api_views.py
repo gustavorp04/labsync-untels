@@ -28,27 +28,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             'id_rol', 'perfildocente', 'perfilestudiante', 'perfilestudiante__id_carrera'
         )
 
-class LaboratorioViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAdminOrJefaturaOrReadOnly]
-    serializer_class = LaboratorioListSerializer
-
-    def get_queryset(self):
-        # A-3: Reemplaza el queryset estático para incluir select_related y
-        # la anotación que usa LaboratorioListSerializer.get_equipos_operativos
-        from django.db.models import Count, Q
-        return (
-            Laboratorio.objects
-            .select_related('id_tipo', 'id_facultad')
-            .annotate(
-                equipos_operativos_count=Count(
-                    'activolaboratorio',
-                    filter=Q(
-                        activolaboratorio__id_tipo_activo__nombre__in=['CPU', 'Mesa'],
-                        activolaboratorio__estado='Operativo',
-                    )
-                )
-            )
-        )
 
 class ReservaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]

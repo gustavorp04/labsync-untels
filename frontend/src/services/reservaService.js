@@ -14,9 +14,10 @@ const crearReservaEstudiante = async (data) => {
   return res.data;
 };
 
-/** Mis reservas filtradas por usuario usando la ruta anidada RESTful */
-const getMisReservas = async (userId) => {
-  const res = await api.get(`/v1/usuarios/${userId}/reservas/`);
+/** Mis reservas filtradas por usuario usando la ruta anidada RESTful.
+ * M-2: acepta options.signal para cancelar la petición con AbortController. */
+const getMisReservas = async (userId, options = {}) => {
+  const res = await api.get(`/v1/usuarios/${userId}/reservas/`, { signal: options.signal });
   return res.data;
 };
 
@@ -44,11 +45,6 @@ const marcarAsistencia = async (idReserva, asistio) => {
   return res.data;
 };
 
-/** Eliminar reserva (admin) */
-const eliminarReserva = async (id) => {
-  const res = await api.delete(`/v1/reservas/${id}/`);
-  return res.data;
-};
 
 /** Horarios disponibles por laboratorio (con anticipación mínima de 1 día) */
 const getHorariosPorLab = async (idLab) => {
@@ -76,7 +72,6 @@ const reservaService = {
   getReservaById,
   cancelarReserva,
   marcarAsistencia,
-  eliminarReserva,
   getHorariosPorLab,
   getHistorialReservas,
   getTodosLosHorariosPorLabYFecha,

@@ -68,6 +68,9 @@ function Estudiante() {
     activoSelRef.current = activoSel;
   }, [activoSel]);
 
+  // M-1: ref para el timer del toast (evita memory leak al cambiar vista o desmontar)
+  const toastTimerRef = useRef(null);
+
   useEffect(() => { sessionStorage.setItem("est_labSel", JSON.stringify(labSel)); }, [labSel]);
   useEffect(() => { sessionStorage.setItem("est_horarioSel", JSON.stringify(horarioSel)); }, [horarioSel]);
   useEffect(() => { sessionStorage.setItem("est_activoSel", JSON.stringify(activoSel)); }, [activoSel]);
@@ -80,7 +83,7 @@ function Estudiante() {
   const [reservaDetalle, setReservaDetalle] = useState(null);
 
   // User Data (Normalizada para compatibilidad)
-  const userId   = localStorage.getItem("userId") || localStorage.getItem("id_usuario") || "";
+  const userId   = localStorage.getItem("id_usuario") || "";
   const nombre   = localStorage.getItem("nombre") || localStorage.getItem("username") || "Estudiante";
   const ciclo    = localStorage.getItem("ciclo") || "";
   const carrera  = localStorage.getItem("carrera") || "";
@@ -98,17 +101,25 @@ function Estudiante() {
 
   const tiposPermitidos = useMemo(() => [...tiposEspecialidad, 'fisica'], [tiposEspecialidad]);
 
-  const showToast = (tipo, texto, dur = 5000) => {
+  // M-1: useCallback estable + ref para no dejar timers huérfanos
+  const showToast = useCallback((tipo, texto, dur = 5000) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ tipo, texto });
-    setTimeout(() => setToast(null), dur);
-  };
+    toastTimerRef.current = setTimeout(() => setToast(null), dur);
+  }, []);
 
-  const fetchMisReservas = useCallback(async () => {
+  // M-1: limpieza al desmontar
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+  // M-2: acepta signal para cancelar la petición si el efecto se desmonta antes de recibir respuesta
+  const fetchMisReservas = useCallback(async (signal) => {
     if (!userId) return;
     try {
-      const data = await reservaService.getMisReservas(userId);
+      const data = await reservaService.getMisReservas(userId, { signal });
       setMisReservas(data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') console.error(err);
+    }
   }, [userId]);
 
   // PROTECCIÓN ANTI-PANTALLA BLANCA (F5 Crash Fix)
@@ -120,23 +131,28 @@ function Estudiante() {
     }
   }, [vista, paso, labSel, horarioSel, activoSel]);
 
+  // M-2: AbortController para cancelar requests en vuelo al cambiar de vista
   useEffect(() => {
+    const abortCtrl = new AbortController();
     let intervalId = null;
     if (vista === 'mis-reservas') {
-      fetchMisReservas();
-      intervalId = setInterval(fetchMisReservas, 10000);
+      fetchMisReservas(abortCtrl.signal);
+      intervalId = setInterval(() => fetchMisReservas(abortCtrl.signal), 10000);
     }
     if (vista === 'nueva-reserva') {
       setLoading(true);
       // ID-07: el filtro por carrera ahora lo aplica el servidor mediante ?tipo_nombres=
       // No hay lógica de filtrado en el cliente que pueda ser bypasseada.
-      laboratorioService.getLaboratorios(tiposPermitidos)
+      laboratorioService.getLaboratorios(tiposPermitidos, { signal: abortCtrl.signal })
         .then(data => setLaboratorios(data))
-        .catch(() => showToast('error', 'Error al cargar laboratorios'))
+        .catch((err) => {
+          if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') showToast('error', 'Error al cargar laboratorios');
+        })
         .finally(() => setLoading(false));
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
+      abortCtrl.abort();
     };
   }, [vista, carreraNorm, fetchMisReservas, tiposPermitidos, tiposEspecialidad.length, normalize]);
 
@@ -152,23 +168,27 @@ function Estudiante() {
   }, [paso, labSel]);
 
   // Carga y Polling reactivo en tiempo real de equipos en Paso 3
+  // M-2: AbortController para cancelar requests huérfanos al salir del paso
   useEffect(() => {
     let intervalId = null;
+    const abortCtrl = new AbortController();
 
     if (paso === 3 && labSel && horarioSel) {
       const cargarEquipos = async (showLoading = false) => {
         if (showLoading) setLoading(true);
         try {
-          const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario);
+          const data = await laboratorioService.getActivosPorLab(
+            labSel.id_laboratorio, horarioSel.id_horario, { signal: abortCtrl.signal }
+          );
           setActivos(data);
-          
+
           // Verificar si el equipo seleccionado por el estudiante fue ocupado o inhabilitado por otro
           if (activoSelRef.current) {
             const pcActualizada = data.find(a => a.id_activo === activoSelRef.current.id_activo);
             if (
-              pcActualizada && 
-              (pcActualizada.reservado || 
-               pcActualizada.estado_reserva === "Pendiente" || 
+              pcActualizada &&
+              (pcActualizada.reservado ||
+               pcActualizada.estado_reserva === "Pendiente" ||
                pcActualizada.estado !== "Operativo")
             ) {
               setActivoSel(null);
@@ -176,7 +196,9 @@ function Estudiante() {
             }
           }
         } catch (err) {
-          console.error("Error al refrescar equipos:", err);
+          if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+            console.error("Error al refrescar equipos:", err);
+          }
         } finally {
           if (showLoading) setLoading(false);
         }
@@ -186,15 +208,12 @@ function Estudiante() {
       cargarEquipos(true);
 
       // Polling en segundo plano cada 3 segundos (actualización silenciosa)
-      intervalId = setInterval(() => {
-        cargarEquipos(false);
-      }, 3000);
+      intervalId = setInterval(() => cargarEquipos(false), 3000);
     }
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      if (intervalId) clearInterval(intervalId);
+      abortCtrl.abort();
     };
   }, [paso, labSel, horarioSel]);
 

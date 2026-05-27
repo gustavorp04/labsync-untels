@@ -20,7 +20,6 @@ urlpatterns = [
     path('api/auth/estudiante/login/', auth_views.login_estudiante, name='login-estudiante'),
     path('api/auth/docente/login/', auth_views.login_docente, name='login-docente'),
     path('api/auth/admin/login/', auth_views.login_admin, name='login-admin'),
-    path('api/auth/admin_lab/login/', auth_views.login_admin, name='login-admin-lab'),
     path('api/auth/jefatura/login/', auth_views.login_jefatura, name='login-jefatura'),
     path('api/auth/logout/', auth_views.logout_view, name='logout'),   # C-2
     path('api/forgot-password/', auth_views.forgot_password, name='forgot-password'),

@@ -31,8 +31,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Limpiar datos de sesión local (el backend ya expiró la cookie)
+    const status = error.response?.status;
+    if (status === 401 || (status === 403 && !localStorage.getItem('id_usuario'))) {
+      // Limpiar datos de sesión local (el backend ya expiró la cookie o falta)
       const theme = localStorage.getItem('app-theme');
       localStorage.clear();
       if (theme) localStorage.setItem('app-theme', theme);

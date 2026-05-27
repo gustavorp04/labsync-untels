@@ -44,7 +44,7 @@ const LoginEstudiante = () => {
 
       navigate('/estudiante');
     } catch (err) {
-      console.log('ERROR LOGIN ESTUDIANTE:', err);
+      if (process.env.NODE_ENV !== 'production') console.error('Login error:', err);
       const msg = err.response?.data?.error;
       setError(msg || 'Error al iniciar sesión. Verifica tus credenciales.');
     }

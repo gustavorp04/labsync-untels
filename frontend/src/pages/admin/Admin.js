@@ -188,6 +188,8 @@ function Admin() {
       setReservas(data);
     } catch (error) {
       console.error("Error al cargar reservas", error);
+      // M-3: mostrar error al usuario, no solo en consola
+      setFeedbackMsg({ tipo: 'error', texto: 'Error al cargar las reservas. Intente de nuevo.' });
     }
   };
 
@@ -206,6 +208,8 @@ function Admin() {
       setUsuarios(data);
     } catch (error) {
       console.error("Error al cargar usuarios", error);
+      // M-3: mostrar error al usuario
+      setFeedbackMsg({ tipo: 'error', texto: 'Error al cargar los usuarios. Intente de nuevo.' });
     }
   };
 
@@ -215,6 +219,8 @@ function Admin() {
       setLaboratorios(data);
     } catch (error) {
       console.error("Error al cargar laboratorios", error);
+      // M-3: mostrar error al usuario
+      setFeedbackMsg({ tipo: 'error', texto: 'Error al cargar los laboratorios. Intente de nuevo.' });
     }
   };
 
@@ -277,26 +283,6 @@ function Admin() {
     return '#dc2626'; // Dado de baja
   };
 
-  const handleEditClick = (reserva) => {
-    setReservaEditando({
-      ...reserva,
-      nueva_fecha: reserva.fecha_reserva,
-      nueva_hora: reserva.hora_inicio
-    });
-    setShowModalEdit(true);
-  };
-
-  const handleUpdateReserva = async () => {
-    try {
-      // Aquí llamaríamos al service para actualizar
-      // Por ahora simulamos el éxito y refrescamos
-      alert("Reserva actualizada correctamente");
-      setShowModalEdit(false);
-      fetchReservas();
-    } catch (error) {
-      alert("Error al actualizar");
-    }
-  };
 
   const handleVisActivoSelect = async (activo) => {
     if (activo && activo.id_reserva) {
@@ -317,15 +303,15 @@ function Admin() {
     }
   };
 
-  const handleDeleteReserva = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar esta reserva?")) {
-      try {
-        // Necesitaremos implementar esto en el service
-        await reservaService.eliminarReserva(id);
-        fetchReservas();
-      } catch (error) {
-        alert("Error al eliminar");
-      }
+  // N-3: cancelar reserva en lugar de eliminar (DELETE da 405; usa la ruta RESTful PATCH)
+  const handleCancelarReservaAdmin = async (reserva) => {
+    if (!window.confirm(`¿Cancelar la reserva de ${reserva.usuario_nombre}?`)) return;
+    try {
+      await reservaService.cancelarReserva(reserva.id_reserva, reserva.usuario_id);
+      setFeedbackMsg({ tipo: 'ok', texto: 'Reserva cancelada correctamente.' });
+      fetchReservas();
+    } catch (error) {
+      setFeedbackMsg({ tipo: 'error', texto: error.response?.data?.error || 'Error al cancelar la reserva.' });
     }
   };
 
@@ -354,9 +340,10 @@ function Admin() {
         departamento: "",
         ciclo: 1
       });
+      setFeedbackMsg({ tipo: 'ok', texto: 'Usuario creado exitosamente.' });
       fetchUsuarios();
     } catch (error) {
-      alert("Error al crear usuario. Verifica los datos.");
+      setFeedbackMsg({ tipo: 'error', texto: "Error al crear usuario. Verifica los datos." });
     }
   };
 
@@ -368,9 +355,10 @@ function Admin() {
     if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
       try {
         await userService.eliminarUsuario(id);
+        setFeedbackMsg({ tipo: 'ok', texto: 'Usuario eliminado exitosamente.' });
         fetchUsuarios();
       } catch (error) {
-        alert("Error al eliminar");
+        setFeedbackMsg({ tipo: 'error', texto: "Error al eliminar usuario." });
       }
     }
   };
@@ -460,6 +448,21 @@ function Admin() {
       {/* # CONTENIDO PRINCIPAL */}
       <main className="main-content">
 
+        {/* M-3: Feedback global — visible en cualquier vista, posición fija */}
+        {feedbackMsg && (
+          <div style={{
+            position: 'fixed', top: 20, right: 20, zIndex: 9999,
+            padding: '12px 20px', borderRadius: 8, maxWidth: 380,
+            background: feedbackMsg.tipo === 'ok' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+            color: feedbackMsg.tipo === 'ok' ? '#10b981' : '#f87171',
+            border: `1px solid ${feedbackMsg.tipo === 'ok' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}>
+            {feedbackMsg.texto}
+            <button onClick={() => setFeedbackMsg(null)} style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>×</button>
+          </div>
+        )}
+
         {/* # VISTA INICIO */}
         {vista === "inicio" && (
           <div className="welcome-center">
@@ -545,10 +548,10 @@ function Admin() {
                           <>
                             <button className="asistio-btn" onClick={() => handleAsistencia(r.id_reserva, true)}>Asistió</button>
                             <button className="noshow-btn" onClick={() => handleAsistencia(r.id_reserva, false)}>No-Show</button>
+                            {/* N-3: cancelar en lugar de eliminar — DELETE da 405 */}
+                            <button className="delete-btn" onClick={() => handleCancelarReservaAdmin(r)}>Cancelar</button>
                           </>
                         )}
-                        <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
-                        <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
                       </div>
                     </td>
                   </tr>
@@ -646,8 +649,10 @@ function Admin() {
                     <td>
                       <div className="option-buttons">
                         <button className="view-btn" onClick={() => setReservaDetalleModal(r)} style={{ background: 'var(--accent-color)', color: '#fff' }}>Ver</button>
-                        <button className="edit-btn" onClick={() => handleEditClick(r)}>Editar</button>
-                        <button className="delete-btn" onClick={() => handleDeleteReserva(r.id_reserva)}>Eliminar</button>
+                        {/* N-3: cancelar en lugar de eliminar — DELETE da 405 */}
+                        {(r.estado === 'Programada' || r.estado === 'Pendiente') && (
+                          <button className="delete-btn" onClick={() => handleCancelarReservaAdmin(r)}>Cancelar</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1363,38 +1368,6 @@ function Admin() {
           </div>
         )}
 
-        {/* MODAL EDITAR RESERVA */}
-        {showModalEdit && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h2>Editar Reserva</h2>
-              <p>Modificando reserva de <strong>{reservaEditando.usuario_nombre}</strong></p>
-              
-              <div className="form-group">
-                <label>Nueva Fecha</label>
-                <input 
-                  type="date" 
-                  value={reservaEditando.nueva_fecha} 
-                  onChange={(e) => setReservaEditando({...reservaEditando, nueva_fecha: e.target.value})}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Nuevo Horario</label>
-                <input 
-                  type="time" 
-                  value={reservaEditando.nueva_hora} 
-                  onChange={(e) => setReservaEditando({...reservaEditando, nueva_hora: e.target.value})}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button className="cancel-btn" onClick={() => setShowModalEdit(false)}>Cancelar</button>
-                <button className="save-btn" onClick={handleUpdateReserva}>Guardar Cambios</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* PANEL LATERAL — GESTIÓN DE ACTIVO (PBI-02) */}
         {activoModal && (

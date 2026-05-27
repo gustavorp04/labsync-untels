@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
@@ -70,6 +70,9 @@ function Docente() {
     activosSelRef.current = activosSel;
   }, [activosSel]);
 
+  // M-1: ref para el timer del toast (evita memory leak al cambiar vista o desmontar)
+  const toastTimerRef = useRef(null);
+
   // Data
   const [laboratorios, setLaboratorios] = useState([]);
   const [horarios, setHorarios]         = useState([]);
@@ -93,21 +96,49 @@ function Docente() {
     return !arr || arr.includes(c.nombre);
   });
 
-  const showToast = (tipo, texto, dur = 4000) => {
+  // M-1: useCallback estable + ref para no dejar timers huérfanos
+  const showToast = useCallback((tipo, texto, dur = 4000) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ tipo, texto });
-    setTimeout(() => setToast(null), dur);
-  };
+    toastTimerRef.current = setTimeout(() => setToast(null), dur);
+  }, []);
 
-  // Fetch labs by category
+  // M-1: limpieza al desmontar
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+  // Normalize for backend filtering
+  const normalize = useCallback((str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""), []);
+
+  const tiposPermitidos = useMemo(() => {
+    const arr = DEPTO_MAP[depto];
+    if (!arr) return CATEGORIAS.map(c => normalize(c.nombre));
+    return arr.map(c => normalize(c));
+  }, [depto, normalize]);
+
+  // Fetch labs by category using server-side filtering
+  // M-2: AbortController para cancelar la petición si el usuario retrocede antes de recibir respuesta
   useEffect(() => {
+    const abortCtrl = new AbortController();
     if (paso === 2 && categoriaSel) {
       setLoading(true);
-      laboratorioService.getLaboratorios()
-        .then(data => setLaboratorios(data.filter(l => l.tipo_nombre === categoriaSel)))
-        .catch(() => showToast('error', 'Error al cargar laboratorios'))
+      // Validate that the requested category is within permitted types
+      const reqCat = normalize(categoriaSel);
+      if (!tiposPermitidos.includes(reqCat)) {
+        showToast('error', 'No tienes permiso para ver esta categoría.');
+        setLoading(false);
+        return;
+      }
+      
+      // Request ONLY the requested category from the backend
+      laboratorioService.getLaboratorios([reqCat], { signal: abortCtrl.signal })
+        .then(data => setLaboratorios(data))
+        .catch((err) => {
+          if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') showToast('error', 'Error al cargar laboratorios');
+        })
         .finally(() => setLoading(false));
     }
-  }, [paso, categoriaSel]);
+    return () => abortCtrl.abort();
+  }, [paso, categoriaSel, tiposPermitidos, normalize, showToast]);
 
   // Fetch schedules when lab selected
   useEffect(() => {
@@ -121,23 +152,27 @@ function Docente() {
   }, [paso, labSel]);
 
   // Fetch activos e implementar Polling reactivo en tiempo real para Docente
+  // M-2: AbortController para cancelar requests huérfanos al salir del paso
   useEffect(() => {
     let intervalId = null;
+    const abortCtrl = new AbortController();
 
     if (paso === 4 && labSel && horarioSel) {
       const cargarEquipos = async (showLoading = false) => {
         if (showLoading) setLoading(true);
         try {
-          const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario);
+          const data = await laboratorioService.getActivosPorLab(
+            labSel.id_laboratorio, horarioSel.id_horario, { signal: abortCtrl.signal }
+          );
           // Filtrar por CPU o Mesa
           const CPUoMesa = data.filter(a => a.tipo_activo_nombre === 'CPU' || a.tipo_activo_nombre === 'Mesa');
           setActivos(CPUoMesa);
 
           // Si el docente ya seleccionó equipos, verificar si alguno fue reservado en paralelo por alumnos
           if (activosSelRef.current.length > 0) {
-            const disponibles = CPUoMesa.filter(a => 
-              a.estado === 'Operativo' && 
-              !a.reservado && 
+            const disponibles = CPUoMesa.filter(a =>
+              a.estado === 'Operativo' &&
+              !a.reservado &&
               a.estado_reserva !== 'Pendiente'
             ).map(a => a.id_activo);
 
@@ -148,7 +183,9 @@ function Docente() {
             }
           }
         } catch (err) {
-          console.error("Error al actualizar equipos en docente:", err);
+          if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') {
+            console.error("Error al actualizar equipos en docente:", err);
+          }
         } finally {
           if (showLoading) setLoading(false);
         }
@@ -158,35 +195,38 @@ function Docente() {
       cargarEquipos(true);
 
       // Polling reactivo cada 3 segundos
-      intervalId = setInterval(() => {
-        cargarEquipos(false);
-      }, 3000);
+      intervalId = setInterval(() => cargarEquipos(false), 3000);
     }
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      if (intervalId) clearInterval(intervalId);
+      abortCtrl.abort();
     };
   }, [paso, labSel, horarioSel]);
 
   // Fetch my reservations
-  const fetchMisReservas = useCallback(async () => {
+  // M-2: acepta signal para cancelar requests en vuelo
+  const fetchMisReservas = useCallback(async (signal) => {
     if (!userId) return;
     try {
-      const data = await reservaService.getMisReservas(userId);
+      const data = await reservaService.getMisReservas(userId, { signal });
       setMisReservas(data);
-    } catch { showToast('error', 'Error al cargar tus reservas'); }
-  }, [userId]);
+    } catch (err) {
+      if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') showToast('error', 'Error al cargar tus reservas');
+    }
+  }, [userId, showToast]);
 
+  // M-2: AbortController para cancelar polling al cambiar de vista
   useEffect(() => {
+    const abortCtrl = new AbortController();
     let intervalId = null;
     if (vista === "mis-reservas") {
-      fetchMisReservas();
-      intervalId = setInterval(fetchMisReservas, 10000);
+      fetchMisReservas(abortCtrl.signal);
+      intervalId = setInterval(() => fetchMisReservas(abortCtrl.signal), 10000);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
+      abortCtrl.abort();
     };
   }, [vista, fetchMisReservas]);
 
