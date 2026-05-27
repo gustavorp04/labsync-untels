@@ -66,8 +66,13 @@ def _base_login(request, expected_role):
             **user_data
         })
     except Exception as e:
-        logger.error(f"Error en login para {request.data.get('usuario')}: {str(e)}")
-        return Response({"error": "Error interno del servidor"}, status=500)
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"Error en login para {request.data.get('usuario')}: {str(e)}\n{error_trace}")
+        return Response({
+            "error": f"Error interno: {str(e)}", 
+            "trace": error_trace
+        }, status=500)
 
 
 @api_view(['POST'])

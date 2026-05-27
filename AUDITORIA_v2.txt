@@ -1,0 +1,412 @@
+================================================================================
+  AUDITORÍA v2 — RE-SCAN POST CORRECCIONES
+  LabSync UNTELS — Estado actual del código
+  Fecha: 2026-05-26
+================================================================================
+
+Archivos analizados en este re-scan:
+  Backend : reserva_service.py, reserva_views.py, api_views.py,
+            laboratorio_views.py, laboratorio_serializers.py,
+            reserva_serializers.py, models.py, apps.py
+  Frontend: Estudiante.js, Docente.js, Admin.js, ProtectedRoute.js, api.js
+
+Este documento reemplaza a AUDITORIA_AVANZADA.txt.
+Solo lista problemas que aún existen. Los resueltos están en la sección 1.
+
+
+================================================================================
+  SECCIÓN 1 — PROBLEMAS YA RESUELTOS (6 de 13)
+================================================================================
+
+✅ C-1 · ProtectedRoute — ahora valida el token real, no el string
+         "isAuthenticated". (ProtectedRoute.js)
+
+✅ A-1 · N+1 en mis_reservas — corregido con select_related +
+         prefetch_related que cubren todas las relaciones del serializer.
+         (reserva_views.py)
+
+✅ A-2 · N+1 en get_historial_reservas — corregido con select_related en
+         los 4 niveles de FK que usa HistorialReservaSerializer.
+         (reserva_views.py)
+
+✅ A-3 · N+1 en LaboratorioListSerializer — corregido con annotate()
+         (COUNT filtrado en SQL) en LaboratorioListView y LaboratorioViewSet.
+         El serializer lee la anotación si está disponible; tiene fallback
+         seguro para usos directos. (laboratorio_views.py, api_views.py,
+         laboratorio_serializers.py)
+
+✅ A-4 · Regla 24h inexacta — corregida en crear_reserva_docente y
+         crear_reserva_estudiante. Ahora compara datetimes reales con
+         timedelta(hours=24), no solo fechas. (reserva_service.py)
+
+✅ A-5 · Traslape de horarios — corregido en ambas funciones de creación.
+         Usa hora_inicio__lt / hora_fin__gt para detectar cualquier
+         superposición de intervalos, no solo coincidencias exactas.
+         (reserva_service.py)
+
+  También resueltos antes de este ciclo de auditoría:
+  ✅ Bug de concurrencia en cancelar_reserva (usa recalcular_capacidad)
+  ✅ DELETE bloqueado en ReservaViewSet (HTTP 405)
+  ✅ Código muerto eliminado (ActivoLaboratorioUpdateView, run_seed_emergency)
+
+
+================================================================================
+  SECCIÓN 2 — PENDIENTES DEL AUDIT ANTERIOR (7 problemas)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[CRÍTICO] C-2 · Token JWT en localStorage — vulnerable a XSS
+────────────────────────────────────────────────────────────────────────────────
+Archivos: LoginEstudiante.js, LoginDocente.js, LoginAdmin.js, LoginJefatura.js
+          api.js
+
+Sigue igual. localStorage es accesible desde cualquier script JS en la página.
+Si un paquete npm comprometido o un input sin sanitizar ejecutan código XSS,
+el token se puede robar y el atacante puede actuar como el usuario hasta que
+el token expire (24 horas).
+
+La solución definitiva es emitir el token como cookie httpOnly desde el
+backend y eliminar todo acceso a localStorage para el token.
+
+Nivel de urgencia: medio-alto en un sistema universitario real.
+En contexto académico es aceptable documentarlo y moverlo a deuda técnica.
+
+────────────────────────────────────────────────────────────────────────────────
+[MEDIO] M-1 · setTimeout sin cleanup en showToast (memory leak)
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js línea 100-103
+          Docente.js  línea 95-98
+
+Código actual (idéntico en ambos):
+  const showToast = (tipo, texto, dur = 5000) => {
+    setToast({ tipo, texto });
+    setTimeout(() => setToast(null), dur);  // ← timer huérfano
+  };
+
+Si el componente se desmonta antes de que pasen los 5 segundos (ej. el usuario
+navega hacia otro lado), el setTimeout sigue ejecutándose e intenta actualizar
+el estado de un componente ya desmontado. React imprime un warning y puede
+causar comportamiento inesperado.
+
+Corrección:
+  Convertirlo en un hook que use useRef para guardar el ID del timer y
+  limpiarlo en el cleanup:
+
+  const toastTimerRef = useRef(null);
+  const showToast = useCallback((tipo, texto, dur = 5000) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ tipo, texto });
+    toastTimerRef.current = setTimeout(() => setToast(null), dur);
+  }, []);
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+────────────────────────────────────────────────────────────────────────────────
+[MEDIO] M-2 · Polling sin AbortController (requests huérfanos)
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js (polling de equipos, paso 3, línea 154-198)
+          Estudiante.js (polling de reservas, línea 122-140)
+          Docente.js    (polling de equipos, paso 4, línea 123-169)
+          Docente.js    (polling de reservas, línea 181-190)
+
+El clearInterval evita que NUEVAS peticiones se lancen, pero si hay una
+petición HTTP en vuelo cuando el componente se desmonta, esa petición llega
+igual y llama a setActivos / setMisReservas sobre un componente ya desmontado.
+
+Las peticiones se hacen a través de axios (api.js), que no cancela
+automáticamente. Hay que pasar un AbortController.signal a cada fetch.
+
+Corrección ejemplo para el polling de equipos:
+  useEffect(() => {
+    let intervalId = null;
+    let abortCtrl = new AbortController();
+
+    if (paso === 3 && labSel && horarioSel) {
+      const cargarEquipos = async (showLoading = false) => {
+        if (showLoading) setLoading(true);
+        try {
+          const data = await laboratorioService.getActivosPorLab(
+            labSel.id_laboratorio,
+            horarioSel.id_horario,
+            { signal: abortCtrl.signal }  // ← pasar a axios
+          );
+          setActivos(data);
+          // ... resto de lógica
+        } catch (err) {
+          if (err.name !== 'CanceledError') console.error(err);
+        } finally {
+          if (showLoading) setLoading(false);
+        }
+      };
+      cargarEquipos(true);
+      intervalId = setInterval(() => cargarEquipos(false), 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      abortCtrl.abort();  // ← cancelar petición en vuelo
+    };
+  }, [paso, labSel, horarioSel]);
+
+────────────────────────────────────────────────────────────────────────────────
+[MEDIO] M-3 · Errores silenciosos en Admin.js (sin feedback al usuario)
+────────────────────────────────────────────────────────────────────────────────
+Archivo: Admin.js
+
+Todas las funciones de carga de datos solo hacen console.error:
+
+  const fetchReservas = async () => {
+    try { ... }
+    catch (error) { console.error("Error al cargar reservas", error); }
+  };
+
+Si la API falla (token expirado, red caída, server error), el admin ve la
+tabla vacía sin ningún mensaje de error. Podría pensar que no hay datos
+cuando en realidad la carga falló.
+
+Corrección: agregar un estado de error y mostrarlo:
+  const [errorCarga, setErrorCarga] = useState(null);
+  // En cada catch: setErrorCarga("No se pudieron cargar las reservas.");
+  // En el JSX: {errorCarga && <div className="error-banner">{errorCarga}</div>}
+
+O usar el sistema feedbackMsg ya existente en Admin.js (que sí se muestra):
+  catch (error) {
+    setFeedbackMsg({ tipo: 'error', texto: 'Error al cargar reservas.' });
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+[BAJO] M-4 · Clave userId duplicada en localStorage
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js línea 82
+          Admin.js     línea 255
+          Docente.js   línea 87
+
+Estudiante.js:
+  const userId = localStorage.getItem("userId") || localStorage.getItem("id_usuario") || "";
+
+Admin.js:
+  const adminId = localStorage.getItem('userId') || localStorage.getItem('id_usuario');
+
+Docente.js:
+  const userId = localStorage.getItem("id_usuario") || "";
+
+Hay dos claves distintas para el mismo dato (id del usuario). Estudiante y
+Admin usan ambas como fallback porque no están seguros de cuál login guardó
+qué clave. Docente asume siempre "id_usuario". Si un login guarda "userId"
+y el componente Docente lee "id_usuario", las llamadas fallarán silenciosamente
+(userId queda vacío y la petición va a /api/v1/usuarios//reservas/).
+
+Corrección: estandarizar a una sola clave en todos los logins y componentes.
+  Valor recomendado: "id_usuario" (ya es el más usado y coincide con el modelo).
+
+────────────────────────────────────────────────────────────────────────────────
+[BAJO] B-1 · Docente.js filtra laboratorios en el cliente
+────────────────────────────────────────────────────────────────────────────────
+Archivo: Docente.js línea 104-108
+
+  laboratorioService.getLaboratorios()
+    .then(data => setLaboratorios(data.filter(l => l.tipo_nombre === categoriaSel)))
+
+Descarga TODOS los laboratorios y filtra en el navegador. El backend ya
+soporta ?tipo_nombres= (usado correctamente por Estudiante.js).
+
+Corrección:
+  laboratorioService.getLaboratorios([categoriaSel])
+  // Esto pasa ?tipo_nombres=Cómputo al backend, que filtra en SQL.
+
+
+================================================================================
+  SECCIÓN 3 — NUEVOS HALLAZGOS EN ESTE RE-SCAN (6 problemas nuevos)
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+[ALTO] N-1 · CrearReservaSerializer aún usa la lógica "día siguiente" (inconsistencia)
+────────────────────────────────────────────────────────────────────────────────
+Archivo: backend/reservas/serializers/reserva_serializers.py línea 23-26
+
+  # Primera capa de validación (serializer)
+  manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
+  if fecha_reserva < manana:
+      raise serializers.ValidationError("La reserva debe realizarse con al menos 1 día de anticipación.")
+
+Esta validación es la primera que ve el docente (antes de que el service
+la valide). Usa la lógica old de "fecha < mañana" que ya se corrigió en el
+service. Resultado:
+
+  Escenario:  hoy es lunes 26 a las 23:50
+              el docente intenta reservar para martes 27 a las 00:05 (15 min)
+
+  Serializer: PASA (fecha no es menor que mañana)
+  Service:    BLOQUEA correctamente (solo 15 min de diferencia < 24h)
+
+El usuario recibe el mensaje genérico del service, no el del serializer, así
+que el bloqueo funciona. Pero el mensaje de error es confuso porque el
+serializer no lo detectó y el service usa un mensaje diferente.
+
+Corrección: replicar la misma lógica de datetime exacto en el serializer:
+  from datetime import datetime as dt_datetime
+  ahora = timezone.now()
+  naive_inicio = dt_datetime.combine(horario.fecha, horario.hora_inicio)
+  fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+  if (fecha_hora_inicio - ahora) < timedelta(hours=24):
+      raise serializers.ValidationError("La reserva debe hacerse con al menos 24 horas de anticipación.")
+
+────────────────────────────────────────────────────────────────────────────────
+[ALTO] N-2 · HorarioDisponibleSerializer.get_es_reservable usa lógica "día siguiente"
+────────────────────────────────────────────────────────────────────────────────
+Archivo: backend/reservas/serializers/reserva_serializers.py línea 107-108
+
+  def get_es_reservable(self, obj):
+      manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
+      return obj.fecha >= manana
+
+Este campo controla si el botón de horario aparece habilitado o bloqueado
+en el stepper de Estudiante.js y Docente.js.
+
+Problema: Si hoy es lunes 26 a las 23:55 y existe un horario para martes
+27 a las 00:10, el serializer devuelve es_reservable=True (la fecha es
+"mañana o después"). El estudiante ve el botón habilitado, hace clic, y
+recibe un error del backend: "menos de 24h de anticipación".
+
+El bloqueo correcto se produce en el service, pero la UX es mala porque
+el usuario navegó hasta el paso 3 para recibir un error.
+
+Corrección: misma lógica de datetime exacto:
+  def get_es_reservable(self, obj):
+      from datetime import datetime as dt_datetime
+      ahora = timezone.now()
+      naive_inicio = dt_datetime.combine(obj.fecha, obj.hora_inicio)
+      fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+      return (fecha_hora_inicio - ahora) >= timedelta(hours=24)
+
+  Asegurarse de importar: from datetime import timedelta, datetime as dt_datetime
+
+────────────────────────────────────────────────────────────────────────────────
+[MEDIO] N-3 · Admin.js muestra botón "Eliminar" que ahora devuelve HTTP 405
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/admin/Admin.js línea 319-329
+
+  const handleDeleteReserva = async (id) => {
+    if (window.confirm("¿Estás seguro de eliminar esta reserva?")) {
+      try {
+        await reservaService.eliminarReserva(id);
+        fetchReservas();
+      } catch (error) {
+        alert("Error al eliminar");  // ← respuesta confusa
+      }
+    }
+  };
+
+El backend ahora devuelve HTTP 405 con el mensaje:
+  "No se permite eliminar reservas directamente. Para cancelar usa PATCH …"
+
+El admin ve el botón, confirma la acción, y recibe solo "Error al eliminar"
+sin entender por qué falla.
+
+Corrección opción A (UX correcta): reemplazar el botón "Eliminar" por
+"Cancelar" y llamar al endpoint de cancelación.
+
+Corrección opción B (mínimo): capturar el 405 y mostrar el mensaje del backend:
+  catch (error) {
+    const msg = error.response?.data?.accion || error.response?.data?.error || "Error al eliminar";
+    setFeedbackMsg({ tipo: 'error', texto: msg });
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+[MEDIO] N-4 · N+1 en HorarioDisponibleSerializer (horarios_por_laboratorio)
+────────────────────────────────────────────────────────────────────────────────
+Archivo: backend/reservas/views/reserva_views.py (función horarios_por_laboratorio)
+
+  horarios = HorarioDisponible.objects.filter(
+      id_laboratorio=id_laboratorio,
+      ...
+  ).order_by('fecha', 'hora_inicio')
+
+  serializer = HorarioDisponibleSerializer(horarios, many=True)
+
+HorarioDisponibleSerializer accede a:
+  - obj.id_laboratorio.id_tipo.nombre   → 2 queries FK por cada horario
+  - obj.id_laboratorio.aforo_maximo     → misma relación (Django cachea el
+                                          primer acceso, así que son ~2 por
+                                          horario, no 3)
+
+Para un laboratorio con 10 franjas horarias = ~20 queries extra.
+
+Corrección: agregar select_related al queryset:
+  horarios = HorarioDisponible.objects.filter(
+      id_laboratorio=id_laboratorio,
+      ...
+  ).select_related('id_laboratorio', 'id_laboratorio__id_tipo').order_by(...)
+
+────────────────────────────────────────────────────────────────────────────────
+[BAJO] N-5 · api.js escribe 'isAuthenticated'='false' tras 401 (código muerto)
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/services/api.js línea 46-47
+
+  localStorage.clear();
+  ...
+  localStorage.setItem('isAuthenticated', 'false');
+
+Tras la corrección C-1, ProtectedRoute ya no lee 'isAuthenticated'. Esta
+línea es código muerto inofensivo, pero confunde a futuros desarrolladores
+que pueden asumir que la variable sigue siendo relevante para el flujo de
+autenticación.
+
+Corrección: eliminar la línea localStorage.setItem('isAuthenticated', 'false').
+
+────────────────────────────────────────────────────────────────────────────────
+[BAJO] N-6 · handleUpdateReserva en Admin.js es un stub que simula éxito
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/admin/Admin.js línea 288-298
+
+  const handleUpdateReserva = async () => {
+    try {
+      // Aquí llamaríamos al service para actualizar
+      // Por ahora simulamos el éxito y refrescamos
+      alert("Reserva actualizada correctamente");  // ← fake success
+      setShowModalEdit(false);
+      fetchReservas();
+    } catch (error) {
+      alert("Error al actualizar");
+    }
+  };
+
+El modal de edición de reservas existe en la UI (botón "Editar" visible),
+el admin puede abrirlo, modificar fecha y hora, hacer clic en "Guardar" y
+ver "Reserva actualizada correctamente" — pero absolutamente nada se guardó.
+La reserva queda igual en la base de datos.
+
+Esto no es un bug de rendimiento; es una funcionalidad incompleta con un
+mensaje de éxito falso, lo que puede causar confusión operativa.
+
+Corrección: o implementar el endpoint PATCH en el backend y llamarlo, o
+deshabilitar el botón "Editar" y remover el modal hasta que la funcionalidad
+esté implementada.
+
+
+================================================================================
+  SECCIÓN 4 — RESUMEN DE ESTADO
+================================================================================
+
+  Total de problemas auditados a lo largo de las dos auditorías: 19
+
+  ✅ Resueltos           :  9  (C-1, A-1÷5, concurrencia, DELETE, código muerto)
+  🔴 Crítico pendiente   :  1  (C-2 · token en localStorage)
+  🟠 Alto pendiente      :  2  (N-1, N-2 · inconsistencia 24h serializer)
+  🟡 Medio pendiente     :  5  (M-1÷3, N-3, N-4)
+  🔵 Bajo pendiente      :  3  (M-4, B-1, N-5, N-6)  [4 en total]
+
+  Pendientes de mayor impacto inmediato (orden sugerido):
+    1. N-1 + N-2  → 2 ediciones en reserva_serializers.py (30 min)
+    2. N-4        → 1 línea select_related en reserva_views.py (5 min)
+    3. M-1        → refactor showToast con useRef en 2 componentes (20 min)
+    4. N-3        → redirigir "Eliminar" a "Cancelar" en Admin.js (20 min)
+    5. M-3        → redirigir errores al feedbackMsg ya existente (30 min)
+    6. N-5        → eliminar 1 línea muerta en api.js (2 min)
+    7. M-4        → estandarizar clave a "id_usuario" en 3 logins+componentes
+    8. B-1        → pasar categoría como query param en Docente.js
+    9. M-2        → AbortController en pollings (30 min)
+   10. N-6        → completar o remover funcionalidad de edición en Admin
+
+================================================================================
+  FIN DEL REPORTE
+================================================================================
