@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PBI-20 · Race Condition Tester · LabSync</title><style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #090a10;
+    --surface: #10121d;
+    --surface2: #16192b;
+    --border: #262a42;
+    --accent: #818cf8; /* indigo */
+    --accent2: #ec4899; /* pink */
+    --warn: #f59e0b; /* amber */
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --success: #10b981; /* emerald */
+    --fail: #ef4444; /* red */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px;
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(129, 140, 248, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 100%, rgba(236, 72, 153, 0.07) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  header { margin-bottom: 40px; text-align: left; }
+  .logo-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.25em;
+    color: var(--accent);
+    background: rgba(129, 140, 248, 0.07);
+    border: 1px solid rgba(129, 140, 248, 0.2);
+    padding: 6px 12px; border-radius: 6px;
+    display: inline-block; margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  h1 span { color: var(--accent2); text-shadow: 0 0 20px rgba(236, 72, 153, 0.2); }
+  .subtitle { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  .grid { display: grid; grid-template-columns: 410px 1fr; gap: 28px; align-items: start; }
+
+  .panel {
+    background: rgba(16, 18, 26, 0.75);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .panel:hover {
+    border-color: rgba(129, 140, 248, 0.15);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+  }
+
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-title::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+  .field { margin-bottom: 18px; }
+  label { display:block; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em; text-transform: uppercase; }
+  label span.req { color: var(--accent2); }
+
+  input, select {
+    width: 100%;
+    background: rgba(22, 26, 36, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+    background: rgba(22, 26, 36, 0.95);
+  }
+  input::placeholder { color: var(--muted); }
+  select option { background: #12151f; }
+  select:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .connect-row { display: flex; gap: 10px; }
+  .connect-row input { flex: 1; }
+
+  .btn-connect {
+    padding: 11px 20px;
+    background: rgba(129, 140, 248, 0.08);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 700;
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    border-radius: 10px;
+    cursor: pointer; white-space: nowrap;
+    transition: all 0.25s ease;
+  }
+  .btn-connect:hover {
+    background: rgba(129, 140, 248, 0.18);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(129, 140, 248, 0.15);
+  }
+  .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .spinner-inline {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(129, 140, 248, 0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .conn-status { font-family:'JetBrains Mono',monospace; font-size:11px; margin-top:6px; min-height:16px; font-weight: 600; }
+  .conn-status.ok  { color: var(--success); }
+  .conn-status.err { color: var(--fail); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+
+  .user-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .user-block {
+    background: rgba(22, 26, 36, 0.45);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: all 0.3s ease;
+  }
+  .user-block:hover {
+    border-color: rgba(255,255,255,0.06);
+    background: rgba(22, 26, 36, 0.65);
+  }
+  .user-label {
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);
+    letter-spacing:0.12em; text-transform:uppercase; margin-bottom:10px;
+    display:flex; align-items:center; gap:6px;
+    font-weight: 700;
+  }
+  .dot-a { width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;box-shadow: 0 0 8px var(--accent); }
+  .dot-b { width:8px;height:8px;border-radius:50%;background:var(--accent2);display:inline-block;box-shadow: 0 0 8px var(--accent2); }
+  .user-block input, .user-block select { font-size:12px; padding:9px 12px; margin-bottom:8px; }
+  .user-block input:last-child, .user-block select:last-child { margin-bottom:0; }
+
+  .run-btn {
+    width:100%; padding:15px;
+    background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+    color:#ffffff; font-family:'Syne',sans-serif; font-weight:800; font-size:14px;
+    letter-spacing:0.08em; border:none; border-radius:10px; cursor:pointer;
+    transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1); text-transform:uppercase; margin-top:10px;
+    box-shadow: 0 4px 20px rgba(129, 140, 248, 0.2);
+  }
+  .run-btn:hover {
+    box-shadow: 0 6px 24px rgba(129, 140, 248, 0.35);
+    transform: translateY(-1px);
+  }
+  .run-btn:active { transform:translateY(1px); }
+  .run-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow: none; }
+
+  .reset-btn {
+    width:100%; padding:11px;
+    background:transparent; color:var(--muted);
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    border:1px solid var(--border); border-radius:10px; cursor:pointer;
+    transition:all 0.2s; margin-top:10px; text-transform:uppercase;
+  }
+  .reset-btn:hover { border-color:var(--muted); color:var(--text); background: rgba(255,255,255,0.02); }
+
+  /* results */
+  .results-panel { min-height: 500px; }
+  .status-bar {
+    display:flex; align-items:center; gap:12px;
+    margin-bottom:24px; padding:14px 18px;
+    background:rgba(22, 26, 36, 0.7); border-radius:10px; border:1px solid var(--border);
+  }
+  .status-indicator { width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0; }
+  .status-indicator.running { background:var(--warn); box-shadow: 0 0 10px var(--warn); animation:pulse 0.7s ease-in-out infinite; }
+  .status-indicator.pass { background:var(--success); box-shadow: 0 0 10px var(--success); }
+  .status-indicator.fail { background:var(--fail); box-shadow: 0 0 10px var(--fail); }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+  .status-text { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight: 600; }
+
+  .verdict { display:none; border-radius:12px; padding:22px; margin-bottom:24px; border:1px solid; }
+  .verdict.pass { background:rgba(16,185,129,0.06); border-color:rgba(16,185,129,0.2); }
+  .verdict.fail { background:rgba(239,68,68,0.06);  border-color:rgba(239,68,68,0.2); }
+  .verdict-header { font-size:19px; font-weight:800; margin-bottom:8px; }
+  .verdict.pass .verdict-header { color:var(--success); }
+  .verdict.fail .verdict-header { color:var(--fail); }
+  .verdict-desc { font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text); line-height:1.75; }
+
+  .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+  .stat-box { background:rgba(22, 26, 36, 0.7); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; }
+  .stat-val { font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; margin-bottom:6px; }
+  .stat-val.green{color:var(--success)} .stat-val.red{color:var(--fail)} .stat-val.blue{color:var(--accent)}
+  .stat-lbl { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; font-weight: 600; }
+
+  .timeline { display:flex; flex-direction:column; gap:10px; max-height:420px; overflow-y:auto; }
+  .timeline::-webkit-scrollbar{width:4px} .timeline::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+  .event {
+    display:flex; gap:12px; align-items:flex-start;
+    font-family:'JetBrains Mono',monospace; font-size:12px;
+    padding:12px 16px; background:rgba(22, 26, 36, 0.55); border-radius:8px;
+    border-left:4px solid var(--border);
+    opacity:0; transform:translateX(-10px); transition:opacity 0.3s, transform 0.3s ease-out;
+  }
+  .event.visible { opacity:1; transform:translateX(0); }
+  .event.ev-send{border-left-color:var(--warn); background: rgba(255, 171, 0, 0.02); } 
+  .event.ev-ok{border-left-color:var(--success); background: rgba(16, 185, 129, 0.02); }
+  .event.ev-err{border-left-color:var(--fail); background: rgba(239, 68, 68, 0.02); }  
+  .event.ev-info{border-left-color:var(--accent); background: rgba(129, 140, 248, 0.02); }
+  .ev-time{color:var(--muted);min-width:60px;font-size:11px}
+  .ev-user{min-width:100px;font-weight:600}
+  .ev-user.ua{color:var(--accent)} .ev-user.ub{color:var(--accent2)} .ev-user.sys{color:var(--muted)}
+  .ev-msg{color:var(--text);flex:1;line-height:1.55}
+  .ev-badge{font-size:10px;padding:3px 10px;border-radius:20px;font-weight:700;white-space:nowrap}
+  .badge-ok{background:rgba(16,185,129,0.12);color:var(--success)}
+  .badge-err{background:rgba(239,68,68,0.12);color:var(--fail)}
+  .badge-warn{background:rgba(255,171,0,0.12);color:var(--warn)}
+
+  .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:320px; color:var(--muted); gap:16px; }
+  .empty-icon{font-size:44px;opacity:0.35}
+  .empty-text{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:center;line-height:1.8}
+
+  .info-box {
+    background:rgba(129, 140, 248,0.03); border:1px solid rgba(129, 140, 248,0.12);
+    border-radius:10px; padding:14px 16px;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--muted); line-height:1.75;
+    margin-bottom:20px;
+  }
+  .info-box strong{color:var(--accent)}
+
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-tag">LabSync UNTELS</div>
+  <h1>PBI-20 <span>Race Condition</span> Tester</h1>
+  <div class="subtitle">// Verifica que select_for_update() previene reservas simultáneas</div>
+</header>
+
+<div class="grid">
+
+  <!-- CONFIG -->
+  <div class="panel">
+    <div class="panel-title">Configuración del test</div>
+
+    <div class="info-box">
+      <strong>¿Qué hace este test?</strong><br>
+      Envía dos requests de reserva <em>simultáneamente</em> con el mismo horario y activo. Solo <strong>una</strong> debe ser aceptada (HTTP 201). Si ambas pasan → bug confirmado.
+    </div>
+
+    <!-- USUARIOS PRIMERO -->
+    <div class="user-row">
+      <div class="user-block">
+        <div class="user-label"><span class="dot-a"></span> Usuario A</div>
+        <select id="rolA">
+          <option value="estudiante">Estudiante</option>
+          <option value="docente">Docente</option>
+        </select>
+        <input id="codigoA" type="text"     placeholder="Código"     value="2220010001" />
+        <input id="passA"   type="password" placeholder="Contraseña" value="EstSist_2026" />
+      </div>
+      <div class="user-block">
+        <div class="user-label"><span class="dot-b"></span> Usuario B</div>
+        <select id="rolB">
+          <option value="estudiante">Estudiante</option>
+          <option value="docente">Docente</option>
+        </select>
+        <input id="codigoB" type="text"     placeholder="Código"     value="2220010002" />
+        <input id="passB"   type="password" placeholder="Contraseña" value="EstSist_2026" />
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- URL + CONECTAR -->
+    <div class="field">
+      <label>Backend URL</label>
+      <div class="connect-row">
+        <input id="baseUrl" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
+        <button class="btn-connect" id="connectBtn" onclick="connectAndLoad()">Conectar</button>
+      </div>
+      <div class="conn-status" id="connStatus"></div>
+    </div>
+
+    <!-- Laboratorio -->
+    <div class="field">
+      <label>Laboratorio <span class="req">*</span></label>
+      <select id="selectLab" disabled onchange="onLabChange()">
+        <option value="">— primero conecta al backend —</option>
+      </select>
+    </div>
+
+    <!-- Horario -->
+    <div class="field">
+      <label>Horario disponible <span class="req">*</span></label>
+      <select id="selectHorario" disabled onchange="onHorarioChange()">
+        <option value="">— selecciona un laboratorio —</option>
+      </select>
+    </div>
+
+    <!-- Activo -->
+    <div class="field">
+      <label>Activo / Máquina <span class="req">*</span></label>
+      <select id="selectActivo" disabled>
+        <option value="">— selecciona un horario —</option>
+      </select>
+    </div>
+
+    <hr class="divider">
+
+    <button class="run-btn"   id="runBtn"   onclick="runTest()">Ejecutar test de concurrencia</button>
+    <button class="reset-btn" id="resetBtn" onclick="resetUI()">Limpiar resultados</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="panel results-panel">
+    <div class="panel-title">Resultado del test</div>
+
+    <div class="status-bar">
+      <div class="status-indicator" id="statusDot"></div>
+      <span class="status-text" id="statusText">Esperando ejecución...</span>
+    </div>
+
+    <div class="verdict" id="verdictBox">
+      <div class="verdict-header" id="verdictIcon"></div>
+      <div class="verdict-desc"   id="verdictDesc"></div>
+    </div>
+
+    <div class="stats-row" id="statsRow" style="display:none">
+      <div class="stat-box"><div class="stat-val blue"  id="statTotal">0</div><div class="stat-lbl">Requests</div></div>
+      <div class="stat-box"><div class="stat-val green" id="statOk">0</div><div class="stat-lbl">Aceptadas (201)</div></div>
+      <div class="stat-box"><div class="stat-val red"   id="statErr">0</div><div class="stat-lbl">Rechazadas (4xx)</div></div>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">&gt;_</div>
+      <div class="empty-text">Configura los parámetros y ejecuta el test.<br>Los eventos aparecerán aquí en tiempo real.</div>
+    </div>
+
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+</div>
+
+<script>
+let t0 = Date.now();
+function base() { return document.getElementById('baseUrl').value.replace(/\/$/, ''); }
+function ts()   { return ((Date.now() - t0) / 1000).toFixed(2) + 's'; }
+
+function authH(token) {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+
+// ─── LOGIN auxiliar usando credenciales ya escritas ───
+async function loginWithCreds(rol, codigo, password) {
+  const r = await fetch(`${base()}/api/auth/${rol}/login/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario: codigo, password })
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`Login falló (${r.status}): ${txt}`);
+  }
+  const d = await r.json();
+  const token = d.token || d.access || d.access_token;
+  if (!token) throw new Error('No se recibió token. Revisa credenciales.');
+  return token;
+}
+
+// ─── CONECTAR → loguea con Usuario A, luego carga labs ───
+async function connectAndLoad() {
+  const btn    = document.getElementById('connectBtn');
+  const status = document.getElementById('connStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span>Conectando...';
+  status.textContent = '';
+  status.className   = 'conn-status';
+
+  setSelect('selectLab',     [{ value:'', text:'— cargando... —' }], true);
+  setSelect('selectHorario', [{ value:'', text:'— selecciona un laboratorio —' }], true);
+  setSelect('selectActivo',  [{ value:'', text:'— selecciona un horario —' }], true);
+
+  try {
+    const rol    = document.getElementById('rolA').value;
+    const codigo = document.getElementById('codigoA').value;
+    const pass   = document.getElementById('passA').value;
+
+    if (!codigo || !pass) throw new Error('Ingresa el código y contraseña del Usuario A primero.');
+
+    const token = await loginWithCreds(rol, codigo, pass);
+
+    const r = await fetch(`${base()}/api/v1/laboratorios/`, { headers: authH(token) });
+    if (!r.ok) throw new Error(`HTTP ${r.status} al obtener laboratorios.`);
+    const labs = await r.json();
+
+    if (!Array.isArray(labs) || labs.length === 0)
+      throw new Error('No se encontraron laboratorios en la BD.');
+
+    const opts = labs.map(l => ({
+      value: l.id_laboratorio,
+      text:  `${l.nombre}  (ID ${l.id_laboratorio})`,
+      disabled: !l.habilitado
+    }));
+    setSelect('selectLab', [{ value:'', text:'— elige un laboratorio —' }, ...opts], false);
+
+    status.className   = 'conn-status ok';
+    status.textContent = `Conectado · ${labs.length} laboratorio(s) cargado(s)`;
+  } catch (e) {
+    status.className   = 'conn-status err';
+    status.textContent = `Error: ${e.message}`;
+    setSelect('selectLab', [{ value:'', text:'— error al conectar —' }], true);
+  }
+
+  btn.disabled  = false;
+  btn.innerHTML = 'Reconectar';
+}
+
+// ─── CAMBIO DE LABORATORIO → cargar horarios ───
+async function onLabChange() {
+  const labId = document.getElementById('selectLab').value;
+  setSelect('selectHorario', [{ value:'', text:'— cargando... —' }], true);
+  setSelect('selectActivo',  [{ value:'', text:'— selecciona un horario —' }], true);
+  if (!labId) return;
+
+  try {
+    const token = await loginWithCreds(
+      document.getElementById('rolA').value,
+      document.getElementById('codigoA').value,
+      document.getElementById('passA').value
+    );
+    const r    = await fetch(`${base()}/api/v1/laboratorios/${labId}/horarios/`, { headers: authH(token) });
+    const data = await r.json().catch(() => []);
+    const horarios = Array.isArray(data) ? data : [];
+
+    if (horarios.length === 0) {
+      setSelect('selectHorario', [{ value:'', text:'— sin horarios disponibles —' }], true);
+      return;
+    }
+    const opts = horarios.map(h => ({
+      value: h.id_horario,
+      text:  `${h.fecha}  ${h.hora_inicio}–${h.hora_fin}  [${h.estado}]  (ID ${h.id_horario})`
+    }));
+    setSelect('selectHorario', [{ value:'', text:'— elige un horario —' }, ...opts], false);
+  } catch (e) {
+    setSelect('selectHorario', [{ value:'', text:`Error: ${e.message}` }], true);
+  }
+}
+
+// ─── CAMBIO DE HORARIO → cargar activos ───
+async function onHorarioChange() {
+  const labId = document.getElementById('selectLab').value;
+  setSelect('selectActivo', [{ value:'', text:'— cargando... —' }], true);
+  if (!labId) return;
+
+  try {
+    const token = await loginWithCreds(
+      document.getElementById('rolA').value,
+      document.getElementById('codigoA').value,
+      document.getElementById('passA').value
+    );
+    const r      = await fetch(`${base()}/api/v1/laboratorios/${labId}/activos/`, { headers: authH(token) });
+    const data   = await r.json().catch(() => []);
+    const activos = (Array.isArray(data) ? data : []).filter(a => a.estado === 'Operativo');
+
+    if (activos.length === 0) {
+      setSelect('selectActivo', [{ value:'', text:'— sin activos operativos —' }], true);
+      return;
+    }
+    const opts = activos.map(a => ({
+      value: a.id_activo,
+      text:  `${a.tipo_activo_nombre || 'Activo'} — ${a.codigo_patrimonio || a.num_serie || 'Sin Código'} (ID: ${a.id_activo})`
+    }));
+    setSelect('selectActivo', [{ value:'', text:'— elige un activo —' }, ...opts], false);
+  } catch (e) {
+    setSelect('selectActivo', [{ value:'', text:`Error: ${e.message}` }], true);
+  }
+}
+
+// ─── HELPER select ───
+function setSelect(id, opts, disabled) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = opts.map(o =>
+    `<option value="${o.value}" ${o.disabled ? 'disabled' : ''}>${o.text}</option>`
+  ).join('');
+  sel.disabled = disabled;
+}
+
+// ─── TIMELINE ───
+function addEvent(type, user, msg, badge = null) {
+  document.getElementById('emptyState').style.display = 'none';
+  const tl = document.getElementById('timeline');
+  const ev = document.createElement('div');
+  ev.className = `event ev-${type}`;
+  const uc = user==='A'?'ua': user==='B'?'ub':'sys';
+  const ul = user==='A'?'[ Usuario A ]': user==='B'?'[ Usuario B ]':'[  Sistema  ]';
+  let b = '';
+  if (badge==='ok')   b = `<span class="ev-badge badge-ok">201 OK</span>`;
+  if (badge==='err')  b = `<span class="ev-badge badge-err">ERROR</span>`;
+  if (badge==='warn') b = `<span class="ev-badge badge-warn">WARN</span>`;
+  ev.innerHTML = `<span class="ev-time">${ts()}</span><span class="ev-user ${uc}">${ul}</span><span class="ev-msg">${msg}</span>${b}`;
+  tl.appendChild(ev);
+  setTimeout(() => ev.classList.add('visible'), 20);
+  tl.scrollTop = tl.scrollHeight;
+}
+
+function setStatus(st, text) {
+  document.getElementById('statusDot').className   = `status-indicator ${st}`;
+  document.getElementById('statusText').textContent = text;
+}
+
+// ─── LOGIN completo para el test ───
+async function loginUser(rol, codigo, password, label) {
+  const ep = `${base()}/api/auth/${rol}/login/`;
+  addEvent('info', label, `Autenticando <strong>${codigo}</strong> (${rol})`);
+  const res = await fetch(ep, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario: codigo, password })
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`Login ${label} falló (${res.status}): ${t}`); }
+  const d = await res.json();
+  const token  = d.token || d.access || d.access_token;
+  const userId = d.user?.id_usuario || d.id_usuario || d.user_id;
+  if (!token) throw new Error(`Sin token para ${label}.`);
+  addEvent('ok', label, `Token OK · user_id = <strong>${userId}</strong>`, 'ok');
+  return { token, userId };
+}
+
+// ─── RESERVA ───
+async function makeReserva(token, userId, rol, idHorario, idActivo, label) {
+  const ep   = `${base()}/api/v1/usuarios/${userId}/reservas/`;
+  const body = rol === 'estudiante'
+    ? { id_horario: +idHorario, id_activo: +idActivo, acepto_declaracion_jurada: true }
+    : { id_horario: +idHorario, cantidad_alumnos: 1, acepto_declaracion_jurada: true, activos_ids: [+idActivo] };
+  addEvent('send', label, `Reserva → <code>POST ${ep}</code>`);
+  const res  = await fetch(ep, { method:'POST', headers: authH(token), body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, data };
+}
+
+// ─── RUN TEST ───
+async function runTest() {
+  const idHorario = document.getElementById('selectHorario').value;
+  const idActivo  = document.getElementById('selectActivo').value;
+  if (!idHorario || !idActivo) { alert('Selecciona laboratorio, horario y activo antes de ejecutar.'); return; }
+
+  document.getElementById('timeline').innerHTML        = '';
+  document.getElementById('verdictBox').style.display  = 'none';
+  document.getElementById('statsRow').style.display    = 'none';
+  document.getElementById('emptyState').style.display  = 'none';
+  document.getElementById('runBtn').disabled = true;
+  t0 = Date.now();
+  setStatus('running', 'Ejecutando test...');
+
+  try {
+    addEvent('info','sys','═══ FASE 1: Autenticación de usuarios ═══');
+    let authA, authB;
+    try { authA = await loginUser(document.getElementById('rolA').value, document.getElementById('codigoA').value, document.getElementById('passA').value, 'A'); }
+    catch(e) { addEvent('err','A',e.message,'err'); setStatus('fail','Error en login de Usuario A'); document.getElementById('runBtn').disabled=false; return; }
+    try { authB = await loginUser(document.getElementById('rolB').value, document.getElementById('codigoB').value, document.getElementById('passB').value, 'B'); }
+    catch(e) { addEvent('err','B',e.message,'err'); setStatus('fail','Error en login de Usuario B'); document.getElementById('runBtn').disabled=false; return; }
+
+    addEvent('info','sys',`═══ FASE 2: Disparo SIMULTÁNEO · Horario <strong>#${idHorario}</strong> · Activo <strong>#${idActivo}</strong> ═══`);
+    addEvent('info','sys','Lanzando ambas requests con <code>Promise.all()</code>...');
+
+    const [rA, rB] = await Promise.all([
+      makeReserva(authA.token, authA.userId, document.getElementById('rolA').value, idHorario, idActivo, 'A'),
+      makeReserva(authB.token, authB.userId, document.getElementById('rolB').value, idHorario, idActivo, 'B')
+    ]);
+
+    addEvent('info','sys','═══ FASE 3: Análisis de resultados ═══');
+    const okA = rA.status === 201, okB = rB.status === 201;
+    addEvent(okA?'ok':'err','A', `HTTP ${rA.status} → ${JSON.stringify(rA.data).substring(0,130)}`, okA?'ok':'err');
+    addEvent(okB?'ok':'err','B', `HTTP ${rB.status} → ${JSON.stringify(rB.data).substring(0,130)}`, okB?'ok':'err');
+
+    document.getElementById('statsRow').style.display = 'grid';
+    document.getElementById('statTotal').textContent  = '2';
+    document.getElementById('statOk').textContent     = (okA?1:0)+(okB?1:0);
+    document.getElementById('statErr').textContent    = (!okA?1:0)+(!okB?1:0);
+
+    const box = document.getElementById('verdictBox');
+    const icn = document.getElementById('verdictIcon');
+    const dsc = document.getElementById('verdictDesc');
+    box.style.display = 'block';
+
+    if (okA && okB) {
+      box.className   = 'verdict fail';
+      icn.textContent = 'TEST FALLIDO — Race condition detectada';
+      dsc.innerHTML   = `Ambas requests devolvieron <strong>HTTP 201</strong>. Dos reservas fueron creadas para el mismo activo/horario.<br><br>El <code>select_for_update()</code> no está protegiendo el recurso. Verifica que la comprobación de disponibilidad ocurra <em>después</em> del lock y <em>dentro</em> de <code>transaction.atomic()</code>.`;
+      setStatus('fail','TEST FALLIDO — Bug PBI-20 confirmado');
+    } else if (okA !== okB) {
+      const winner = okA?'A':'B', loser = okA?'B':'A', ls = okA?rB.status:rA.status;
+      box.className   = 'verdict pass';
+      icn.textContent = 'TEST PASADO — Protección de concurrencia funciona';
+      dsc.innerHTML   = `Solo el Usuario <strong>${winner}</strong> obtuvo HTTP 201. El Usuario <strong>${loser}</strong> recibió HTTP <strong>${ls}</strong>.<br><br>El <code>select_for_update()</code> en <code>reserva_service.py</code> bloqueó correctamente la segunda transacción. <strong>PBI-20 criterio 1 (OK)</strong>`;
+      setStatus('pass','TEST PASADO — No hay race condition');
+    } else {
+      box.className   = 'verdict fail';
+      icn.textContent = 'Ninguna reserva fue aceptada';
+      dsc.innerHTML   = `Ambos requests fallaron. Posibles causas:<br>• El activo ya estaba reservado (prueba con otro activo)<br>• El horario ya pasó (debe ser fecha futura)<br>• Usuarios con penalización activa<br><br>Selecciona un horario y activo libres e intenta de nuevo.`;
+      setStatus('fail','Sin 201 en ninguna request');
+    }
+  } catch(e) {
+    addEvent('err','sys',`Error inesperado: ${e.message}`,'err');
+    setStatus('fail',`Error: ${e.message}`);
+  }
+
+  document.getElementById('runBtn').disabled = false;
+}
+
+// ─── RESET ───
+function resetUI() {
+  document.getElementById('timeline').innerHTML        = '';
+  document.getElementById('verdictBox').style.display  = 'none';
+  document.getElementById('statsRow').style.display    = 'none';
+  document.getElementById('emptyState').style.display  = 'flex';
+  document.getElementById('statusDot').className       = 'status-indicator';
+  document.getElementById('statusText').textContent    = 'Esperando ejecución...';
+  document.getElementById('runBtn').disabled = false;
+}
+</script>
+</body>
+</html>

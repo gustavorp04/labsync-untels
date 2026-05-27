@@ -518,6 +518,7 @@ def purgar_pendientes_vencidos():
     )
 
     count = 0
+    emails_quorum = []
     with transaction.atomic():
         for r in pendientes:
             # Solo purgamos si para ese horario NO se llegó a 10
@@ -543,5 +544,25 @@ def purgar_pendientes_vencidos():
                     )
                 except Exception as e:
                     logger.error(f"Error al registrar expiración de reserva pendiente: {e}")
+
+                usuario = r.id_usuario
+                if usuario.id_rol.nombre == 'estudiante':
+                    h = r.id_horario
+                    emails_quorum.append({
+                        'email': usuario.email,
+                        'nombre_usuario': usuario.nombre,
+                        'nombre_lab': h.id_laboratorio.nombre,
+                        'fecha_reserva': h.fecha.strftime('%d/%m/%Y'),
+                    })
                 count += 1
+
+    from .laboratorio_service import enviar_email_quorum_no_alcanzado
+    for email_data in emails_quorum:
+        enviar_email_quorum_no_alcanzado(
+            email=email_data['email'],
+            nombre_usuario=email_data['nombre_usuario'],
+            nombre_lab=email_data['nombre_lab'],
+            fecha_reserva=email_data['fecha_reserva'],
+        )
+
     return count
