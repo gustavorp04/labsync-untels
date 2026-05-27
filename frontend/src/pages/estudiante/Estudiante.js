@@ -420,7 +420,12 @@ function Estudiante() {
                   <Icon.ChevronLeft /> Volver
                 </button>
                 <h2>Mapa de Equipos</h2>
-                <LabMap activos={activos} activoSel={activoSel} onSelect={setActivoSel} columnas={labSel?.codigo_patrimonio === 'A1-1' ? 6 : 6} />
+                <LabMap 
+                  activos={activos} 
+                  activoSel={activoSel} 
+                  onSelect={setActivoSel} 
+                  columnas={6} 
+                />
                 
                 {/* PANEL INFO DEL ACTIVO SELECCIONADO */}
                 {activoSel && (

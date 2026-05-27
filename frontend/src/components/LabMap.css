@@ -69,6 +69,27 @@
   margin-top: 4px;
 }
 
+/* ESPACIO PASILLO */
+.lm-empty-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  margin: 0 10px;
+  border-left: 1px dashed rgba(255,255,255,0.1);
+  border-right: 1px dashed rgba(255,255,255,0.1);
+}
+
+.lm-gap-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 2px;
+  opacity: 0.5;
+  transform: rotate(180deg);
+}
+
 /* ESTADOS */
 
 /* Disponible */

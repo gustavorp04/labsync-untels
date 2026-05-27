@@ -751,7 +751,7 @@ function Admin() {
                         activos={activos} 
                         activoSel={activoModal} 
                         onSelect={abrirModalActivo} 
-                        columnas={labSeleccionado?.codigo_patrimonio === 'A1-1' ? 6 : 6}
+                        columnas={6}
                         adminMode={true}
                       />
                     ) : (

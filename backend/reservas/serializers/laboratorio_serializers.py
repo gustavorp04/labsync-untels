@@ -14,6 +14,8 @@ class ActivoLaboratorioSerializer(serializers.ModelSerializer):
             'num_serie', 
             'codigo_patrimonio', 
             'estado', 
+            'fila',
+            'columna',
             'updated_at'
         ]
 
@@ -36,7 +38,8 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
             'aforo_maximo', 
             'equipos_operativos',
             'estado_sistema',
-            'habilitado'
+            'habilitado',
+            'tipo_layout'
         ]
 
     def get_nombre(self, obj):
@@ -81,6 +84,7 @@ class LaboratorioDetailSerializer(serializers.ModelSerializer):
             'tipo_detalle', 
             'facultad_detalle', 
             'habilitado', 
+            'tipo_layout',
             'activos'
         ]
 

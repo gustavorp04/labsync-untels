@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { Monitor } from "lucide-react";
 import "./LabMap.css";
 
@@ -15,21 +15,43 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
     [activos]
   );
 
+  const hasCoordinates = useMemo(
+    () => pcs.length > 0 && pcs.every(p => p.fila != null && p.columna != null),
+    [pcs]
+  );
+
   const filas = useMemo(() => {
     const rows = [];
-    for (let i = 0; i < pcs.length; i += columnas) {
-      const letra = String.fromCharCode(65 + rows.length);
-      rows.push({ letra, items: pcs.slice(i, i + columnas) });
+    if (hasCoordinates) {
+      const maxFila = Math.max(...pcs.map(p => p.fila));
+      const maxColumna = Math.max(...pcs.map(p => p.columna));
+
+      for (let f = 1; f <= maxFila; f++) {
+        const letra = String.fromCharCode(64 + f); // 1->A, 2->B, etc.
+        const items = [];
+        for (let c = 1; c <= maxColumna; c++) {
+          const pc = pcs.find(p => p.fila === f && p.columna === c);
+          items.push(pc || null); // null represents an empty spot / gap
+        }
+        rows.push({ letra, items });
+      }
+    } else {
+      for (let i = 0; i < pcs.length; i += columnas) {
+        const letra = String.fromCharCode(65 + rows.length);
+        rows.push({ letra, items: pcs.slice(i, i + columnas) });
+      }
     }
     return rows;
-  }, [pcs, columnas]);
+  }, [pcs, columnas, hasCoordinates]);
 
   const isSelected = (a) => {
+    if (!a) return false;
     if (Array.isArray(activoSel)) return activoSel.includes(a.id_activo);
     return activoSel?.id_activo === a.id_activo;
   };
 
   function getEstado(a) {
+    if (!a) return "empty";
     if (isSelected(a)) return "selected";
     if (a.estado_reserva === "Pendiente") return "pending"; 
     if (a.reservado) return "occupied"; 
@@ -39,18 +61,16 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
   }
 
   function handleClick(a) {
+    if (!a) return;
     if (adminMode) {
-      // En modo admin, siempre se puede seleccionar cualquier equipo
       onSelect(isSelected(a) ? null : a);
       return;
     }
     if (a.estado !== "Operativo" || a.reservado || a.estado_reserva === "Pendiente") return;
     
-    // Si es array (Docente), pasamos el objeto y el padre decide si agregar/quitar
     if (Array.isArray(activoSel)) {
       onSelect(a);
     } else {
-      // Si es objeto (Estudiante), alternamos entre el objeto y null
       onSelect(isSelected(a) ? null : a);
     }
   }
@@ -65,7 +85,15 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
             <div className="lm-row-label">{fila.letra}</div>
 
             <div className="lm-row-pcs">
-              {fila.items.map((a) => {
+              {fila.items.map((a, index) => {
+                if (!a) {
+                  return (
+                    <div key={`empty-${fila.letra}-${index}`} className="lm-empty-cell">
+                      <span className="lm-gap-text">pasillo</span>
+                    </div>
+                  );
+                }
+
                 const estado = getEstado(a);
                 const shortCode = a.codigo_patrimonio?.split("-").slice(-1)[0] || '—';
                 

@@ -112,7 +112,8 @@ CREATE TABLE LABORATORIO (
     nombre            VARCHAR(100) NOT NULL,
     codigo_patrimonio VARCHAR(30)  NOT NULL UNIQUE,
     aforo_maximo      INT          NOT NULL CHECK (aforo_maximo > 0),
-    habilitado        BOOLEAN      NOT NULL DEFAULT FALSE
+    habilitado        BOOLEAN      NOT NULL DEFAULT FALSE,
+    tipo_layout       VARCHAR(10)  NOT NULL DEFAULT 'GRID'
 );
 
 CREATE TABLE ACTIVO_LABORATORIO (
@@ -123,7 +124,9 @@ CREATE TABLE ACTIVO_LABORATORIO (
     codigo_patrimonio VARCHAR(30),
     estado            VARCHAR(20)  NOT NULL DEFAULT 'Operativo'
                            CHECK (estado IN ('Operativo', 'Mantenimiento', 'Dado de baja')),
-    updated_at        TIMESTAMP    NOT NULL DEFAULT NOW()
+    updated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    fila              INT,
+    columna           INT
 );
 
 CREATE TABLE HORARIO_DISPONIBLE (
