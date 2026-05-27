@@ -40,10 +40,10 @@ class LaboratorioListView(generics.ListAPIView):
                 carrera = ''
 
             tipo_map = {
-                'sistem': 'computo', 'computo': 'computo',
-                'ambient': 'ambiental', 'electr': 'electronica',
+                'sistem': 'Cómputo', 'computo': 'Cómputo',
+                'ambient': 'Ambiental', 'electr': 'Electrónica',
             }
-            tipos_forzados = ['fisica']  # siempre disponible para todos
+            tipos_forzados = ['Física']  # siempre disponible para todos
             for kw, tipo in tipo_map.items():
                 if kw in carrera:
                     tipos_forzados.append(tipo)
