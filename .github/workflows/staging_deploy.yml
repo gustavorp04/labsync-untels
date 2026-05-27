@@ -82,6 +82,30 @@ jobs:
             --update-env-vars CORS_ALLOWED_ORIGINS="${{ secrets.CORS_ALLOWED_ORIGINS }}" \
             --update-env-vars CSRF_TRUSTED_ORIGINS="${{ secrets.CSRF_TRUSTED_ORIGINS }}"
 
+      - name: Esperar que el contenedor arranque
+        run: sleep 30
+
+      - name: Health check post-deploy
+        run: |
+          echo "🔍 Verificando /health/ ..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://labsync-backend-90371338218.us-central1.run.app/health/)
+          echo "HTTP Status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Health check FALLÓ (status $HTTP_STATUS)"
+          else
+            echo "✅ Health check OK"
+          fi
+
+      - name: Volcar logs de Cloud Run (últimas 80 líneas)
+        if: always()
+        run: |
+          echo "===== LOGS DE CLOUD RUN ====="
+          gcloud run services logs read labsync-backend \
+            --region us-central1 \
+            --limit 80 \
+            --project labsync-untels || true
+
   # -------------------------------------------------------------------------
   # PASO 3: Deploy del frontend a Vercel
   # -------------------------------------------------------------------------
