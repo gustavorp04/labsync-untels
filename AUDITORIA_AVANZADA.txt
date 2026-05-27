@@ -1,0 +1,502 @@
+================================================================================
+  AUDITORÍA AVANZADA — FASE 2
+  LabSync UNTELS — Rendimiento, Seguridad y Edge Cases
+  Fecha: 2026-05-26
+================================================================================
+
+Archivos analizados:
+  Backend : reserva_service.py, reserva_views.py, api_views.py,
+            laboratorio_views.py, inventario_views.py,
+            laboratorio_service.py, auth_service.py,
+            serializers/ (todos), models.py
+  Frontend: Estudiante.js, Docente.js, Admin.js, LoginEstudiante.js,
+            ProtectedRoute.js, api.js, auth.js, reservaService.js
+
+Ordenados de más grave a menos grave.
+
+
+================================================================================
+  [CRÍTICO] SEGURIDAD
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+C-1 · ProtectedRoute valida el rol con un string de localStorage manipulable
+────────────────────────────────────────────────────────────────────────────────
+Archivo : frontend/src/components/ProtectedRoute.js
+
+Código actual:
+  const isAuth = localStorage.getItem("isAuthenticated");
+  const role   = localStorage.getItem("role");
+  if (!isAuth) return <Navigate to="/" />;
+  if (allowedRole && role !== allowedRole) return <Navigate to="/" />;
+
+Problema 1 — El string "false" es truthy en JavaScript.
+  Si localStorage contiene isAuthenticated="false" (que ocurre tras el logout
+  en api.js), la condición !isAuth es false porque "false" es un string no
+  vacío. El usuario puede ver la ruta protegida antes de ser redirigido.
+
+Problema 2 — Cualquiera puede abrir DevTools y ejecutar:
+  localStorage.setItem('isAuthenticated', 'true');
+  localStorage.setItem('role', 'admin_lab');
+  ... y navegar al panel de admin sin credenciales reales.
+
+Impacto real: las llamadas a la API fallarán con 401 (el backend sí valida
+el token real), pero el usuario ya vio la UI del panel, los estados de carga,
+y cualquier dato que se haya renderizado antes de que la primera llamada falle.
+
+Corrección sugerida:
+  Verificar que el TOKEN exista y no esté vacío, no el string "isAuthenticated".
+  const token = localStorage.getItem("token");
+  if (!token) return <Navigate to="/" />;
+  (La validación real de expiración la hace el backend con 401.)
+
+────────────────────────────────────────────────────────────────────────────────
+C-2 · Token JWT almacenado en localStorage (vulnerable a XSS)
+────────────────────────────────────────────────────────────────────────────────
+Archivos: LoginEstudiante.js, LoginDocente.js, LoginAdmin.js, LoginJefatura.js
+
+Código actual:
+  localStorage.setItem('token', data.token || '');
+
+localStorage es accesible desde cualquier script JavaScript que se ejecute
+en la página. Si alguna dependencia de npm o un input sin sanitizar introducen
+código malicioso (XSS), el token se puede robar y el atacante puede hacerse
+pasar por el usuario hasta que expire (24 horas).
+
+La alternativa segura es usar cookies httpOnly (que JavaScript no puede leer).
+Requiere cambios en el backend para emitirlas.
+
+Nivel de urgencia: medio-alto para un sistema universitario real.
+En contexto de proyecto académico, es aceptable documentarlo.
+
+
+================================================================================
+  [ALTO] RENDIMIENTO — PROBLEMAS N+1
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+A-1 · N+1 grave en mis_reservas (vista de reservas del usuario)
+────────────────────────────────────────────────────────────────────────────────
+Archivo : backend/reservas/views/reserva_views.py  (línea 66)
+
+Código actual:
+  reservas = Reserva.objects.filter(id_usuario=id_usuario).order_by('-created_at')
+
+ReservaSerializer accede a estos campos relacionados sin select_related ni
+prefetch_related:
+  - id_usuario.nombre          → 1 query extra por reserva
+  - id_usuario.id_rol.nombre   → 1 query extra por reserva
+  - id_horario.fecha           → 1 query extra por reserva
+  - id_horario.id_laboratorio  → 1 query extra por reserva
+  - reservadetalle_set.all()   → 1 query extra por reserva (N activos)
+  - historialreserva_set.all() → 1 query extra por reserva
+
+Para un estudiante con 20 reservas: 1 + 20×6 = 121 queries para una sola
+petición GET /mis_reservas.
+
+Comparación: api_views.ReservaViewSet.get_queryset() SÍ tiene select_related
+y prefetch_related correctos, pero mis_reservas es una view separada que
+no los usa.
+
+Corrección sugerida:
+  reservas = (
+      Reserva.objects
+      .filter(id_usuario=id_usuario)
+      .select_related('id_usuario__id_rol', 'id_horario__id_laboratorio')
+      .prefetch_related(
+          'reservadetalle_set__id_activo__id_tipo_activo',
+          'historialreserva_set',
+      )
+      .order_by('-created_at')
+  )
+
+────────────────────────────────────────────────────────────────────────────────
+A-2 · N+1 en get_historial_reservas (historial global)
+────────────────────────────────────────────────────────────────────────────────
+Archivo : backend/reservas/views/reserva_views.py  (línea 228)
+
+Código actual:
+  historial = HistorialReserva.objects.all().order_by('-fecha_cambio')[:100]
+
+HistorialReservaSerializer accede a:
+  - usuario_cambio.nombre              → 1 query por entrada
+  - usuario_cambio.id_rol.nombre       → 1 query por entrada
+  - reserva.id_reserva                 → 1 query por entrada
+  - reserva.id_horario.id_laboratorio  → 1 query por entrada (JOIN anidado)
+
+Para 100 entradas: 1 + 100×4 = 401 queries por petición.
+
+Corrección sugerida:
+  historial = (
+      HistorialReserva.objects
+      .select_related(
+          'usuario_cambio__id_rol',
+          'reserva__id_horario__id_laboratorio',
+      )
+      .order_by('-fecha_cambio')[:100]
+  )
+
+────────────────────────────────────────────────────────────────────────────────
+A-3 · N+1 en LaboratorioListSerializer (lista de labs)
+────────────────────────────────────────────────────────────────────────────────
+Archivo : backend/reservas/serializers/laboratorio_serializers.py  (líneas 46–56)
+
+Código actual:
+  def get_equipos_operativos(self, obj):
+      return obj.activolaboratorio_set.filter(
+          id_tipo_activo__nombre__in=['CPU', 'Mesa'],
+          estado='Operativo'
+      ).count()                           # ← 1 COUNT query por laboratorio
+
+  def get_estado_sistema(self, obj):
+      operativos = self.get_equipos_operativos(obj)   # ← repite la query
+      ...
+
+Para una lista de 20 laboratorios: 20×2 = 40 queries COUNT adicionales.
+
+Corrección sugerida: anotar el queryset en la view antes de serializar.
+  from django.db.models import Count, Q
+  qs = Laboratorio.objects.annotate(
+      equipos_op=Count(
+          'activolaboratorio',
+          filter=Q(
+              activolaboratorio__id_tipo_activo__nombre__in=['CPU', 'Mesa'],
+              activolaboratorio__estado='Operativo'
+          )
+      )
+  )
+  Y en el serializer leer obj.equipos_op en lugar de hacer el COUNT.
+
+
+================================================================================
+  [ALTO] EDGE CASE — VALIDACIÓN DE FECHAS Y HORAS
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+A-4 · La regla "24 horas de anticipación" no es realmente de 24 horas
+────────────────────────────────────────────────────────────────────────────────
+Archivos: backend/reservas/services/reserva_service.py  (líneas 41–43, 112–114)
+          backend/reservas/serializers/reserva_serializers.py  (líneas 23–26)
+
+Código actual (en las tres ubicaciones):
+  manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
+  if horario_db.fecha < manana:
+      return None, "Reserva con al menos 24 horas de anticipación."
+
+Esta lógica implementa "el día siguiente", no "24 horas exactas".
+Ejemplo concreto del bug:
+  - Son las 23:50 del lunes.
+  - manana = martes.
+  - Un horario para el martes 07:00 pasa la validación (martes >= martes).
+  - Pero hay solo 7 horas de anticipación, no 24.
+
+Corrección sugerida:
+  limite = timezone.localtime(timezone.now()) + timedelta(hours=24)
+  if datetime.combine(horario_db.fecha, horario_db.hora_inicio) < limite.replace(tzinfo=None):
+      return None, "La reserva debe hacerse con al menos 24 horas de anticipación."
+
+  (O comparar con timezone-aware datetimes usando make_aware.)
+
+────────────────────────────────────────────────────────────────────────────────
+A-5 · No se validan traslapes de horario entre bloques superpuestos
+────────────────────────────────────────────────────────────────────────────────
+Archivo : backend/reservas/services/reserva_service.py  (líneas 117–125)
+
+Código actual:
+  coincidencias = Reserva.objects.filter(
+      id_usuario=usuario,
+      estado__in=['Programada', 'Pendiente'],
+      id_horario__fecha=horario_db.fecha,
+      id_horario__hora_inicio=horario_db.hora_inicio,
+      id_horario__hora_fin=horario_db.hora_fin,
+  )
+
+Solo detecta reservas IDÉNTICAS (misma hora_inicio y hora_fin exactas).
+No detecta bloques superpuestos. Si existen horarios como:
+  Horario A: 10:00 – 12:00
+  Horario B: 11:00 – 13:00
+Un usuario puede reservar ambos sin que el sistema lo bloquee.
+
+Corrección sugerida:
+  coincidencias = Reserva.objects.filter(
+      id_usuario=usuario,
+      estado__in=['Programada', 'Pendiente'],
+      id_horario__fecha=horario_db.fecha,
+      id_horario__hora_inicio__lt=horario_db.hora_fin,
+      id_horario__hora_fin__gt=horario_db.hora_inicio,
+  )
+  (Filtro de intersección de intervalos: A.inicio < B.fin AND A.fin > B.inicio)
+
+
+================================================================================
+  [MEDIO] REACT — MEMORY LEAKS Y MANEJO DE ERRORES
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+M-1 · setTimeout en showToast sin cleanup al desmontar el componente
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js  (línea 101–103)
+          Docente.js     (líneas 95–98)
+
+Código actual:
+  const showToast = (tipo, texto, dur = 5000) => {
+      setToast({ tipo, texto });
+      setTimeout(() => setToast(null), dur);   // ← sin clearTimeout
+  };
+
+Si el usuario navega fuera del componente antes de que el timeout expire,
+el callback llama a setToast() en un componente desmontado.
+React 18 lo silencia, pero puede causar warnings en React 17 y es una
+práctica que esconde bugs difíciles de rastrear.
+
+Corrección sugerida:
+  Usar useRef para guardar el ID del timeout y limpiarlo en el mismo
+  useEffect o en un cleanup:
+
+  const toastTimerRef = useRef(null);
+  const showToast = (tipo, texto, dur = 5000) => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setToast({ tipo, texto });
+      toastTimerRef.current = setTimeout(() => setToast(null), dur);
+  };
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+────────────────────────────────────────────────────────────────────────────────
+M-2 · Llamadas async dentro de setInterval sin AbortController
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js  (líneas 154–197)
+          Docente.js     (líneas 122–169)
+
+Código actual (patrón en ambos):
+  intervalId = setInterval(() => {
+      cargarEquipos(false);   // async con await fetch
+  }, 3000);
+
+  return () => { clearInterval(intervalId); };
+
+El clearInterval cancela el próximo disparo, pero si ya había una petición
+HTTP en vuelo cuando se desmontó el componente, el await resolverá y llamará
+a setActivos() o setActivosSel() en el estado ya desmontado.
+
+No es un memory leak clásico (el GC libera la memoria), pero puede causar:
+  - Actualización de estado en componente desmontado
+  - Comportamientos de race condition si el componente vuelve a montarse
+    antes de que la petición anterior resuelva
+
+Corrección sugerida:
+  useEffect(() => {
+      const controller = new AbortController();
+      let intervalId = null;
+
+      const cargarEquipos = async (showLoading = false) => {
+          try {
+              const data = await laboratorioService.getActivosPorLab(
+                  labSel.id_laboratorio,
+                  horarioSel.id_horario,
+                  { signal: controller.signal }  // pasar el signal al fetch
+              );
+              setActivos(data);
+          } catch (err) {
+              if (err.name !== 'AbortError') console.error(err);
+          }
+      };
+
+      cargarEquipos(true);
+      intervalId = setInterval(() => cargarEquipos(false), 3000);
+
+      return () => {
+          controller.abort();
+          clearInterval(intervalId);
+      };
+  }, [paso, labSel, horarioSel]);
+
+  (Requiere pasar el signal a axios: axios.get(url, { signal }) )
+
+────────────────────────────────────────────────────────────────────────────────
+M-3 · Errores silenciosos en Admin.js — el usuario no sabe si algo falló
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/admin/Admin.js  (líneas 184–218)
+
+Código actual:
+  const fetchReservas = async () => {
+      try { ... } catch (error) { console.error("Error al cargar reservas", error); }
+  };
+  const fetchUsuarios = async () => {
+      try { ... } catch (error) { console.error("Error al cargar usuarios", error); }
+  };
+  const fetchLaboratorios = async () => {
+      try { ... } catch (error) { console.error("Error al cargar labs", error); }
+  };
+  const fetchHistorialReservas = async () => {
+      try { ... } catch (error) { console.error("Error al cargar historial", error); }
+  };
+
+Las 4 cargas iniciales del panel admin solo loguean en consola. Si el
+backend está caído o hay un error de red, el admin ve tablas vacías sin
+ningún mensaje de error. Puede creer que "no hay datos" cuando en realidad
+el sistema falló.
+
+Corrección sugerida:
+  Agregar un estado de error por sección (o global):
+  const [errorCarga, setErrorCarga] = useState(null);
+
+  const fetchReservas = async () => {
+      try {
+          const data = await reservaService.getTodasLasReservas();
+          setReservas(data);
+      } catch (error) {
+          console.error(error);
+          setErrorCarga('No se pudieron cargar las reservas. Intenta recargar.');
+      }
+  };
+  Y renderizar el errorCarga si existe.
+
+────────────────────────────────────────────────────────────────────────────────
+M-4 · Claves duplicadas para el mismo ID de usuario en localStorage
+────────────────────────────────────────────────────────────────────────────────
+Archivos: LoginEstudiante.js  (líneas 40–42)
+
+Código actual:
+  localStorage.setItem('id_usuario', data.id_usuario || '');  // "Legacy"
+  localStorage.setItem('userId',     data.id_usuario || '');  // Actual
+
+  Docente.js lee solo: localStorage.getItem("id_usuario")
+  Estudiante.js lee:   localStorage.getItem("userId") || localStorage.getItem("id_usuario")
+
+Si en el futuro se elimina la clave "legacy" del login, Docente.js queda
+roto (userId = "") y los llamados a la API incluyen /undefined/ en la ruta.
+No es un bug activo, pero es una trampa lista para activarse.
+
+Corrección sugerida:
+  Estandarizar a una sola clave ('id_usuario' o 'userId') y actualizarla
+  en todos los archivos que la lean.
+
+
+================================================================================
+  [BAJO] EDGE CASES MENORES
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+B-1 · Docente.js no filtra laboratorios en el servidor, lo hace en el cliente
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/docente/Docente.js  (líneas 102–108)
+
+Código actual:
+  laboratorioService.getLaboratorios()            // trae TODOS los labs
+      .then(data => setLaboratorios(
+          data.filter(l => l.tipo_nombre === categoriaSel)  // filtra en cliente
+      ))
+
+El endpoint GET /api/v1/laboratorios/ acepta el parámetro ?tipo_nombres=
+para filtrar en el servidor (mismo que usa Estudiante.js correctamente).
+El docente descarga todos los laboratorios y filtra en el cliente,
+desperdiciando ancho de banda.
+
+Corrección sugerida:
+  laboratorioService.getLaboratorios([categoriaSel])
+  // que traduce a: GET /api/v1/laboratorios/?tipo_nombres=Cómputo
+
+────────────────────────────────────────────────────────────────────────────────
+B-2 · Docente.js puede navegar fuera del wizard y perder la selección
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/docente/Docente.js  (líneas 349–350)
+
+Cuando el docente hace clic en cualquier ítem del sidebar:
+  onClick={() => { setVista(item.id); resetFlujo(); }}
+
+resetFlujo() limpia toda la selección (lab, horario, activos).
+Pero los arrays laboratorios[], horarios[], activos[] NO se limpian.
+Cuando el usuario vuelve a "nueva-reserva", ve brevemente los datos
+anteriores antes de que el nuevo fetch termine.
+
+No es un bug funcional (la reserva siempre se hace con los datos del estado
+de paso), pero puede confundir al usuario.
+
+────────────────────────────────────────────────────────────────────────────────
+B-3 · Admin.js inicia 4 peticiones paralelas + polling sin useCallback
+────────────────────────────────────────────────────────────────────────────────
+Archivo: frontend/src/pages/admin/Admin.js  (líneas 92–104)
+
+Código actual:
+  useEffect(() => {
+      fetchReservas();
+      fetchUsuarios();
+      fetchLaboratorios();
+      fetchHistorialReservas();
+      const intervalId = setInterval(() => {
+          fetchReservas();
+          fetchHistorialReservas();
+      }, 10000);
+      return () => clearInterval(intervalId);
+  }, []);   // ← array vacío, las funciones son closures del primer render
+
+Las funciones fetchX no están envueltas en useCallback, por lo que si alguna
+de ellas dependiera de estado que cambia, el interval usaría siempre la
+versión del primer render (stale closure). Actualmente no es un bug activo,
+pero si en el futuro se agrega un filtro al fetchReservas (ej: por fecha),
+el polling ignoraría el nuevo filtro sin ningún error visible.
+
+────────────────────────────────────────────────────────────────────────────────
+B-4 · El frontend permite doble-click en "Confirmar Reserva"
+────────────────────────────────────────────────────────────────────────────────
+Archivos: Estudiante.js  (línea 499)
+          Docente.js     (línea 590)
+
+Código actual:
+  <button disabled={loading || !aceptaDJ} onClick={handleSubmitReserva}>
+
+El botón se desactiva cuando loading=true, pero hay una ventana de tiempo
+entre el click y el setState(loading=true). En conexiones lentas o doble-click
+rápido, es posible enviar la petición dos veces.
+
+El backend tiene validaciones que lo previenen (una reserva por bloque/equipo),
+pero el usuario vería dos llamadas en vuelo antes de que la primera resuelva
+y desactive el botón.
+
+Corrección sugerida: usar useRef para un flag de "en proceso":
+  const enviando = useRef(false);
+  const handleSubmit = async () => {
+      if (enviando.current) return;
+      enviando.current = true;
+      setLoading(true);
+      try { ... } finally {
+          enviando.current = false;
+          setLoading(false);
+      }
+  };
+
+
+================================================================================
+  RESUMEN EJECUTIVO — PRIORIDADES
+================================================================================
+
+  CRÍTICO (afectan seguridad real):
+  ──────
+  [C-1] ProtectedRoute valida un string localStorage manipulable
+  [C-2] Token en localStorage vulnerable a XSS
+
+  ALTO (degradan rendimiento o permiten datos incorrectos):
+  ─────
+  [A-1] N+1 en mis_reservas (hasta 120+ queries por petición)
+  [A-2] N+1 en historial global (hasta 400+ queries por petición)
+  [A-3] N+1 en lista de laboratorios (2 COUNT extra por lab)
+  [A-4] Regla "24h" es en realidad "día siguiente" — permite reservar con 1h
+  [A-5] Sin validación de traslape real entre bloques superpuestos
+
+  MEDIO (bugs de UX / memory leaks menores):
+  ──────
+  [M-1] showToast con setTimeout sin cleanup → warning en componente desmontado
+  [M-2] Polling async sin AbortController → race conditions en desmontaje
+  [M-3] 4 fetches silenciosos en Admin.js → UI vacía sin explicación
+  [M-4] Dos claves para el mismo userId en localStorage → trampa futura
+
+  BAJO (mejoras de calidad):
+  ─────
+  [B-1] Docente filtra labs en cliente en vez del servidor
+  [B-2] Datos anteriores visibles brevemente al re-entrar al wizard docente
+  [B-3] Polling en Admin.js con stale closures potenciales
+  [B-4] Doble-click en Confirmar puede enviar dos peticiones
+
+================================================================================
+  FIN DEL REPORTE — FASE 2
+================================================================================
