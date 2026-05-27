@@ -58,6 +58,13 @@ class LaboratorioListView(generics.ListAPIView):
             tipo_nombres = self.request.query_params.get('tipo_nombres')
             if tipo_nombres:
                 tipos = [t.strip() for t in tipo_nombres.split(',') if t.strip()]
+                tipo_map = {
+                    'computo': 'Cómputo',
+                    'electronica': 'Electrónica',
+                    'ambiental': 'Ambiental',
+                    'fisica': 'Física',
+                }
+                tipos = [tipo_map.get(t.lower(), t) for t in tipos]
                 q = Q()
                 for tipo in tipos:
                     q |= Q(id_tipo__nombre__icontains=tipo)
