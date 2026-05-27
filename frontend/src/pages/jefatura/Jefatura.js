@@ -1,10 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import "../../styles/Placeholder.css";
 import ThemeToggle from "../../components/ThemeToggle";
+import { logoutUser } from "../../services/auth";
 
 function Jefatura() {
   const navigate = useNavigate();
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
+    await logoutUser();
     localStorage.clear();
     navigate("/");
   };

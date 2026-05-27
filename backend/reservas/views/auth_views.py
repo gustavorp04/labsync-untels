@@ -2,7 +2,9 @@ import logging
 import secrets
 from datetime import timedelta
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from django.conf import settings as django_settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
@@ -37,8 +39,6 @@ def _base_login(request, expected_role):
             except PerfilEstudiante.DoesNotExist:
                 perfil = None
             except Exception as e:
-                import logging
-                logger = logging.getLogger('reservas')
                 logger.warning("Error al obtener PerfilEstudiante para usuario %s: %s", user.id_usuario, e)
                 perfil = None
 
@@ -60,11 +60,25 @@ def _base_login(request, expected_role):
         )
 
         logger.info(f"Login exitoso para usuario: {data['usuario']} con rol {expected_role}")
-        return Response({
+
+        # C-2: El token viaja en una cookie httpOnly — no se expone en el body.
+        # SameSite=None+Secure en producción (cross-origin Vercel↔GCP);
+        # SameSite=Lax en desarrollo (localhost, sin HTTPS).
+        is_prod = not django_settings.DEBUG
+        response = Response({
             'mensaje': 'Login exitoso',
-            'token': token,
-            **user_data
+            **user_data          # nombre, id_usuario, rol, carrera, ciclo, etc.
         })
+        response.set_cookie(
+            key='auth_token',
+            value=token,
+            max_age=24 * 3600,
+            httponly=True,
+            secure=is_prod,
+            samesite='None' if is_prod else 'Lax',
+            path='/',
+        )
+        return response
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
@@ -122,6 +136,34 @@ def reset_password(request):
         return Response({"mensaje": message})
     except Exception:
         return Response({"error": "Error interno del servidor"}, status=500)
+
+@api_view(['POST'])
+def logout_view(request):
+    """C-2: Invalida la sesión en BD y expira la cookie httpOnly.
+    No requiere autenticación — permite limpiar incluso con token vencido."""
+    # Leer el token directamente de la cookie para invalidar en BD
+    token = request.COOKIES.get('auth_token')
+    if token:
+        try:
+            SesionUsuario.objects.filter(token=token).delete()
+            logger.info("Logout: sesión invalidada para token …%s", token[-6:])
+        except Exception as exc:
+            logger.warning("Logout: error al invalidar sesión: %s", exc)
+
+    is_prod = not django_settings.DEBUG
+    response = Response({'mensaje': 'Sesión cerrada correctamente.'})
+    # Expirar la cookie enviando max_age=0 con los mismos flags con que se creó
+    response.set_cookie(
+        key='auth_token',
+        value='',
+        max_age=0,
+        httponly=True,
+        secure=is_prod,
+        samesite='None' if is_prod else 'Lax',
+        path='/',
+    )
+    return response
+
 
 @api_view(['POST'])
 def verify_token(request):

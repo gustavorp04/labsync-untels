@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
+import { logoutUser } from "../../services/auth";
 import LabMap from "../../components/LabMap";
 import ThemeToggle from "../../components/ThemeToggle";
 import "./Estudiante.css";
@@ -228,7 +229,12 @@ function Estudiante() {
     }
   };
 
-  const handleLogout = () => { localStorage.clear(); navigate("/"); };
+  const handleLogout = async () => {
+    // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
+    await logoutUser();
+    localStorage.clear();
+    navigate("/");
+  };
 
   const horariosByDate = horarios.reduce((acc, h) => {
     if (!acc[h.fecha]) acc[h.fecha] = [];

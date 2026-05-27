@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import reservaService from "../../services/reservaService";
 import userService from "../../services/userService";
 import laboratorioService from "../../services/laboratorioService";
+import { logoutUser } from "../../services/auth";
 import LabMap from "../../components/LabMap";
 import ThemeToggle from "../../components/ThemeToggle";
 import "./Admin.css";
@@ -374,7 +375,9 @@ function Admin() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
+    await logoutUser();
     localStorage.clear();
     navigate("/");
   };

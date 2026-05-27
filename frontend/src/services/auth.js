@@ -25,11 +25,25 @@ export const verifyToken = async (token) => {
   return response.data;
 };
 
+// C-2: Llama al endpoint que invalida la sesión en BD y expira la cookie httpOnly.
+// Siempre resuelve (nunca lanza) para que el componente pueda limpiar localStorage
+// incluso si el token ya estaba vencido.
+export const logoutUser = async () => {
+  try {
+    const response = await api.post('/auth/logout/');
+    return response.data;
+  } catch {
+    // Token ya expirado u otro error — ignorar, el componente limpia igual
+    return null;
+  }
+};
+
 const authService = {
   loginUser,
   forgotPassword,
   resetPassword,
-  verifyToken
+  verifyToken,
+  logoutUser,
 };
 
 export default authService;

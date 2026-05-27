@@ -7,44 +7,35 @@ const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,
+  // C-2: withCredentials envía la cookie httpOnly auth_token en cada petición
+  // (cross-origin requiere CORS_ALLOW_CREDENTIALS=True en el backend)
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para inyectar el token de autenticación Bearer
+// C-2: El token ya no se lee de localStorage — viaja en la cookie httpOnly.
+// Mantenemos el interceptor para advertencias de configuración en producción.
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    
     if (!process.env.REACT_APP_API_URL && process.env.NODE_ENV === 'production') {
       console.warn('REACT_APP_API_URL no está definida. Las peticiones podrían fallar.');
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Interceptor para manejar respuestas con código de error 401 (Token vencido o inválido)
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Limpiar datos de sesión local
+      // Limpiar datos de sesión local (el backend ya expiró la cookie)
       const theme = localStorage.getItem('app-theme');
       localStorage.clear();
-      if (theme) {
-        localStorage.setItem('app-theme', theme);
-      }
-      localStorage.setItem('isAuthenticated', 'false');
-      // Redirigir a la página de login principal
+      if (theme) localStorage.setItem('app-theme', theme);
       window.location.href = '/';
     }
     return Promise.reject(error);

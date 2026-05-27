@@ -6,11 +6,19 @@ from reservas.models import SesionUsuario
 
 class CustomTokenAuthentication(BaseAuthentication):
     def authenticate(self, request):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
+        # C-2: primero intentar cookie httpOnly (no accesible desde JS)
+        token = request.COOKIES.get('auth_token')
+
+        # Fallback: header Authorization: Bearer <token>
+        # (permite usar la API desde Postman/Swagger sin cookie)
+        if not token:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+
+        if not token:
             return None
-        
-        token = auth_header.split(' ')[1]
+
         try:
             sesion = SesionUsuario.objects.select_related('id_usuario', 'id_usuario__id_rol').get(
                 token=token,

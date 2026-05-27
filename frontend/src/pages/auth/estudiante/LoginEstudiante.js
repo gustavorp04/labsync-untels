@@ -15,8 +15,9 @@ const LoginEstudiante = () => {
   const [showModal, setShowModal] = useState(false);
 
   // Evita que el usuario vea el login si ya está logueado (Fix botón atrás)
+  // C-2: usamos id_usuario como indicador de sesión activa (ya no hay token en localStorage)
   React.useEffect(() => {
-    if (localStorage.getItem('isAuthenticated') === 'true' && localStorage.getItem('role') === 'estudiante') {
+    if (localStorage.getItem('id_usuario') && localStorage.getItem('role') === 'estudiante') {
       navigate('/estudiante', { replace: true });
     }
   }, [navigate]);
@@ -33,13 +34,11 @@ const LoginEstudiante = () => {
       // Using the specific role for the API call (or we can update the API later)
       const data = await loginUser(username, password, 'estudiante');
       
-      localStorage.setItem('token', data.token || '');
-      localStorage.setItem('isAuthenticated', 'true');
+      // C-2: el token viaja en la cookie httpOnly que el backend ya estableció
+      // — no lo guardamos en localStorage para eliminar el riesgo de XSS.
       localStorage.setItem('role', data.rol || 'estudiante');
-      localStorage.setItem('username', data.nombre || 'Estudiante'); // Legacy
       localStorage.setItem('nombre', data.nombre || 'Estudiante');
-      localStorage.setItem('id_usuario', data.id_usuario || '');     // Legacy
-      localStorage.setItem('userId', data.id_usuario || '');
+      localStorage.setItem('id_usuario', data.id_usuario || '');
       localStorage.setItem('carrera', data.carrera || '');
       localStorage.setItem('ciclo', data.ciclo || '');
 

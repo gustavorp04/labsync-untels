@@ -25,10 +25,9 @@ const LoginAdmin = () => {
     try {
       const data = await loginUser(username, password, 'admin_lab');
       
-      localStorage.setItem('token', data.token || '');
-      localStorage.setItem('isAuthenticated', 'true');
+      // C-2: token en cookie httpOnly — no almacenado en localStorage
       localStorage.setItem('role', data.rol);
-      localStorage.setItem('username', data.nombre);
+      localStorage.setItem('nombre', data.nombre);
       localStorage.setItem('id_usuario', data.id_usuario);
 
       navigate('/admin');

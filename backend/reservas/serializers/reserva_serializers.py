@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime as dt_datetime
 from ..models import Reserva, HorarioDisponible, Asistencia, HistorialReserva
 
 class CrearReservaSerializer(serializers.Serializer):
@@ -19,11 +19,13 @@ class CrearReservaSerializer(serializers.Serializer):
         except HorarioDisponible.DoesNotExist:
             raise serializers.ValidationError({"id_horario": "El horario especificado no existe."})
 
-        # Regla: 1 día de anticipación como mínimo
-        fecha_reserva = horario.fecha
-        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
-        if fecha_reserva < manana:
-            raise serializers.ValidationError("La reserva debe realizarse con al menos 1 día de anticipación.")
+        # N-1: Misma lógica exacta de 24h que usa reserva_service — compara
+        # datetimes completos, no solo fechas, para evitar inconsistencias de UX.
+        ahora = timezone.now()
+        naive_inicio = dt_datetime.combine(horario.fecha, horario.hora_inicio)
+        fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+        if (fecha_hora_inicio - ahora) < timedelta(hours=24):
+            raise serializers.ValidationError("La reserva debe realizarse con al menos 24 horas de anticipación.")
 
         # Regla: aforo máximo
         if data['cantidad_alumnos'] > horario.capacidad_total:
@@ -104,8 +106,12 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
         fields = ['id_horario', 'laboratorio_nombre', 'tipo_nombre', 'aforo_maximo', 'fecha', 'hora_inicio', 'hora_fin', 'estado', 'capacidad_total', 'es_reservable']
 
     def get_es_reservable(self, obj):
-        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
-        return obj.fecha >= manana
+        # N-2: Misma regla de 24h exactas que el service para que el botón
+        # en el frontend refleje lo que el backend va a aceptar.
+        ahora = timezone.now()
+        naive_inicio = dt_datetime.combine(obj.fecha, obj.hora_inicio)
+        fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+        return (fecha_hora_inicio - ahora) >= timedelta(hours=24)
 
     def get_laboratorio_nombre(self, obj):
         lab = obj.id_laboratorio

@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import auth_views, laboratorio_views, system_views, reserva_views, api_views, inventario_views
 
+
 # =============================================================================
 # ENRUTADOR AUTOMÁTICO (CRUD PARA EL FRONTEND)
 # =============================================================================
@@ -21,6 +22,7 @@ urlpatterns = [
     path('api/auth/admin/login/', auth_views.login_admin, name='login-admin'),
     path('api/auth/admin_lab/login/', auth_views.login_admin, name='login-admin-lab'),
     path('api/auth/jefatura/login/', auth_views.login_jefatura, name='login-jefatura'),
+    path('api/auth/logout/', auth_views.logout_view, name='logout'),   # C-2
     path('api/forgot-password/', auth_views.forgot_password, name='forgot-password'),
     path('api/reset-password/', auth_views.reset_password, name='reset-password'),
     path('api/verify-token/', auth_views.verify_token, name='verify-token'),

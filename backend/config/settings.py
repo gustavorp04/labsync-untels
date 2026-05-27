@@ -66,7 +66,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = False   # ID-08: usa la whitelist de CORS_ALLOWED_ORIGINS
+CORS_ALLOW_ALL_ORIGINS = False      # ID-08: usa la whitelist de CORS_ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True       # C-2: necesario para que el navegador envíe la cookie auth_token en cross-origin
 
 ROOT_URLCONF = 'config.urls'
 
