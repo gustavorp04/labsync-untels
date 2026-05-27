@@ -33,10 +33,13 @@ CSRF_TRUSTED_ORIGINS = os.environ.get(
     'https://labsync-backend-90371338218.us-central1.run.app'
 ).split(',')
 
-CORS_ALLOWED_ORIGINS = os.environ.get(
+cors_env = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:3000,http://localhost:5173,https://labsync-untels.vercel.app'
-).split(',')
+)
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_env.split(',')]
+if 'https://labsync-untels.vercel.app' not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append('https://labsync-untels.vercel.app')
 # Application definition
 
 INSTALLED_APPS = [
