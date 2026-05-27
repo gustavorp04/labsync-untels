@@ -13,8 +13,11 @@ class CustomTokenAuthentication(BaseAuthentication):
         # (permite usar la API desde Postman/Swagger sin cookie)
         if not token:
             auth_header = request.headers.get('Authorization')
-            if auth_header and auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
+            if auth_header:
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ')[1]
+                elif auth_header.startswith('Token '):
+                    token = auth_header.split(' ')[1]
 
         if not token:
             return None

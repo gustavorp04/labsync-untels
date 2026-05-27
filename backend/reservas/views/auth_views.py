@@ -67,6 +67,7 @@ def _base_login(request, expected_role):
         is_prod = not django_settings.DEBUG
         response = Response({
             'mensaje': 'Login exitoso',
+            'token': token,
             **user_data          # nombre, id_usuario, rol, carrera, ciclo, etc.
         })
         response.set_cookie(

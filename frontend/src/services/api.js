@@ -7,20 +7,16 @@ const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,
-  // C-2: withCredentials envía la cookie httpOnly auth_token en cada petición
-  // (cross-origin requiere CORS_ALLOW_CREDENTIALS=True en el backend)
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// C-2: El token ya no se lee de localStorage — viaja en la cookie httpOnly.
-// Mantenemos el interceptor para advertencias de configuración en producción.
 api.interceptors.request.use(
   (config) => {
-    if (!process.env.REACT_APP_API_URL && process.env.NODE_ENV === 'production') {
-      console.warn('REACT_APP_API_URL no está definida. Las peticiones podrían fallar.');
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Token ${token}`;
     }
     return config;
   },
