@@ -58,8 +58,11 @@ class ReservaSerializer(serializers.ModelSerializer):
         ]
 
     def get_laboratorio_nombre(self, obj):
-        lab = obj.id_horario.id_laboratorio
-        return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        try:
+            lab = obj.id_horario.id_laboratorio
+            return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        except AttributeError:
+            return "Laboratorio no disponible"
 
     def get_activos(self, obj):
         # Usamos all() para aprovechar prefetch_related y evitar N+1 queries
@@ -116,12 +119,17 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
         return (fecha_hora_inicio - ahora) >= timedelta(hours=24)
 
     def get_laboratorio_nombre(self, obj):
-        lab = obj.id_laboratorio
-        return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        try:
+            lab = obj.id_laboratorio
+            return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        except AttributeError:
+            return "Laboratorio no disponible"
 
 class HistorialReservaSerializer(serializers.ModelSerializer):
-    usuario_nombre = serializers.CharField(source='usuario_cambio.nombre', read_only=True)
-    usuario_rol = serializers.CharField(source='usuario_cambio.id_rol.nombre', read_only=True)
+    # S-1: usuario_cambio es null=True en el modelo (puede ser null si lo generó el sistema).
+    # Usar SerializerMethodField evita AttributeError cuando el campo es None.
+    usuario_nombre = serializers.SerializerMethodField()
+    usuario_rol = serializers.SerializerMethodField()
     reserva_id = serializers.IntegerField(source='reserva.id_reserva', read_only=True)
     laboratorio = serializers.SerializerMethodField()
 
@@ -129,6 +137,22 @@ class HistorialReservaSerializer(serializers.ModelSerializer):
         model = HistorialReserva
         fields = ['id_historial', 'reserva_id', 'estado_anterior', 'estado_nuevo', 'fecha_cambio', 'usuario_nombre', 'usuario_rol', 'observacion', 'laboratorio']
 
+    def get_usuario_nombre(self, obj):
+        if obj.usuario_cambio is None:
+            return "Sistema"
+        return obj.usuario_cambio.nombre or ""
+
+    def get_usuario_rol(self, obj):
+        if obj.usuario_cambio is None:
+            return None
+        try:
+            return obj.usuario_cambio.id_rol.nombre
+        except AttributeError:
+            return None
+
     def get_laboratorio(self, obj):
-        lab = obj.reserva.id_horario.id_laboratorio
-        return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        try:
+            lab = obj.reserva.id_horario.id_laboratorio
+            return f"{lab.nombre} ({lab.codigo_patrimonio})"
+        except AttributeError:
+            return "Laboratorio no disponible"

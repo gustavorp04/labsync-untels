@@ -56,7 +56,10 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
 
     def get_estado_sistema(self, obj):
         # Lógica de negocio: Si tiene menos del mínimo de equipos de su tipo, está "En Mantenimiento"
+        # S-2: id_tipo puede ser None si el FK DO_NOTHING apunta a un tipo borrado.
         operativos = self.get_equipos_operativos(obj)
+        if obj.id_tipo is None:
+            return "Desconocido"
         minimo_requerido = obj.id_tipo.min_equipos
         return "Disponible" if operativos >= minimo_requerido else "Mantenimiento"
 
