@@ -23,7 +23,7 @@ const LoginAdmin = () => {
 
     setError('');
     try {
-      const data = await loginUser(username, password, 'admin_lab');
+      const data = await loginUser(username, password, 'admin');
       
       // C-2: token en cookie httpOnly — no almacenado en localStorage
       localStorage.setItem('role', data.rol);
