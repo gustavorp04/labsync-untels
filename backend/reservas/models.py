@@ -14,6 +14,8 @@ class ActivoLaboratorio(models.Model):
     ]
     estado = models.CharField(max_length=20, choices=ESTADOS)
     updated_at = models.DateTimeField()
+    fila = models.IntegerField(null=True, blank=True)
+    columna = models.IntegerField(null=True, blank=True)
 
     class Meta:
         managed = True
@@ -108,6 +110,11 @@ class Laboratorio(models.Model):
     codigo_patrimonio = models.CharField(unique=True, max_length=30)
     aforo_maximo = models.IntegerField()
     habilitado = models.BooleanField()
+    TIPOS_LAYOUT = [
+        ('GRID', 'Cuadrícula Clásica'),
+        ('MESAS', 'Mesas de Trabajo')
+    ]
+    tipo_layout = models.CharField(max_length=10, choices=TIPOS_LAYOUT, default='GRID')
 
     class Meta:
         managed = True

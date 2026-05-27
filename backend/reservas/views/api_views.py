@@ -1,4 +1,5 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status, permissions
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from reservas.models import Usuario, Laboratorio, Reserva, Incidencia, Asistencia, HorarioDisponible
 from ..utils.auth import IsAdminOrJefatura, IsAdminOrJefaturaOrSelf, IsAdminOrJefaturaOrReadOnly
@@ -8,6 +9,14 @@ from ..serializers.auth_serializers import UsuarioSerializer
 from ..serializers.laboratorio_serializers import LaboratorioListSerializer
 from ..serializers.reserva_serializers import ReservaSerializer, AsistenciaSerializer, HorarioDisponibleSerializer
 from ..serializers.incidencia_serializers import IncidenciaSerializer
+
+
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """Permite acceso al dueño de la reserva o a admin/jefatura."""
+    def has_object_permission(self, request, view, obj):
+        if request.user.id_rol.nombre in ('admin_lab', 'jefatura'):
+            return True
+        return obj.id_usuario == request.user
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrJefaturaOrSelf]
@@ -45,17 +54,27 @@ class ReservaViewSet(viewsets.ModelViewSet):
         return base_qs.filter(id_usuario=user)
 
     def get_permissions(self):
-        # Para operaciones de detalle, validamos propiedad
-        from rest_framework import permissions
-        class IsOwnerOrAdmin(permissions.BasePermission):
-            def has_object_permission(self, request, view, obj):
-                if request.user.id_rol.nombre in ('admin_lab', 'jefatura'):
-                    return True
-                return obj.id_usuario == request.user
-
         if self.action in ('retrieve', 'update', 'partial_update', 'destroy'):
             return [IsAuthenticated(), IsOwnerOrAdmin()]
         return super().get_permissions()
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        DELETE bloqueado intencionalmente.
+
+        Borrar una reserva directo en la BD saltea toda la lógica de negocio
+        (historial, recalcular aforo, penalizaciones, etc.).
+        Para cancelar una reserva usa el endpoint correcto:
+          PATCH /api/v1/usuarios/{id_usuario}/reservas/{id_reserva}/cancelar/
+        """
+        return Response(
+            {
+                'error': 'No se permite eliminar reservas directamente.',
+                'accion': 'Para cancelar una reserva usa: '
+                          'PATCH /api/v1/usuarios/{id_usuario}/reservas/{id_reserva}/cancelar/',
+            },
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
 class IncidenciaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
