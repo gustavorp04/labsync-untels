@@ -43,9 +43,14 @@ class LaboratorioListSerializer(serializers.ModelSerializer):
         return f"{obj.nombre} ({obj.codigo_patrimonio})"
 
     def get_equipos_operativos(self, obj):
-        # Contamos solo estaciones reales (CPU/Mesa) que estén "Operativo"
+        # A-3: Usa la anotación 'equipos_operativos_count' del queryset si está
+        # disponible (inyectada por LaboratorioListView / LaboratorioViewSet).
+        # Evita disparar una query COUNT por cada laboratorio en la lista.
+        if hasattr(obj, 'equipos_operativos_count'):
+            return obj.equipos_operativos_count
+        # Fallback seguro si se instancia fuera de un queryset anotado
         return obj.activolaboratorio_set.filter(
-            id_tipo_activo__nombre__in=['CPU', 'Mesa'], 
+            id_tipo_activo__nombre__in=['CPU', 'Mesa'],
             estado='Operativo'
         ).count()
 

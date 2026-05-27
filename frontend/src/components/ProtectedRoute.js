@@ -1,11 +1,12 @@
 import { Navigate } from "react-router-dom";
 
 function ProtectedRoute({ children, allowedRole }) {
-  const isAuth = localStorage.getItem("isAuthenticated");
+  // C-1: Verificar token real, no el string "isAuthenticated" (manipulable desde DevTools)
+  const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
 
-  // No está logueado
-  if (!isAuth) {
+  // No está logueado (token ausente o vacío)
+  if (!token) {
     return <Navigate to="/" />;
   }
 

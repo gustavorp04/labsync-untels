@@ -2,7 +2,7 @@ import logging
 from django.db import transaction, models
 from django.db.models import Sum, Q
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime as dt_datetime
 from ..models import (
     Reserva, HorarioDisponible, ActivoLaboratorio, ReservaDetalle,
     HistorialMantenimiento, Usuario, TipoLaboratorio, HistorialReserva,
@@ -268,18 +268,23 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
         if horario_db.estado != 'Disponible':
             return None, "Este horario ya fue reservado o ha alcanzado su capacidad máxima."
 
-        # PBI-03: Anticipación de 24 horas usando hora local de Perú
-        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
-        if horario_db.fecha < manana:
+        # A-4: Anticipación exacta de 24 horas comparando datetimes completos.
+        # La versión anterior comparaba solo fechas (ej.: reservar hoy a las 23:59
+        # para mañana a las 00:01 pasaba la validación aunque solo hay 2 minutos).
+        ahora = timezone.now()
+        naive_inicio = dt_datetime.combine(horario_db.fecha, horario_db.hora_inicio)
+        fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+        if (fecha_hora_inicio - ahora) < timedelta(hours=24):
             return None, "Las reservas deben hacerse con al menos 24 horas de anticipación."
 
-        # Prevenir doble reserva en el mismo bloque temporal en cualquier laboratorio
+        # A-5: Prevenir traslape real de horario (no solo coincidencia exacta).
+        # hora_inicio__lt/hora_fin__gt detecta cualquier superposición de intervalos.
         coincidencias = Reserva.objects.filter(
             id_usuario=usuario,
             estado='Programada',
             id_horario__fecha=horario_db.fecha,
-            id_horario__hora_inicio=horario_db.hora_inicio,
-            id_horario__hora_fin=horario_db.hora_fin
+            id_horario__hora_inicio__lt=horario_db.hora_fin,
+            id_horario__hora_fin__gt=horario_db.hora_inicio,
         )
         if coincidencias.exists():
             return None, "Ya tienes una reserva programada en este mismo bloque horario."
@@ -339,18 +344,20 @@ def crear_reserva_estudiante(usuario, id_horario, id_activo, acepta_dj):
         if activo.estado != 'Operativo':
             return None, "El equipo seleccionado no está operativo."
 
-        # Anticipación de 24 horas usando hora local de Perú
-        manana = timezone.localtime(timezone.now()).date() + timedelta(days=1)
-        if horario_db.fecha < manana:
-            return None, "La reserva debe hacerse con al menos 1 día de anticipación."
+        # A-4: Anticipación exacta de 24 horas comparando datetimes completos
+        ahora = timezone.now()
+        naive_inicio = dt_datetime.combine(horario_db.fecha, horario_db.hora_inicio)
+        fecha_hora_inicio = timezone.make_aware(naive_inicio, timezone.get_current_timezone())
+        if (fecha_hora_inicio - ahora) < timedelta(hours=24):
+            return None, "La reserva debe hacerse con al menos 24 horas de anticipación."
 
-        # Prevenir doble reserva en el mismo bloque temporal en cualquier laboratorio
+        # A-5: Prevenir traslape real de horario (no solo coincidencia exacta)
         coincidencias = Reserva.objects.filter(
             id_usuario=usuario,
             estado__in=['Programada', 'Pendiente'],
             id_horario__fecha=horario_db.fecha,
-            id_horario__hora_inicio=horario_db.hora_inicio,
-            id_horario__hora_fin=horario_db.hora_fin
+            id_horario__hora_inicio__lt=horario_db.hora_fin,
+            id_horario__hora_fin__gt=horario_db.hora_inicio,
         )
         if coincidencias.exists():
             return None, "Ya tienes una reserva programada o pendiente en este mismo bloque horario."

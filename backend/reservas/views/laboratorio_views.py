@@ -14,8 +14,22 @@ class LaboratorioListView(generics.ListAPIView):
     serializer_class = LaboratorioListSerializer
 
     def get_queryset(self):
-        from django.db.models import Q
-        qs = Laboratorio.objects.all()
+        from django.db.models import Q, Count
+        # A-3: select_related evita N+1 en id_tipo/id_facultad; annotate calcula
+        # equipos_operativos_count en una sola query en vez de uno por laboratorio.
+        qs = (
+            Laboratorio.objects
+            .select_related('id_tipo', 'id_facultad')
+            .annotate(
+                equipos_operativos_count=Count(
+                    'activolaboratorio',
+                    filter=Q(
+                        activolaboratorio__id_tipo_activo__nombre__in=['CPU', 'Mesa'],
+                        activolaboratorio__estado='Operativo',
+                    )
+                )
+            )
+        )
         user = self.request.user
 
         if user.id_rol.nombre == 'estudiante':

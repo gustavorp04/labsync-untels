@@ -63,7 +63,20 @@ def mis_reservas(request, id_usuario):
             logger.warning("Error en purgar_pendientes_vencidos en mis_reservas: %s", e)
 
         from ..serializers.reserva_serializers import ReservaSerializer
-        reservas = Reserva.objects.filter(id_usuario=id_usuario).order_by('-created_at')
+        # A-1: select_related + prefetch_related eliminan el N+1 del serializer
+        reservas = (
+            Reserva.objects
+            .filter(id_usuario=id_usuario)
+            .select_related(
+                'id_usuario', 'id_usuario__id_rol',
+                'id_horario', 'id_horario__id_laboratorio',
+            )
+            .prefetch_related(
+                'reservadetalle_set__id_activo__id_tipo_activo',
+                'historialreserva_set',
+            )
+            .order_by('-created_at')
+        )
         serializer = ReservaSerializer(reservas, many=True)
         return Response(serializer.data)
 
@@ -225,6 +238,17 @@ def get_historial_reservas(request):
     from ..models import HistorialReserva
     from ..serializers.reserva_serializers import HistorialReservaSerializer
     
-    historial = HistorialReserva.objects.all().order_by('-fecha_cambio')[:100]
+    # A-2: select_related evita N+1 al serializar cada entrada del historial
+    historial = (
+        HistorialReserva.objects
+        .all()
+        .select_related(
+            'reserva',
+            'reserva__id_usuario',
+            'reserva__id_horario',
+            'reserva__id_horario__id_laboratorio',
+        )
+        .order_by('-fecha_cambio')[:100]
+    )
     serializer = HistorialReservaSerializer(historial, many=True)
     return Response(serializer.data)
