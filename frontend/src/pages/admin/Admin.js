@@ -365,6 +365,7 @@ function Admin() {
     // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
     await logoutUser();
     localStorage.clear();
+    sessionStorage.clear();
     navigate("/");
   };
 
@@ -751,7 +752,11 @@ function Admin() {
                         activos={activos} 
                         activoSel={activoModal} 
                         onSelect={abrirModalActivo} 
-                        columnas={6}
+                        columnas={labSeleccionado?.codigo_patrimonio === 'C2-2B' ? 8 : 6}
+                        gapAfterColumn={
+                          labSeleccionado?.codigo_patrimonio === 'C2-2B' ? 4 : 
+                          labSeleccionado?.codigo_patrimonio === 'C2-2A' ? 3 : null
+                        }
                         adminMode={true}
                       />
                     ) : (

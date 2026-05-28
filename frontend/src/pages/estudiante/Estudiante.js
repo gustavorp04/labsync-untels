@@ -252,6 +252,7 @@ function Estudiante() {
     // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
     await logoutUser();
     localStorage.clear();
+    sessionStorage.clear();
     navigate("/");
   };
 
@@ -424,7 +425,11 @@ function Estudiante() {
                   activos={activos} 
                   activoSel={activoSel} 
                   onSelect={setActivoSel} 
-                  columnas={6} 
+                  columnas={labSel?.codigo_patrimonio === 'C2-2B' ? 8 : 6} 
+                  gapAfterColumn={
+                    labSel?.codigo_patrimonio === 'C2-2B' ? 4 : 
+                    labSel?.codigo_patrimonio === 'C2-2A' ? 3 : null
+                  }
                 />
                 
                 {/* PANEL INFO DEL ACTIVO SELECCIONADO */}

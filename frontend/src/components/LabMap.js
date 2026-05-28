@@ -5,7 +5,7 @@ import "./LabMap.css";
 /**
  * LabMap — Mapa interactivo Universal
  */
-export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, adminMode = false }) {
+export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, gapAfterColumn = null, adminMode = false }) {
   
   const pcs = useMemo(
     () => activos.filter((a) => {
@@ -38,11 +38,19 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
     } else {
       for (let i = 0; i < pcs.length; i += columnas) {
         const letra = String.fromCharCode(65 + rows.length);
-        rows.push({ letra, items: pcs.slice(i, i + columnas) });
+        const chunk = pcs.slice(i, i + columnas);
+        const items = [];
+        chunk.forEach((pc, idx) => {
+          if (gapAfterColumn !== null && idx === gapAfterColumn) {
+            items.push(null); // Insert gap
+          }
+          items.push(pc);
+        });
+        rows.push({ letra, items });
       }
     }
     return rows;
-  }, [pcs, columnas, hasCoordinates]);
+  }, [pcs, columnas, hasCoordinates, gapAfterColumn]);
 
   const isSelected = (a) => {
     if (!a) return false;

@@ -9,6 +9,7 @@ function Jefatura() {
     // C-2: invalidar sesión en BD y expirar la cookie httpOnly desde el servidor
     await logoutUser();
     localStorage.clear();
+    sessionStorage.clear();
     navigate("/");
   };
 
