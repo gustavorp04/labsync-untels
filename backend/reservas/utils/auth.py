@@ -1,13 +1,17 @@
+import logging
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import permissions
 from django.utils import timezone
 from reservas.models import SesionUsuario
 
+logger = logging.getLogger(__name__)
+
 class CustomTokenAuthentication(BaseAuthentication):
     def authenticate(self, request):
         # C-2: primero intentar cookie httpOnly (no accesible desde JS)
         token = request.COOKIES.get('auth_token')
+        token_source = 'cookie'
 
         # Fallback: header Authorization: Bearer <token>
         # (permite usar la API desde Postman/Swagger sin cookie)
@@ -16,19 +20,44 @@ class CustomTokenAuthentication(BaseAuthentication):
             if auth_header:
                 if auth_header.startswith('Bearer '):
                     token = auth_header.split(' ')[1]
+                    token_source = 'header Bearer'
                 elif auth_header.startswith('Token '):
                     token = auth_header.split(' ')[1]
+                    token_source = 'header Token'
+
+        # --- LOG TEMPORAL (eliminar tras diagnóstico) ---
+        logger.warning('[AUTH] método=%s path=%s', request.method, request.path)
+        if token:
+            logger.warning('[AUTH] token_source=%s token=...%s', token_source, token[-8:])
+        else:
+            logger.warning('[AUTH] sin token — cookie=%s Authorization=%s',
+                           request.COOKIES.get('auth_token', '(vacío)'),
+                           request.headers.get('Authorization', '(vacío)'))
+        # -------------------------------------------------
 
         if not token:
             return None
 
+        now = timezone.now()
         try:
             sesion = SesionUsuario.objects.select_related('id_usuario', 'id_usuario__id_rol').get(
                 token=token,
-                fecha_expiracion__gt=timezone.now()
+                fecha_expiracion__gt=now
             )
+            logger.warning('[AUTH] OK — usuario=%s rol=%s expira=%s',
+                           sesion.id_usuario.nombre,
+                           getattr(sesion.id_usuario.id_rol, 'nombre', None),
+                           sesion.fecha_expiracion)
             return (sesion.id_usuario, token)
         except SesionUsuario.DoesNotExist:
+            # Distinguir si el token existe pero expiró, o no existe en absoluto
+            try:
+                sesion_vencida = SesionUsuario.objects.select_related('id_usuario').get(token=token)
+                logger.warning('[AUTH] FALLO — sesión EXPIRADA: usuario=%s, expiró=%s, ahora=%s',
+                               sesion_vencida.id_usuario.nombre,
+                               sesion_vencida.fecha_expiracion, now)
+            except SesionUsuario.DoesNotExist:
+                logger.warning('[AUTH] FALLO — token NO EXISTE en sesion_usuario: ...%s', token[-8:])
             raise AuthenticationFailed('Token inválido o expirado')
 
 
