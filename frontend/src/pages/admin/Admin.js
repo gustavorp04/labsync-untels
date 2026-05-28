@@ -341,7 +341,25 @@ function Admin() {
       setFeedbackMsg({ tipo: 'ok', texto: 'Usuario creado exitosamente.' });
       fetchUsuarios();
     } catch (error) {
-      setFeedbackMsg({ tipo: 'error', texto: "Error al crear usuario. Verifica los datos." });
+      const data = error.response?.data;
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const labels = {
+          email: 'Email',
+          codigo_universitario: 'Código universitario',
+          ciclo: 'Ciclo',
+          nombre: 'Nombre',
+          id_rol: 'Rol',
+          non_field_errors: '',
+        };
+        const msgs = Object.entries(data).map(([field, errs]) => {
+          const label = labels[field] ?? field;
+          const msg = Array.isArray(errs) ? errs[0] : errs;
+          return label ? `${label}: ${msg}` : String(msg);
+        });
+        setFeedbackMsg({ tipo: 'error', texto: msgs.join(' — ') });
+      } else {
+        setFeedbackMsg({ tipo: 'error', texto: "Error al crear usuario. Verifica los datos." });
+      }
     }
   };
 
@@ -1022,7 +1040,7 @@ function Admin() {
                     </div>
                     <div className="form-group">
                       <label>Ciclo Actual</label>
-                      <input type="number" min="1" max="10" value={nuevoUsuario.ciclo} onChange={e => setNuevoUsuario({...nuevoUsuario, ciclo: e.target.value})} />
+                      <input type="number" min="1" max="12" value={nuevoUsuario.ciclo} onChange={e => setNuevoUsuario({...nuevoUsuario, ciclo: e.target.value})} required />
                     </div>
                   </>
                 )}

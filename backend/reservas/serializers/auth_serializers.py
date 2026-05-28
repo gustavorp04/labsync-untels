@@ -50,7 +50,13 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         if rol_nombre == 'estudiante':
             carrera_nombre = data.get('carrera')
-            ciclo = data.get('ciclo', 1)
+            ciclo_raw = data.get('ciclo', '')
+            try:
+                ciclo = int(ciclo_raw)
+                if not (1 <= ciclo <= 12):
+                    raise serializers.ValidationError({'ciclo': 'El ciclo debe estar entre 1 y 12.'})
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({'ciclo': 'El ciclo es obligatorio y debe ser un número entre 1 y 12.'})
             
             carrera_obj = None
             if carrera_nombre:
