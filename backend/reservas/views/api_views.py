@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +10,8 @@ from ..serializers.auth_serializers import UsuarioSerializer
 from ..serializers.laboratorio_serializers import LaboratorioListSerializer
 from ..serializers.reserva_serializers import ReservaSerializer, AsistenciaSerializer, HorarioDisponibleSerializer
 from ..serializers.incidencia_serializers import IncidenciaSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class IsOwnerOrAdmin(permissions.BasePermission):
@@ -27,6 +30,15 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         return Usuario.objects.all().select_related(
             'id_rol', 'perfildocente', 'perfilestudiante', 'perfilestudiante__id_carrera'
         )
+
+    # --- LOG TEMPORAL (eliminar tras diagnóstico) ---
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.warning('ERRORES CREAR USUARIO: %s', serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return super().create(request, *args, **kwargs)
+    # -------------------------------------------------
 
 
 class ReservaViewSet(viewsets.ModelViewSet):
