@@ -32,15 +32,14 @@ const LAB_LAYOUTS = {
   'C2-4':  { columnas: 7, gapAfterColumn: 4 },
   'C3-3':  { columnas: 7, gapAfterColumn: 4 },
 
-  // ── Laboratorios de Física (Sillas/puestos, 6 por mesa → columnas=6) ──
-  // Cada fila = 1 mesa de trabajo (6 sillas × ~4 mesas = aforo 25)
-  'FIS-G1': { columnas: 6, gapAfterColumn: null },
-  'FIS-G2': { columnas: 6, gapAfterColumn: null },
+  // ── Laboratorios de Física (puestos/sillas alrededor de mesas) ───────
+  // labType:'silla' fuerza el icóno de silla independiente del tipo_activo en BD
+  'FIS-G1': { columnas: 6, gapAfterColumn: null, labType: 'silla' },
+  'FIS-G2': { columnas: 6, gapAfterColumn: null, labType: 'silla' },
 
-  // ── Laboratorios de Electrónica (Sillas/puestos, 5 por mesa) ─────────
-  // Cada fila = 1 mesa de trabajo (5 sillas × 4-5 mesas = aforo 20-25)
-  'ELE-AD': { columnas: 5, gapAfterColumn: null },
-  'ELE-CA': { columnas: 5, gapAfterColumn: null },
+  // ── Laboratorios de Electrónica (puestos/sillas alrededor de mesas) ──
+  'ELE-AD': { columnas: 5, gapAfterColumn: null, labType: 'silla' },
+  'ELE-CA': { columnas: 5, gapAfterColumn: null, labType: 'silla' },
 };
 
 /** Valor por defecto para labs no configurados aún */

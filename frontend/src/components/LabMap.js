@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
-import { Monitor, FlaskConical, Armchair } from "lucide-react";
+import { Monitor, Table2, Armchair } from "lucide-react";
 import "./LabMap.css";
 
 /**
  * LabMap — Mapa interactivo Universal
- * Soporta labs de cómputo (CPU) y labs especializados (Mesa de trabajo).
+ * Soporta labs de cómputo (CPU) y labs especializados (Mesa / Silla).
+ * labType: 'silla' | 'mesa' | undefined — sobreescribe la detección automática.
  */
-export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, gapAfterColumn = null, adminMode = false }) {
+export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6, gapAfterColumn = null, adminMode = false, labType }) {
 
   const pcs = useMemo(
     () => activos.filter((a) => {
@@ -16,25 +17,23 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
     [activos]
   );
 
-  /** ¿Todos los activos son Mesas de trabajo? */
-  const isMesaLab = useMemo(
-    () => pcs.length > 0 && pcs.every(p => {
-      const t = p.tipo_activo || p.tipo_activo_nombre;
-      return t === "Mesa";
-    }),
-    [pcs]
-  );
+  /**
+   * Tipo de lab — usa el prop labType si se provee,
+   * si no, intenta inferirlo del tipo_activo de los assets.
+   */
+  const resolvedLabType = useMemo(() => {
+    if (labType) return labType;                          // prop explícito (desde labLayoutConfig)
+    if (pcs.length === 0) return 'cpu';
+    const allMesa  = pcs.every(p => (p.tipo_activo || p.tipo_activo_nombre) === 'Mesa');
+    const allSilla = pcs.every(p => (p.tipo_activo || p.tipo_activo_nombre) === 'Silla');
+    if (allSilla) return 'silla';
+    if (allMesa)  return 'mesa';
+    return 'cpu';
+  }, [labType, pcs]);
 
-  /** ¿Todos los activos son Sillas/puestos? */
-  const isSillaLab = useMemo(
-    () => pcs.length > 0 && pcs.every(p => {
-      const t = p.tipo_activo || p.tipo_activo_nombre;
-      return t === "Silla";
-    }),
-    [pcs]
-  );
-
-  const isSpecialLab = isMesaLab || isSillaLab;
+  const isSillaLab   = resolvedLabType === 'silla';
+  const isMesaLab    = resolvedLabType === 'mesa';
+  const isSpecialLab = isSillaLab || isMesaLab;
 
   const hasCoordinates = useMemo(
     () => pcs.length > 0 && pcs.every(p => p.fila != null && p.columna != null),
@@ -140,7 +139,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
         title={a.num_serie || "Sin código"}
       >
         <div className="lm-mesa-icon">
-          <FlaskConical size={36} strokeWidth={1.4} />
+          <Table2 size={36} strokeWidth={1.4} />
         </div>
         <span className="lm-mesa-label">Mesa {num}</span>
         <span className={`lm-mesa-badge lm-mesa-badge--${estado}`}>
@@ -180,7 +179,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
 
   /* ── Leyenda adaptativa ────────────────────────────────────────────── */
   const LegendIcon = isMesaLab
-    ? () => <FlaskConical size={16} strokeWidth={1.5} />
+    ? () => <Table2 size={16} strokeWidth={1.5} />
     : isSillaLab
       ? () => <Armchair size={16} strokeWidth={1.5} />
       : ({ fill }) => <Monitor size={16} strokeWidth={1.5} fill={fill || "none"} />;
