@@ -32,13 +32,15 @@ const LAB_LAYOUTS = {
   'C2-4':  { columnas: 7, gapAfterColumn: 4 },
   'C3-3':  { columnas: 7, gapAfterColumn: 4 },
 
-  // ── Laboratorios de Física (Mesas de trabajo, 2 por fila) ─────────
-  'FIS-G1': { columnas: 2, gapAfterColumn: null },
-  'FIS-G2': { columnas: 2, gapAfterColumn: null },
+  // ── Laboratorios de Física (Sillas/puestos, 6 por mesa → columnas=6) ──
+  // Cada fila = 1 mesa de trabajo (6 sillas × ~4 mesas = aforo 25)
+  'FIS-G1': { columnas: 6, gapAfterColumn: null },
+  'FIS-G2': { columnas: 6, gapAfterColumn: null },
 
-  // ── Laboratorios de Electrónica (Mesas de trabajo, 2 por fila) ────
-  'ELE-AD': { columnas: 2, gapAfterColumn: null },
-  'ELE-CA': { columnas: 2, gapAfterColumn: null },
+  // ── Laboratorios de Electrónica (Sillas/puestos, 5 por mesa) ─────────
+  // Cada fila = 1 mesa de trabajo (5 sillas × 4-5 mesas = aforo 20-25)
+  'ELE-AD': { columnas: 5, gapAfterColumn: null },
+  'ELE-CA': { columnas: 5, gapAfterColumn: null },
 };
 
 /** Valor por defecto para labs no configurados aún */

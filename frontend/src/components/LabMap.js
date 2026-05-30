@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Monitor, FlaskConical } from "lucide-react";
+import { Monitor, FlaskConical, Armchair } from "lucide-react";
 import "./LabMap.css";
 
 /**
@@ -11,12 +11,12 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
   const pcs = useMemo(
     () => activos.filter((a) => {
       const typeName = a.tipo_activo || a.tipo_activo_nombre;
-      return typeName === "CPU" || typeName === "Mesa";
+      return typeName === "CPU" || typeName === "Mesa" || typeName === "Silla";
     }),
     [activos]
   );
 
-  /** ¿El lab usa Mesas de trabajo en lugar de CPUs? */
+  /** ¿Todos los activos son Mesas de trabajo? */
   const isMesaLab = useMemo(
     () => pcs.length > 0 && pcs.every(p => {
       const t = p.tipo_activo || p.tipo_activo_nombre;
@@ -24,6 +24,17 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
     }),
     [pcs]
   );
+
+  /** ¿Todos los activos son Sillas/puestos? */
+  const isSillaLab = useMemo(
+    () => pcs.length > 0 && pcs.every(p => {
+      const t = p.tipo_activo || p.tipo_activo_nombre;
+      return t === "Silla";
+    }),
+    [pcs]
+  );
+
+  const isSpecialLab = isMesaLab || isSillaLab;
 
   const hasCoordinates = useMemo(
     () => pcs.length > 0 && pcs.every(p => p.fila != null && p.columna != null),
@@ -94,6 +105,29 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
     }
   }
 
+  /* ── Silla / puesto card (icono pequeño estilo PC) ────────────────── */
+  function SillaCard({ a }) {
+    const estado = getEstado(a);
+    const num = a.codigo_patrimonio?.split("-").slice(-1)[0] || "—";
+    return (
+      <button
+        className={`lm-pc lm-pc--${estado}`}
+        onClick={() => handleClick(a)}
+        disabled={!adminMode && (estado === "broken" || estado === "occupied" || estado === "maintenance" || estado === "pending")}
+        title={a.num_serie || "Sin código"}
+      >
+        <div className="lm-pc-icon-wrapper">
+          <Armchair
+            size={28}
+            strokeWidth={1.5}
+            fill={estado === "available" ? "none" : "currentColor"}
+          />
+        </div>
+        <span className="lm-pc-number">{num}</span>
+      </button>
+    );
+  }
+
   /* ── Mesa de trabajo card ──────────────────────────────────────────── */
   function MesaCard({ a }) {
     const estado = getEstado(a);
@@ -147,21 +181,27 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
   /* ── Leyenda adaptativa ────────────────────────────────────────────── */
   const LegendIcon = isMesaLab
     ? () => <FlaskConical size={16} strokeWidth={1.5} />
-    : ({ fill }) => <Monitor size={16} strokeWidth={1.5} fill={fill || "none"} />;
+    : isSillaLab
+      ? () => <Armchair size={16} strokeWidth={1.5} />
+      : ({ fill }) => <Monitor size={16} strokeWidth={1.5} fill={fill || "none"} />;
 
   return (
-    <div className={`lm-wrapper${isMesaLab ? " lm-wrapper--mesa-lab" : ""}`}>
-      {!isMesaLab && (
+    <div className={`lm-wrapper${isSpecialLab ? " lm-wrapper--mesa-lab" : ""}`}>
+      {!isSpecialLab && (
         <div className="lm-front-bar">PANTALLA / PIZARRA</div>
       )}
       {isMesaLab && (
         <div className="lm-front-bar lm-front-bar--mesa">LAB ESPECIALIZADO — Mesas de Trabajo</div>
       )}
+      {isSillaLab && (
+        <div className="lm-front-bar lm-front-bar--mesa">LAB ESPECIALIZADO — Puestos / Sillas</div>
+      )}
 
       <div className={`lm-grid-area${isMesaLab ? " lm-grid-area--mesa" : ""}`}>
         {filas.map((fila) => (
           <div key={fila.letra} className="lm-row">
-            {!isMesaLab && <div className="lm-row-label">{fila.letra}</div>}
+            {!isSpecialLab && <div className="lm-row-label">{fila.letra}</div>}
+            {isSillaLab && <div className="lm-row-label lm-row-label--mesa">{fila.letra}</div>}
 
             <div className={`lm-row-pcs${isMesaLab ? " lm-row-pcs--mesa" : ""}`}>
               {fila.items.map((a, index) => {
@@ -172,9 +212,9 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
                     </div>
                   );
                 }
-                return isMesaLab
-                  ? <MesaCard key={a.id_activo} a={a} />
-                  : <PcCard key={a.id_activo} a={a} />;
+                if (isMesaLab)  return <MesaCard  key={a.id_activo} a={a} />;
+                if (isSillaLab) return <SillaCard key={a.id_activo} a={a} />;
+                return <PcCard key={a.id_activo} a={a} />;
               })}
             </div>
           </div>
