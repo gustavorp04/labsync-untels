@@ -23,13 +23,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar respuestas con código de error 401 (Token vencido o inválido)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    if (status === 401 || (status === 403 && !localStorage.getItem('id_usuario'))) {
-      // Limpiar datos de sesión local (el backend ya expiró la cookie o falta)
+    const url = error.config?.url || '';
+    const esRutaAuth = url.includes('/api/auth/');
+
+    if ((status === 401 || status === 403) && !esRutaAuth) {
       const theme = localStorage.getItem('app-theme');
       localStorage.clear();
       if (theme) localStorage.setItem('app-theme', theme);
