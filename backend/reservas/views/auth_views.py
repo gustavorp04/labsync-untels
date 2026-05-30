@@ -52,7 +52,7 @@ def _base_login(request, expected_role):
 
         # Crear sesión y token de acceso
         token = secrets.token_hex(32)
-        fecha_expiracion = timezone.now() + timedelta(hours=24)
+        fecha_expiracion = timezone.now() + timedelta(hours=8)
         SesionUsuario.objects.create(
             id_usuario=user,
             token=token,
@@ -73,7 +73,7 @@ def _base_login(request, expected_role):
         response.set_cookie(
             key='auth_token',
             value=token,
-            max_age=24 * 3600,
+            max_age=8 * 3600,
             httponly=True,
             secure=is_prod,
             samesite='None' if is_prod else 'Lax',
