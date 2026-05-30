@@ -1,4 +1,9 @@
-/* Estilos LabMap Pro con Lucide */
+/* ═══════════════════════════════════════════════════════
+   LabMap.css — Estilos para LabMap Universal
+   Soporta labs de cómputo (CPU / Monitor) y
+   labs especializados (Mesa de trabajo).
+═══════════════════════════════════════════════════════ */
+
 .lm-wrapper {
   display: flex;
   flex-direction: column;
@@ -8,6 +13,7 @@
   padding: 20px 0;
 }
 
+/* ── Cabecera (pantalla/pizarra o lab especializado) ── */
 .lm-front-bar {
   width: 80%;
   background: #334155;
@@ -22,10 +28,21 @@
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
+.lm-front-bar--mesa {
+  background: linear-gradient(135deg, #0f4c75 0%, #1b6ca8 100%);
+  letter-spacing: 1px;
+}
+
+/* ── Grid principal ───────────────────────────────── */
 .lm-grid-area {
   display: flex;
   flex-direction: column;
   gap: 15px;
+}
+
+.lm-grid-area--mesa {
+  gap: 32px;
+  padding: 10px 20px;
 }
 
 .lm-row {
@@ -45,6 +62,35 @@
   gap: 10px;
 }
 
+.lm-row-pcs--mesa {
+  gap: 40px;
+  justify-content: center;
+}
+
+/* ── Pasillo ──────────────────────────────────────── */
+.lm-empty-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  margin: 0 10px;
+  border-left: 1px dashed rgba(255,255,255,0.1);
+  border-right: 1px dashed rgba(255,255,255,0.1);
+}
+
+.lm-gap-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 2px;
+  opacity: 0.5;
+  transform: rotate(180deg);
+}
+
+/* ══════════════════════════════════════════════════════
+   PC / Monitor card
+══════════════════════════════════════════════════════ */
 .lm-pc {
   position: relative;
   display: flex;
@@ -69,39 +115,13 @@
   margin-top: 4px;
 }
 
-/* ESPACIO PASILLO */
-.lm-empty-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  margin: 0 10px;
-  border-left: 1px dashed rgba(255,255,255,0.1);
-  border-right: 1px dashed rgba(255,255,255,0.1);
-}
-
-.lm-gap-text {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  color: var(--text-muted);
-  font-size: 10px;
-  letter-spacing: 2px;
-  opacity: 0.5;
-  transform: rotate(180deg);
-}
-
-/* ESTADOS */
-
-/* Disponible */
-.lm-pc--available {
-  color: #10b981;
-}
+/* PC — estados */
+.lm-pc--available { color: #10b981; }
 .lm-pc--available:hover {
   background: rgba(16, 185, 129, 0.1);
   border-color: #10b981;
 }
 
-/* Seleccionado */
 .lm-pc--selected {
   color: #3b82f6;
   background: rgba(59, 130, 246, 0.1);
@@ -109,35 +129,93 @@
   transform: scale(1.05);
 }
 
-/* Ocupado (Clase Reservada) */
-.lm-pc--occupied {
-  color: #ef4444; /* Rojo */
-  opacity: 0.9;
-  cursor: not-allowed;
+.lm-pc--occupied    { color: #ef4444; opacity: 0.9; cursor: not-allowed; }
+.lm-pc--pending     { color: #eab308; opacity: 0.9; cursor: not-allowed; }
+.lm-pc--maintenance { color: #8b5cf6; opacity: 0.9; cursor: not-allowed; }
+.lm-pc--broken      { color: #475569; opacity: 0.4; cursor: not-allowed; }
+
+/* ══════════════════════════════════════════════════════
+   Mesa de trabajo — Labs especializados (FIS, ELE, etc.)
+══════════════════════════════════════════════════════ */
+.lm-mesa {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 20px 24px 16px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-width: 130px;
+  min-height: 110px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
 }
 
-/* Pendiente (Estudiante) */
-.lm-pc--pending {
-  color: #eab308; /* Amarillo */
-  opacity: 0.9;
-  cursor: not-allowed;
+.lm-mesa:hover:not(:disabled) {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
-/* Mantenimiento */
-.lm-pc--maintenance {
-  color: #8b5cf6; /* Morado técnico */
-  opacity: 0.9;
-  cursor: not-allowed;
+.lm-mesa-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  transition: background 0.2s;
 }
 
-/* Dado de baja / Roto */
-.lm-pc--broken {
-  color: #475569;
-  opacity: 0.4;
-  cursor: not-allowed;
+.lm-mesa-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
-/* Leyenda */
+.lm-mesa-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+
+/* Mesa — estados */
+.lm-mesa--available { color: #06b6d4; border-color: rgba(6,182,212,0.35); }
+.lm-mesa--available:hover {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: #06b6d4;
+}
+.lm-mesa--available .lm-mesa-icon { background: rgba(6,182,212,0.12); }
+.lm-mesa-badge--available { background: rgba(6,182,212,0.15); color: #06b6d4; }
+
+.lm-mesa--selected {
+  color: #3b82f6;
+  background: rgba(59,130,246,0.1);
+  border-color: #3b82f6;
+  transform: scale(1.04);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.25);
+}
+.lm-mesa--selected .lm-mesa-icon { background: rgba(59,130,246,0.15); }
+.lm-mesa-badge--selected { background: rgba(59,130,246,0.2); color: #3b82f6; }
+
+.lm-mesa--occupied  { color: #ef4444; border-color: rgba(239,68,68,0.3);  cursor: not-allowed; opacity: 0.85; }
+.lm-mesa-badge--occupied  { background: rgba(239,68,68,0.15);  color: #ef4444; }
+
+.lm-mesa--pending   { color: #eab308; border-color: rgba(234,179,8,0.3);  cursor: not-allowed; opacity: 0.85; }
+.lm-mesa-badge--pending   { background: rgba(234,179,8,0.15);  color: #eab308; }
+
+.lm-mesa--maintenance { color: #8b5cf6; border-color: rgba(139,92,246,0.3); cursor: not-allowed; opacity: 0.85; }
+.lm-mesa-badge--maintenance { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+
+.lm-mesa--broken    { color: #475569; border-color: rgba(71,85,105,0.2);  cursor: not-allowed; opacity: 0.35; }
+.lm-mesa-badge--broken    { background: rgba(71,85,105,0.1);   color: #475569; }
+
+/* ── Leyenda ──────────────────────────────────────── */
 .lm-legend {
   display: flex;
   gap: 20px;
@@ -151,97 +229,52 @@
   align-items: center;
   gap: 8px;
 }
-.lm-legend-item .available { color: #10b981; }
-.lm-legend-item .selected { color: #3b82f6; }
-.lm-legend-item .occupied { color: #ef4444; }
-.lm-legend-item .pending { color: #eab308; }
+.lm-legend-item .available   { color: #10b981; }
+.lm-legend-item .selected    { color: #3b82f6; }
+.lm-legend-item .occupied    { color: #ef4444; }
+.lm-legend-item .pending     { color: #eab308; }
 .lm-legend-item .maintenance { color: #8b5cf6; }
-.lm-legend-item .broken { color: #475569; }
+.lm-legend-item .broken      { color: #475569; }
 
-/* --- RESPONSIVIDAD Y CONTENEDOR TIPO CINEPLANET --- */
+/* ── Responsivo ───────────────────────────────────── */
 @media (max-width: 768px) {
-  .lm-wrapper {
-    padding: 10px 0;
-    width: 100%;
-  }
+  .lm-wrapper      { padding: 10px 0; width: 100%; }
+  .lm-front-bar    { width: 95%; font-size: 10px; padding: 8px; margin-bottom: 12px; }
 
-  .lm-front-bar {
-    width: 95%;
-    font-size: 10px;
-    padding: 8px;
-    margin-bottom: 12px;
-  }
-
-  /* Contenedor tipo Cineplanet con scroll horizontal */
   .lm-grid-area {
     width: 100%;
     overflow-x: auto;
     padding: 15px 5px;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(0,0,0,0.08);
     border-radius: 10px;
     box-shadow: inset 0 0 8px rgba(0,0,0,0.15);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
 
-  /* Reducir el tamaño de los equipos en celulares */
-  .lm-pc {
-    min-width: 46px !important;
-    padding: 5px !important;
-    border-width: 1.5px !important;
-    border-radius: 6px !important;
-  }
-
-  .lm-pc-icon-wrapper svg {
-    width: 22px !important;
-    height: 22px !important;
-  }
-
-  .lm-pc-number {
-    font-size: 8px !important;
-    margin-top: 2px !important;
-  }
-
-  .lm-row {
-    gap: 8px !important;
-  }
-
-  .lm-row-pcs {
-    gap: 6px !important;
-  }
-
-  .lm-row-label {
-    width: 15px;
-    font-size: 10px;
-  }
-
-  /* Leyenda más compacta */
-  .lm-legend {
-    gap: 10px;
-    font-size: 11px;
-    margin-top: 15px;
-  }
+  .lm-pc              { min-width: 46px !important; padding: 5px !important; }
+  .lm-pc-icon-wrapper svg { width: 22px !important; height: 22px !important; }
+  .lm-pc-number       { font-size: 8px !important; margin-top: 2px !important; }
+  .lm-row             { gap: 8px !important; }
+  .lm-row-pcs         { gap: 6px !important; }
+  .lm-row-label       { width: 15px; font-size: 10px; }
+  .lm-mesa            { min-width: 100px; min-height: 90px; padding: 14px 16px 12px; }
+  .lm-mesa-icon       { width: 44px; height: 44px; }
+  .lm-row-pcs--mesa   { gap: 20px; }
+  .lm-legend          { gap: 10px; font-size: 11px; margin-top: 15px; }
 }
 
-/* ─── DARK MODE: LabMap ─── */
+/* ── Dark mode ────────────────────────────────────── */
 [data-theme='dark'] .lm-front-bar {
   background: #1e293b;
   color: #94a3b8;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
-
-[data-theme='dark'] .lm-pc-number {
-  color: var(--text-muted);
+[data-theme='dark'] .lm-front-bar--mesa {
+  background: linear-gradient(135deg, #0c3a5e 0%, #144e82 100%);
 }
-
-[data-theme='dark'] .lm-pc--broken {
-  color: #64748b;
-}
-
-[data-theme='dark'] .lm-legend {
-  color: var(--text-muted);
-}
-
-[data-theme='dark'] .lm-legend-item .broken {
-  color: #64748b;
-}
+[data-theme='dark'] .lm-pc-number         { color: var(--text-muted); }
+[data-theme='dark'] .lm-pc--broken        { color: #64748b; }
+[data-theme='dark'] .lm-legend            { color: var(--text-muted); }
+[data-theme='dark'] .lm-legend-item .broken { color: #64748b; }
+[data-theme='dark'] .lm-mesa              { background: rgba(255,255,255,0.02); }

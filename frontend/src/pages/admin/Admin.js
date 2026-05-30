@@ -5,6 +5,7 @@ import userService from "../../services/userService";
 import laboratorioService from "../../services/laboratorioService";
 import { logoutUser } from "../../services/auth";
 import LabMap from "../../components/LabMap";
+import { getLabLayout } from "../../components/labLayoutConfig";
 import ThemeToggle from "../../components/ThemeToggle";
 import "./Admin.css";
 
@@ -770,11 +771,7 @@ function Admin() {
                         activos={activos} 
                         activoSel={activoModal} 
                         onSelect={abrirModalActivo} 
-                        columnas={labSeleccionado?.codigo_patrimonio === 'C2-2B' ? 8 : 6}
-                        gapAfterColumn={
-                          labSeleccionado?.codigo_patrimonio === 'C2-2B' ? 4 : 
-                          labSeleccionado?.codigo_patrimonio === 'C2-2A' ? 3 : null
-                        }
+                        {...getLabLayout(labSeleccionado?.codigo_patrimonio)}
                         adminMode={true}
                       />
                     ) : (
@@ -1248,7 +1245,7 @@ function Admin() {
                       activos={visActivos} 
                       activoSel={null} 
                       onSelect={handleVisActivoSelect} 
-                      columnas={6}
+                      {...getLabLayout(visLab?.codigo_patrimonio)}
                       adminMode={false}
                     />
                   </div>
@@ -1373,7 +1370,7 @@ function Admin() {
                       activos={detalleMapActivos}
                       activoSel={(reservaDetalleModal.activos || []).map(act => act.id_activo)}
                       onSelect={() => {}}
-                      columnas={6}
+                      {...getLabLayout(reservaDetalleModal?.laboratorio?.codigo_patrimonio)}
                       adminMode={false}
                     />
                   </div>

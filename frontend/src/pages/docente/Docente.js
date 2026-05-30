@@ -4,6 +4,7 @@ import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
 import { logoutUser } from "../../services/auth";
 import LabMap from "../../components/LabMap";
+import { getLabLayout } from "../../components/labLayoutConfig";
 import ThemeToggle from "../../components/ThemeToggle";
 import "./Docente.css";
 
@@ -569,7 +570,7 @@ function Docente() {
                   activos={activos} 
                   activoSel={activosSel} 
                   onSelect={(a) => toggleActivo(a.id_activo)} 
-                  columnas={labSel?.codigo_patrimonio === 'A1-1' ? 5 : 6} 
+                  {...getLabLayout(labSel?.codigo_patrimonio)}
                 />
 
                 <div className="doc-bulk-actions" style={{ display: 'flex', gap: 12, marginTop: 16 }}>

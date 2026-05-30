@@ -4,6 +4,7 @@ import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
 import { logoutUser } from "../../services/auth";
 import LabMap from "../../components/LabMap";
+import { getLabLayout } from "../../components/labLayoutConfig";
 import ThemeToggle from "../../components/ThemeToggle";
 import "./Estudiante.css";
 
@@ -425,11 +426,7 @@ function Estudiante() {
                   activos={activos} 
                   activoSel={activoSel} 
                   onSelect={setActivoSel} 
-                  columnas={labSel?.codigo_patrimonio === 'C2-2B' ? 8 : 6} 
-                  gapAfterColumn={
-                    labSel?.codigo_patrimonio === 'C2-2B' ? 4 : 
-                    labSel?.codigo_patrimonio === 'C2-2A' ? 3 : null
-                  }
+                  {...getLabLayout(labSel?.codigo_patrimonio)}
                 />
                 
                 {/* PANEL INFO DEL ACTIVO SELECCIONADO */}
