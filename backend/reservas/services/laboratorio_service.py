@@ -66,7 +66,7 @@ def _cancelar_y_notificar_reservas_futuras(laboratorio, motivo):
     return notificados, emails_a_enviar
 
 
-def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None):
+def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None, id_incidencia=None):
     """Actualiza equipo, recalcula lab (PBI-02) y reasigna (PBI-04). Propaga PBI-12 si el lab se inhabilita."""
     emails_a_enviar = []
     emails_pc_reasignada = []
@@ -123,6 +123,7 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                     estado_anterior=estado_anterior,
                     estado_nuevo=nuevo_estado,
                     motivo=motivo,
+                    id_incidencia=id_incidencia,
                     fecha_cambio=timezone.now(),
                     registrado_por=usuario_registrador,
                 )
@@ -495,3 +496,71 @@ def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None):
         )
 
     return laboratorio, notificados, None
+
+
+def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, registrado_por):
+    """
+    PBI-22: Registra una incidencia para un equipo activo.
+    Busca automáticamente el último usuario que tuvo una reserva Completada o Asistió
+    en ese equipo específico, vincula la incidencia a ese detalle, actualiza el estado
+    del activo y recalcula el estado de habilitación del laboratorio.
+    """
+    from ..models import ReservaDetalle, Incidencia, ActivoLaboratorio, Usuario
+    from django.db.models import Q
+    from django.utils import timezone
+
+    try:
+        activo = ActivoLaboratorio.objects.get(pk=id_activo)
+    except ActivoLaboratorio.DoesNotExist:
+        return None, None, "El activo especificado no existe."
+
+    # Buscar el usuario de registro
+    try:
+        usuario_registrador = Usuario.objects.get(pk=registrado_por)
+    except Usuario.DoesNotExist:
+        return None, None, f"Usuario registrador con ID {registrado_por} no encontrado."
+
+    # Buscar la última reserva completada o asistida para esta PC
+    detalle = ReservaDetalle.objects.filter(
+        id_activo=id_activo
+    ).filter(
+        Q(id_reserva__estado='Completada') | Q(id_reserva__asistencia__asistio=True)
+    ).select_related('id_reserva', 'id_reserva__id_usuario', 'id_reserva__id_horario').order_by(
+        '-id_reserva__id_horario__fecha',
+        '-id_reserva__id_horario__hora_inicio',
+        '-id_reserva__created_at'
+    ).first()
+
+    if not detalle:
+        return None, None, "No se encontró ninguna reserva Completada o Asistió para esta PC en el sistema, por lo que no se puede vincular un usuario responsable."
+
+    usuario_responsable = detalle.id_reserva.id_usuario
+
+    with transaction.atomic():
+        try:
+            # Crear el registro en Incidencia
+            incidencia = Incidencia.objects.create(
+                id_detalle=detalle,
+                id_activo=activo,
+                descripcion_dano=descripcion_dano,
+                fecha_reporte=timezone.now(),
+                estado_activo_post=estado_activo_post
+            )
+
+            # Llamar a actualizar_estado_activo para cambiar el estado, reasignar reservas futuras
+            # y actualizar el estado de habilitación del laboratorio
+            activo_actualizado, lab_retorno, mensajes, error_maint = actualizar_estado_activo(
+                id_activo=id_activo,
+                nuevo_estado=estado_activo_post,
+                motivo=f"Incidencia reportada: {descripcion_dano}",
+                usuario_id=registrado_por,
+                id_incidencia=incidencia # Pasar el objeto incidencia para vincularlo en el HistorialMantenimiento
+            )
+
+            if error_maint:
+                raise Exception(error_maint)
+
+        except Exception as e:
+            return None, None, f"Error al procesar la incidencia: {str(e)}"
+
+    return incidencia, usuario_responsable, None

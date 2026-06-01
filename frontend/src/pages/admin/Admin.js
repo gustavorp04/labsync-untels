@@ -93,6 +93,11 @@ function Admin() {
   const [cancelModal, setCancelModal] = useState(null);
   const [cancelMotivo, setCancelMotivo] = useState('');
 
+  // Estados para Modal de Incidencias (PBI-22)
+  const [incidenciaModal, setIncidenciaModal] = useState(null);
+  const [incidenciaDano, setIncidenciaDano] = useState("");
+  const [incidenciaEstado, setIncidenciaEstado] = useState("Mantenimiento");
+
   useEffect(() => {
     fetchReservas();
     fetchUsuarios();
@@ -277,6 +282,31 @@ function Admin() {
       await fetchLaboratorios();
     } catch (err) {
       setFeedbackMsg({ tipo: 'error', texto: 'Error al actualizar el equipo.' });
+    }
+  };
+
+  const guardarIncidencia = async () => {
+    if (!incidenciaDano.trim() || incidenciaDano.trim().length < 10) {
+      setFeedbackMsg({ tipo: 'error', texto: 'La descripción del daño debe tener al menos 10 caracteres.' });
+      return;
+    }
+    try {
+      const data = await laboratorioService.registrarIncidencia(
+        labSeleccionado.id_laboratorio,
+        incidenciaModal.id_activo,
+        incidenciaDano,
+        incidenciaEstado
+      );
+      setFeedbackMsg({ tipo: 'ok', texto: data.mensaje || 'Incidencia registrada con éxito.' });
+      setIncidenciaModal(null);
+      setIncidenciaDano("");
+      setIncidenciaEstado("Mantenimiento");
+      setActivoModal(null); // Cerrar también el drawer
+      // Recargar activos e historial
+      await seleccionarLab(labSeleccionado);
+      await fetchLaboratorios();
+    } catch (err) {
+      setFeedbackMsg({ tipo: 'error', texto: err.response?.data?.error || 'Error al registrar la incidencia.' });
     }
   };
 
@@ -1433,6 +1463,78 @@ function Admin() {
           </div>
         )}
 
+        {/* MODAL REGISTRO DE INCIDENCIA */}
+        {incidenciaModal && (
+          <div className="modal-overlay" onClick={() => setIncidenciaModal(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', zIndex: 1100 }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: '90%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:20,height:20}}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Reportar Incidencia
+                </h2>
+                <button className="activo-drawer-close" onClick={() => setIncidenciaModal(null)} style={{ position: 'static' }}>×</button>
+              </div>
+              <p style={{ margin: '0 0 16px 0', fontSize: 14, opacity: 0.8 }}>
+                Registra un daño o desperfecto físico para el equipo <strong>{incidenciaModal.num_serie}</strong> (Patrimonio: {incidenciaModal.codigo_patrimonio || '—'}).
+              </p>
+              
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+                  Descripción del daño <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <textarea
+                  className="search-input"
+                  placeholder="Ej: Teclado roto, monitor parpadea, mouse inoperativo..."
+                  value={incidenciaDano}
+                  onChange={(e) => setIncidenciaDano(e.target.value)}
+                  style={{ minHeight: 90, resize: 'vertical', width: '100%', boxSizing: 'border-box', padding: 10, borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                />
+                <small style={{ display: 'block', marginTop: 4, opacity: 0.6, fontSize: 11 }}>
+                  Mínimo 10 caracteres. {incidenciaDano.trim().length}/10
+                </small>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+                  Estado resultante del equipo <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <select
+                  className="filter-select"
+                  value={incidenciaEstado}
+                  onChange={(e) => setIncidenciaEstado(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                >
+                  <option value="Mantenimiento">Mantenimiento</option>
+                  <option value="Dado de baja">Dado de baja</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button className="cancel-btn" onClick={() => setIncidenciaModal(null)} style={{ padding: '8px 16px' }}>
+                  Cancelar
+                </button>
+                <button
+                  className="save-btn"
+                  onClick={guardarIncidencia}
+                  disabled={incidenciaDano.trim().length < 10}
+                  style={{
+                    background: '#dc2626',
+                    opacity: incidenciaDano.trim().length < 10 ? 0.5 : 1,
+                    cursor: incidenciaDano.trim().length < 10 ? 'not-allowed' : 'pointer',
+                    padding: '8px 16px',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 600
+                  }}
+                >
+                  Registrar Incidencia
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PANEL LATERAL — GESTIÓN DE ACTIVO (PBI-02) */}
         {activoModal && (
           <div className="activo-drawer-overlay" onClick={() => setActivoModal(null)} />
@@ -1558,16 +1660,46 @@ function Admin() {
                 </div>
 
                 {/* ACCIONES */}
-                <div className="activo-drawer-actions">
-                  <button className="cancel-btn" onClick={() => setActivoModal(null)}>Cancelar</button>
-                  <button
-                    className="save-btn"
-                    onClick={guardarCambioEstado}
-                    style={{ background: colorActivo(cambioEstado.estado) }}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><polyline points="20 6 9 17 4 12"/></svg>
-                    Guardar Cambio
-                  </button>
+                <div className="activo-drawer-actions" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                    <button className="cancel-btn" onClick={() => setActivoModal(null)} style={{ flex: 1 }}>Cancelar</button>
+                    <button
+                      className="save-btn"
+                      onClick={guardarCambioEstado}
+                      style={{ background: colorActivo(cambioEstado.estado), flex: 1 }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><polyline points="20 6 9 17 4 12"/></svg>
+                      Guardar Cambio
+                    </button>
+                  </div>
+                  {activoModal && (
+                    <button
+                      className="report-btn"
+                      onClick={() => {
+                        setIncidenciaModal(activoModal);
+                        setIncidenciaDano("");
+                        setIncidenciaEstado("Mantenimiento");
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#dc2626',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '10px 16px',
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        transition: 'background 0.2s'
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:16,height:16}}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      Reportar Incidencia (Daño)
+                    </button>
+                  )}
                 </div>
               </div>
             </>

@@ -38,11 +38,21 @@ const actualizarEstadoActivo = async (idLab, idActivo, estado, motivo) => {
   return res.data;
 };
 
+/** PBI-22: Registra una incidencia para un equipo activo */
+const registrarIncidencia = async (idLab, idActivo, descripcion_dano, estado_activo_post) => {
+  const res = await api.post(`/v1/laboratorios/${idLab}/activos/${idActivo}/incidencia/`, {
+    descripcion_dano,
+    estado_activo_post,
+  });
+  return res.data;
+};
+
 const laboratorioService = {
   getLaboratorios,
   getActivosPorLab,
   getHistorialLab,
   actualizarEstadoActivo,
+  registrarIncidencia,
 };
 
 export default laboratorioService;

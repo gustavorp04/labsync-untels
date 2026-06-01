@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/v1/laboratorios/<int:id_laboratorio>/activos/', inventario_views.ActivosPorLaboratorioView.as_view(), name='v1-activos-por-lab'),
     path('api/v1/laboratorios/<int:id_laboratorio>/activos/<int:id_activo>/estado/', inventario_views.ActivoUpdateView.as_view(), name='v1-activo-update-estado'),
     path('api/v1/laboratorios/<int:id_laboratorio>/activos/<int:id_activo>/historial/', inventario_views.HistorialPorActivoView.as_view(), name='v1-historial-por-activo'),
+    path('api/v1/laboratorios/<int:id_laboratorio>/activos/<int:id_activo>/incidencia/', inventario_views.registrar_incidencia_view, name='v1-activo-registrar-incidencia'),
     path('api/v1/laboratorios/<int:id_laboratorio>/horarios/', reserva_views.horarios_por_laboratorio, name='v1-horarios-por-lab'),
     path('api/v1/laboratorios/<int:id_laboratorio>/historial/', inventario_views.HistorialPorLaboratorioView.as_view(), name='v1-historial-por-lab'),
     path('api/v1/laboratorios/<int:id_laboratorio>/inhabilitar/', inventario_views.inhabilitar_laboratorio_view, name='v1-inhabilitar-laboratorio'),  # PBI-12

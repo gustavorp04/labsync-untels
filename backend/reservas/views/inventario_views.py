@@ -199,3 +199,59 @@ def inhabilitar_laboratorio_view(request, id_laboratorio):
         'reservas_canceladas': len(notificados),
         'usuarios_notificados': notificados
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrJefatura])
+def registrar_incidencia_view(request, id_laboratorio, id_activo):
+    """
+    PBI-22: Registra una incidencia para una PC y un laboratorio.
+    """
+    descripcion_dano = request.data.get('descripcion_dano')
+    estado_activo_post = request.data.get('estado_activo_post', 'Mantenimiento')
+
+    if not descripcion_dano or len(descripcion_dano.strip()) < 10:
+        return Response(
+            {"error": "La descripción del daño es obligatoria y debe tener al menos 10 caracteres."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if estado_activo_post not in ['Mantenimiento', 'Dado de baja']:
+        return Response(
+            {"error": "El estado resultante debe ser 'Mantenimiento' o 'Dado de baja'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Validar que el activo pertenezca al laboratorio indicado
+    try:
+        activo = ActivoLaboratorio.objects.get(pk=id_activo, id_laboratorio=id_laboratorio)
+    except ActivoLaboratorio.DoesNotExist:
+        return Response(
+            {"error": "El activo especificado no pertenece al laboratorio indicado."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Validar usuario del request
+    if not request.user or not hasattr(request.user, 'id_usuario'):
+        return Response({"error": "Usuario no autenticado correctamente."}, status=status.HTTP_401_UNAUTHORIZED)
+    usuario_id = request.user.id_usuario
+
+    # Llamar al servicio
+    incidencia, usuario_responsable, error = laboratorio_service.registrar_incidencia(
+        id_activo=id_activo,
+        descripcion_dano=descripcion_dano,
+        estado_activo_post=estado_activo_post,
+        registrado_por=usuario_id
+    )
+
+    if error:
+        return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Retornar respuesta exitosa
+    from ..serializers.incidencia_serializers import IncidenciaSerializer
+    return Response({
+        "ok": True,
+        "mensaje": f"Incidencia registrada para el equipo {activo.num_serie}.",
+        "incidencia": IncidenciaSerializer(incidencia).data,
+        "usuario_responsable": usuario_responsable.nombre if usuario_responsable else None,
+    }, status=status.HTTP_201_CREATED)

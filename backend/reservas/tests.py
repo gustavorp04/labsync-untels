@@ -243,3 +243,163 @@ class InhabilitacionLaboratorioTests(TestCase):
         args, kwargs = mock_enviar_email.call_args
         self.assertEqual(kwargs['email'], 'estudiante@untels.edu.pe')
         self.assertIn('Falla de equipo crítico: SERIE001', kwargs['motivo'])
+
+
+class NotificacionIncidenciaTests(TestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+        
+        # Roles
+        self.student_rol = Rol.objects.create(nombre='estudiante')
+        self.admin_rol = Rol.objects.create(nombre='admin_lab')
+        
+        # Facultad
+        self.facultad = Facultad.objects.create(nombre='Ingeniería de Sistemas')
+        
+        # Tipo Laboratorio
+        self.tipo_lab = TipoLaboratorio.objects.create(
+            nombre='Laboratorio de Cómputo',
+            min_equipos=2,
+            tipo_equipo_minimo='PC'
+        )
+        
+        # Laboratorio
+        self.lab = Laboratorio.objects.create(
+            id_tipo=self.tipo_lab,
+            id_facultad=self.facultad,
+            nombre='Laboratorio 101',
+            codigo_patrimonio='LAB101-UNTELS',
+            aforo_maximo=10,
+            habilitado=True
+        )
+        
+        # Activos
+        self.cat_activo = CategoriaActivo.objects.create(nombre='Cómputo')
+        self.tipo_activo = TipoActivo.objects.create(
+            id_categoria=self.cat_activo,
+            nombre='PC',
+            descripcion='Computadoras de escritorio'
+        )
+        
+        self.activo1 = ActivoLaboratorio.objects.create(
+            id_laboratorio=self.lab,
+            id_tipo_activo=self.tipo_activo,
+            num_serie='SERIE001',
+            codigo_patrimonio='PAT001',
+            estado='Operativo',
+            updated_at=timezone.now()
+        )
+        
+        self.activo2 = ActivoLaboratorio.objects.create(
+            id_laboratorio=self.lab,
+            id_tipo_activo=self.tipo_activo,
+            num_serie='SERIE002',
+            codigo_patrimonio='PAT002',
+            estado='Operativo',
+            updated_at=timezone.now()
+        )
+        
+        # Usuarios
+        self.student = Usuario.objects.create(
+            id_rol=self.student_rol,
+            nombre='Estudiante Prueba',
+            email='estudiante@untels.edu.pe',
+            password_hash='pbkdf2_sha256$...',
+            codigo_universitario='2026student',
+            created_at=timezone.now()
+        )
+        
+        self.admin = Usuario.objects.create(
+            id_rol=self.admin_rol,
+            nombre='Admin Prueba',
+            email='admin@untels.edu.pe',
+            password_hash='pbkdf2_sha256$...',
+            codigo_universitario='2026admin',
+            created_at=timezone.now()
+        )
+        
+        # Sesiones
+        self.admin_token = 'admin_token_value_32_chars_long_abc'
+        SesionUsuario.objects.create(
+            id_usuario=self.admin,
+            token=self.admin_token,
+            fecha_expiracion=timezone.now() + timedelta(hours=2)
+        )
+        
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        
+        # Horario Disponible
+        self.horario = HorarioDisponible.objects.create(
+            id_laboratorio=self.lab,
+            fecha=timezone.now().date() - timedelta(days=1),
+            hora_inicio=timezone.now().time(),
+            hora_fin=(timezone.now() + timedelta(hours=2)).time(),
+            capacidad_total=10,
+            capacidad_ocupada=1,
+            estado='Disponible'
+        )
+
+    def test_registrar_incidencia_exitoso(self):
+        """Registrar una incidencia vincula automáticamente con la última reserva completada del activo"""
+        from reservas.models import Incidencia, HistorialMantenimiento
+        
+        # Crear reserva completada de ayer en activo1
+        reserva = Reserva.objects.create(
+            id_usuario=self.student,
+            id_horario=self.horario,
+            cantidad_alumnos=1,
+            acepto_declaracion_jurada=True,
+            estado='Completada',
+            created_at=timezone.now(),
+            updated_at=timezone.now()
+        )
+        res_detalle = ReservaDetalle.objects.create(
+            id_reserva=reserva,
+            id_activo=self.activo1
+        )
+        
+        url = reverse('v1-activo-registrar-incidencia', kwargs={
+            'id_laboratorio': self.lab.id_laboratorio,
+            'id_activo': self.activo1.id_activo
+        })
+        
+        response = self.client.post(url, {
+            'descripcion_dano': 'Teclado con teclas rotas (F1-F5) y suelto.',
+            'estado_activo_post': 'Mantenimiento'
+        }, format='json')
+        
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['ok'], True)
+        self.assertEqual(response.data['usuario_responsable'], 'Estudiante Prueba')
+        
+        # Verificar que se creó la incidencia
+        incidencia = Incidencia.objects.filter(id_activo=self.activo1).first()
+        self.assertIsNotNone(incidencia)
+        self.assertEqual(incidencia.descripcion_dano, 'Teclado con teclas rotas (F1-F5) y suelto.')
+        self.assertEqual(incidencia.id_detalle, res_detalle)
+        
+        # Verificar estado del activo
+        self.activo1.refresh_from_db()
+        self.assertEqual(self.activo1.estado, 'Mantenimiento')
+        
+        # Verificar historial de mantenimiento
+        historial = HistorialMantenimiento.objects.filter(id_activo=self.activo1).first()
+        self.assertIsNotNone(historial)
+        self.assertEqual(historial.id_incidencia, incidencia)
+        self.assertEqual(historial.estado_nuevo, 'Mantenimiento')
+
+    def test_registrar_incidencia_sin_reservas_previas(self):
+        """Intento de registrar incidencia sin reservas completadas retorna 400"""
+        url = reverse('v1-activo-registrar-incidencia', kwargs={
+            'id_laboratorio': self.lab.id_laboratorio,
+            'id_activo': self.activo1.id_activo
+        })
+        
+        response = self.client.post(url, {
+            'descripcion_dano': 'Pantalla rota y rayada.',
+            'estado_activo_post': 'Mantenimiento'
+        }, format='json')
+        
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('No se encontró ninguna reserva Completada', response.data['error'])
