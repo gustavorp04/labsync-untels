@@ -1,4 +1,6 @@
+import datetime
 import logging
+import pytz
 from django.db import transaction, models
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -44,8 +46,9 @@ def enviar_recordatorios_24h():
     - Si el envío falla, registra el error en log y en DB; la reserva queda intacta.
     - Retorna (enviados, errores) para monitoreo.
     """
-    ahora = timezone.localtime(timezone.now())
-    manana = ahora.date() + timedelta(days=1)
+    lima_tz = pytz.timezone('America/Lima')
+    ahora_lima = datetime.datetime.now(tz=lima_tz)
+    manana = ahora_lima.date() + timedelta(days=1)
 
     reservas_manana = (
         Reserva.objects
