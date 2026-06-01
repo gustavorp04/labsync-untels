@@ -34,8 +34,8 @@ const getReservaById = async (id) => {
 };
 
 /** Cancelar reserva usando la ruta anidada RESTful */
-const cancelarReserva = async (idReserva, userId) => {
-  const res = await api.patch(`/v1/usuarios/${userId}/reservas/${idReserva}/cancelar/`);
+const cancelarReserva = async (idReserva, userId, motivo) => {
+  const res = await api.patch(`/v1/usuarios/${userId}/reservas/${idReserva}/cancelar/`, { motivo });
   return res.data;
 };
 

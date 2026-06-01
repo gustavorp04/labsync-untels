@@ -191,13 +191,17 @@ def cancelar_reserva(request, id_usuario, id_reserva):
     if reserva.estado not in ('Programada', 'Pendiente'):
         return Response({'error': f"Solo puedes cancelar reservas en estado Programada o Pendiente. Estado actual: {reserva.estado}"}, status=400)
 
+    motivo = request.data.get('motivo', '').strip()
+    observacion = motivo if motivo else "Reserva cancelada por el usuario."
+    es_cancelacion_por_admin = str(request.user.id_usuario) != str(id_usuario)
+
     try:
         with transaction.atomic():
             estado_anterior = reserva.estado
             reserva.estado = 'Cancelada'
             reserva.updated_at = timezone.now()  # Forzar actualización de timestamp
             reserva.save()
-            
+
             # ID-03: Liberar el horario usando la fuente de verdad
             # (recalcular_capacidad cuenta desde la BD real, no resta manualmente)
             horario = reserva.id_horario
@@ -211,11 +215,33 @@ def cancelar_reserva(request, id_usuario, id_reserva):
                     reserva=reserva,
                     estado_anterior=estado_anterior,
                     estado_nuevo='Cancelada',
-                    usuario_cambio_id=reserva.id_usuario_id,
-                    observacion="Reserva cancelada por el usuario."
+                    usuario_cambio_id=request.user.id_usuario,
+                    observacion=observacion,
                 )
             except Exception as log_err:
                 logger.warning("No se pudo crear el historial de reserva: %s", log_err)
+
+        # Notificar al titular si el admin cancela una reserva ajena
+        if es_cancelacion_por_admin:
+            try:
+                from ..services.reserva_service import enviar_notificacion_email
+                titular = reserva.id_usuario
+                horario = reserva.id_horario
+                laboratorio_nombre = horario.id_laboratorio.nombre if horario else 'el laboratorio'
+                fecha = horario.fecha.strftime('%d/%m/%Y') if horario else '—'
+                hora_inicio = horario.hora_inicio.strftime('%H:%M') if horario else '—'
+                hora_fin = horario.hora_fin.strftime('%H:%M') if horario else '—'
+                asunto = "Tu reserva en LabSync ha sido cancelada"
+                cuerpo = (
+                    f"Hola {titular.nombre},\n\n"
+                    f"Tu reserva en {laboratorio_nombre} programada para el {fecha} "
+                    f"de {hora_inicio} a {hora_fin} ha sido cancelada por el administrador.\n\n"
+                    f"Motivo: {motivo if motivo else 'No especificado'}\n\n"
+                    f"Si tienes alguna consulta, contáctate con el área de laboratorios UNTELS."
+                )
+                enviar_notificacion_email(titular.email, asunto, cuerpo)
+            except Exception as email_err:
+                logger.warning("No se pudo enviar email de cancelación al titular: %s", email_err)
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:

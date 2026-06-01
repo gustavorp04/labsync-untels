@@ -89,6 +89,10 @@ function Admin() {
   const [historialSearch, setHistorialSearch] = useState('');
   const [historialFiltro, setHistorialFiltro] = useState('todos');
 
+  // Modal de confirmación de cancelación de reserva (admin)
+  const [cancelModal, setCancelModal] = useState(null);
+  const [cancelMotivo, setCancelMotivo] = useState('');
+
   useEffect(() => {
     fetchReservas();
     fetchUsuarios();
@@ -303,11 +307,17 @@ function Admin() {
   };
 
   // N-3: cancelar reserva en lugar de eliminar (DELETE da 405; usa la ruta RESTful PATCH)
-  const handleCancelarReservaAdmin = async (reserva) => {
-    if (!window.confirm(`¿Cancelar la reserva de ${reserva.usuario_nombre}?`)) return;
+  const handleCancelarReservaAdmin = (reserva) => {
+    setCancelModal(reserva);
+    setCancelMotivo('');
+  };
+
+  const handleConfirmarCancelacion = async () => {
     try {
-      await reservaService.cancelarReserva(reserva.id_reserva, reserva.usuario_id);
+      await reservaService.cancelarReserva(cancelModal.id_reserva, cancelModal.usuario_id, cancelMotivo);
       setFeedbackMsg({ tipo: 'ok', texto: 'Reserva cancelada correctamente.' });
+      setCancelModal(null);
+      setCancelMotivo('');
       fetchReservas();
     } catch (error) {
       setFeedbackMsg({ tipo: 'error', texto: error.response?.data?.error || 'Error al cancelar la reserva.' });
@@ -1386,6 +1396,42 @@ function Admin() {
           </div>
         )}
 
+
+        {/* MODAL CONFIRMACIÓN CANCELACIÓN DE RESERVA */}
+        {cancelModal && (
+          <div className="modal-overlay" onClick={() => setCancelModal(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: '90%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>Cancelar Reserva</h2>
+                <button className="activo-drawer-close" onClick={() => setCancelModal(null)} style={{ position: 'static' }}>×</button>
+              </div>
+              <p style={{ margin: '0 0 20px 0', opacity: 0.8 }}>
+                ¿Estás seguro de cancelar esta reserva? El estudiante/docente será notificado.
+              </p>
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label>Motivo de cancelación <span style={{ color: '#dc2626' }}>*</span></label>
+                <textarea
+                  className="search-input activo-motivo-txt"
+                  placeholder="Ej: Mantenimiento del laboratorio, conflicto de horario..."
+                  value={cancelMotivo}
+                  onChange={(e) => setCancelMotivo(e.target.value)}
+                  style={{ marginTop: 8, minHeight: 80, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button className="cancel-btn" onClick={() => setCancelModal(null)}>Cancelar</button>
+                <button
+                  className="delete-btn"
+                  onClick={handleConfirmarCancelacion}
+                  disabled={cancelMotivo.trim().length < 10}
+                  style={{ opacity: cancelMotivo.trim().length < 10 ? 0.4 : 1, cursor: cancelMotivo.trim().length < 10 ? 'not-allowed' : 'pointer' }}
+                >
+                  Confirmar cancelación
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* PANEL LATERAL — GESTIÓN DE ACTIVO (PBI-02) */}
         {activoModal && (
