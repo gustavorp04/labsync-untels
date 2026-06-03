@@ -7,9 +7,12 @@ from django.db import transaction
 from datetime import timedelta
 from ..serializers.reserva_serializers import CrearReservaSerializer, HorarioDisponibleSerializer
 from ..services import reserva_service
-from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle, HistorialReserva
+from ..models import Usuario, Penalizacion, HorarioDisponible, Laboratorio, ActivoLaboratorio, Reserva, ReservaDetalle, HistorialReserva, Asistencia
 import logging
-from ..utils.auth import IsAdminOrJefatura  # ID-05/06
+import csv
+from django.http import HttpResponse
+from django.db.models import Count, Q
+from ..utils.auth import IsAdminOrJefatura, IsJefatura  # ID-05/06
 
 logger = logging.getLogger('reservas')
 
@@ -287,3 +290,141 @@ def get_historial_reservas(request):
     )
     serializer = HistorialReservaSerializer(historial, many=True)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsJefatura])
+def exportar_csv_jefatura(request):
+    """PBI-10: Exportar listado de reservas y asistencias a CSV para Jefatura."""
+    fecha_inicio = request.query_params.get('fecha_inicio')
+    fecha_fin = request.query_params.get('fecha_fin')
+    laboratorio_id = request.query_params.get('laboratorio_id')
+
+    reservas = Reserva.objects.select_related(
+        'id_usuario', 'id_usuario__id_rol', 'id_horario', 'id_horario__id_laboratorio', 'asistencia'
+    ).order_by('-created_at')
+
+    if fecha_inicio:
+        reservas = reservas.filter(id_horario__fecha__gte=fecha_inicio)
+    if fecha_fin:
+        reservas = reservas.filter(id_horario__fecha__lte=fecha_fin)
+    if laboratorio_id:
+        reservas = reservas.filter(id_horario__id_laboratorio_id=laboratorio_id)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="reporte_reservas.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'Titular',
+        'Rol',
+        'Laboratorio',
+        'Fecha',
+        'Hora Inicio',
+        'Hora Fin',
+        'Estado Reserva',
+        'Asistencia',
+        'Cantidad Alumnos',
+        'Motivo Cancelación'
+    ])
+
+    for r in reservas:
+        titular = r.id_usuario.nombre if r.id_usuario else 'N/A'
+        rol = r.id_usuario.id_rol.nombre if r.id_usuario and r.id_usuario.id_rol else 'N/A'
+        
+        horario = r.id_horario
+        if horario:
+            laboratorio = horario.id_laboratorio.nombre if horario.id_laboratorio else 'N/A'
+            fecha = horario.fecha.strftime('%Y-%m-%d')
+            hora_inicio = horario.hora_inicio.strftime('%H:%M')
+            hora_fin = horario.hora_fin.strftime('%H:%M')
+        else:
+            laboratorio, fecha, hora_inicio, hora_fin = 'N/A', 'N/A', 'N/A', 'N/A'
+            
+        estado = r.estado
+        
+        # Determine attendance
+        if hasattr(r, 'asistencia') and r.asistencia:
+            asistencia = 'Sí' if r.asistencia.asistio else 'No'
+        elif estado == 'Completada':
+            asistencia = 'Sí'
+        elif estado == 'No-show':
+            asistencia = 'No'
+        else:
+            asistencia = 'N/A'
+            
+        alumnos = r.cantidad_alumnos
+        
+        motivo_cancel = 'N/A'
+        if estado == 'Cancelada':
+            historial = r.historialreserva_set.filter(estado_nuevo='Cancelada').first()
+            if historial:
+                motivo_cancel = historial.observacion or 'N/A'
+
+        writer.writerow([
+            titular,
+            rol,
+            laboratorio,
+            fecha,
+            hora_inicio,
+            hora_fin,
+            estado,
+            asistencia,
+            alumnos,
+            motivo_cancel
+        ])
+
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsJefatura])
+def metricas_jefatura(request):
+    """PBI-17: Dashboard de métricas operativas para Jefatura."""
+    
+    # Reservas por laboratorio
+    reservas_por_lab = (
+        Reserva.objects.filter(id_horario__isnull=False)
+        .values('id_horario__id_laboratorio__nombre')
+        .annotate(total=Count('id_reserva'))
+        .order_by('-total')
+    )
+    
+    # Formatear
+    reservas_laboratorio = [
+        {'laboratorio': item['id_horario__id_laboratorio__nombre'], 'total_reservas': item['total']}
+        for item in reservas_por_lab
+    ]
+
+    # Tasa de cancelaciones
+    total_reservas = Reserva.objects.count()
+    canceladas = Reserva.objects.filter(estado='Cancelada').count()
+    porcentaje_canceladas = round((canceladas / total_reservas * 100), 2) if total_reservas > 0 else 0
+    tasa_cancelaciones = {
+        'canceladas': canceladas,
+        'total': total_reservas,
+        'porcentaje': porcentaje_canceladas
+    }
+
+    # No-shows por usuario (top 10)
+    noshows_por_usuario = (
+        Reserva.objects.filter(estado='No-show')
+        .values('id_usuario__nombre')
+        .annotate(noshow_count=Count('id_reserva'))
+        .order_by('-noshow_count')[:10]
+    )
+    noshow_usuarios = [
+        {'nombre_usuario': item['id_usuario__nombre'], 'noshow_count': item['noshow_count']}
+        for item in noshows_por_usuario
+    ]
+
+    # Distribución de estados
+    estados = Reserva.objects.values('estado').annotate(total=Count('id_reserva'))
+    estado_distribucion = {item['estado']: item['total'] for item in estados}
+
+    return Response({
+        'reservas_por_laboratorio': reservas_laboratorio,
+        'tasa_cancelaciones': tasa_cancelaciones,
+        'noshow_por_usuario': noshow_usuarios,
+        'estado_distribucion': estado_distribucion
+    })

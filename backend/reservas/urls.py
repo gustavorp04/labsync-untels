@@ -57,6 +57,10 @@ urlpatterns = [
     # -------------------------------------------------------------------------
     path('health/', system_views.health_check, name='health-check'),
 
+    # PBI-10 / PBI-17: Jefatura
+    path('api/v1/jefatura/reporte/csv/', reserva_views.exportar_csv_jefatura, name='v1-jefatura-csv'),
+    path('api/v1/jefatura/metricas/', reserva_views.metricas_jefatura, name='v1-jefatura-metricas'),
+
     # -------------------------------------------------------------------------
     # API V1 (RUTAS AUTOMÁTICAS DEL ROUTER)
     # -------------------------------------------------------------------------
