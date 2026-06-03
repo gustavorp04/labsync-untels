@@ -205,12 +205,13 @@ def cancelar_reserva(request, id_usuario, id_reserva):
             reserva.updated_at = timezone.now()  # Forzar actualización de timestamp
             reserva.save()
 
-            # ID-03: Liberar el horario usando la fuente de verdad
-            # (recalcular_capacidad cuenta desde la BD real, no resta manualmente)
-            horario = reserva.id_horario
-            if horario:
+            # ID-03 / PBI-20: Liberar el horario usando la fuente de verdad
+            # Bloqueamos el registro del HorarioDisponible para evitar race conditions al recalcular
+            horario_id = reserva.id_horario_id
+            if horario_id:
+                horario_locked = HorarioDisponible.objects.select_for_update().get(pk=horario_id)
                 from ..services.reserva_service import recalcular_capacidad
-                recalcular_capacidad(horario)
+                recalcular_capacidad(horario_locked)
 
             # Log de la cancelación usando ID directo
             try:

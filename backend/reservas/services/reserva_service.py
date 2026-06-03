@@ -271,6 +271,10 @@ def crear_reserva_docente(usuario, horario, cantidad_alumnos, acepta_dj, activos
         if horario_db.estado != 'Disponible':
             return None, "Este horario ya fue reservado o ha alcanzado su capacidad máxima."
 
+        # PBI-20: Validación estricta de aforo dentro del bloqueo concurrente para prevenir race conditions
+        if horario_db.capacidad_ocupada + cantidad_alumnos > horario_db.capacidad_total:
+            return None, "La cantidad solicitada supera la capacidad disponible en el laboratorio."
+
         # A-4: Anticipación exacta de 24 horas comparando datetimes completos.
         # La versión anterior comparaba solo fechas (ej.: reservar hoy a las 23:59
         # para mañana a las 00:01 pasaba la validación aunque solo hay 2 minutos).
@@ -542,8 +546,9 @@ def purgar_pendientes_vencidos():
                 r.estado = 'Cancelada'
                 r.save()
 
-                # Liberar capacidad en el horario usando recalcular
-                recalcular_capacidad(r.id_horario)
+                # PBI-20: Liberar capacidad en el horario usando recalcular bajo un lock
+                horario_locked = HorarioDisponible.objects.select_for_update().get(pk=r.id_horario_id)
+                recalcular_capacidad(horario_locked)
 
                 try:
                     HistorialReserva.objects.create(

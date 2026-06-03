@@ -403,3 +403,108 @@ class NotificacionIncidenciaTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         self.assertIn('No se encontró ninguna reserva Completada', response.data['error'])
+
+
+from django.test import TransactionTestCase
+import threading
+from django.db import connection
+
+class ConcurrenciaReservaTests(TransactionTestCase):
+    def setUp(self):
+        # Roles
+        self.docente_rol = Rol.objects.create(nombre='docente')
+        
+        # Facultad
+        self.facultad = Facultad.objects.create(nombre='Ingeniería')
+        
+        # Tipo Laboratorio
+        self.tipo_lab = TipoLaboratorio.objects.create(
+            nombre='Laboratorio de Prueba', min_equipos=2, tipo_equipo_minimo='PC'
+        )
+        
+        # Laboratorio
+        self.lab = Laboratorio.objects.create(
+            id_tipo=self.tipo_lab,
+            id_facultad=self.facultad,
+            nombre='Lab de Concurrencia',
+            codigo_patrimonio='LAB-CONCURRENCIA',
+            aforo_maximo=30,
+            habilitado=True
+        )
+        
+        # Horario Disponible con capacidad_total de 30
+        self.horario = HorarioDisponible.objects.create(
+            id_laboratorio=self.lab,
+            fecha=timezone.now().date() + timedelta(days=2),
+            hora_inicio=timezone.now().time(),
+            hora_fin=(timezone.now() + timedelta(hours=2)).time(),
+            capacidad_total=30,
+            capacidad_ocupada=0,
+            estado='Disponible'
+        )
+
+        # 3 Usuarios Docentes
+        self.docente1 = Usuario.objects.create(
+            id_rol=self.docente_rol, nombre='Docente 1', email='d1@test.com',
+            password_hash='hash', codigo_universitario='D001', created_at=timezone.now()
+        )
+        self.docente2 = Usuario.objects.create(
+            id_rol=self.docente_rol, nombre='Docente 2', email='d2@test.com',
+            password_hash='hash', codigo_universitario='D002', created_at=timezone.now()
+        )
+        self.docente3 = Usuario.objects.create(
+            id_rol=self.docente_rol, nombre='Docente 3', email='d3@test.com',
+            password_hash='hash', codigo_universitario='D003', created_at=timezone.now()
+        )
+
+    def test_evitar_reservas_excedentes_concurrencia(self):
+        """
+        PBI-20: Valida que tres peticiones concurrentes de reserva de docentes 
+        que en total sumen más de la capacidad_total del laboratorio, 
+        no dejen que el laboratorio exceda su capacidad, gracias a los locks en DB.
+        """
+        from reservas.services.reserva_service import crear_reserva_docente
+        
+        # Hilos ejecutarán este worker
+        def worker(usuario, cantidad, results, index):
+            try:
+                reserva, error = crear_reserva_docente(
+                    usuario=usuario,
+                    horario=self.horario,
+                    cantidad_alumnos=cantidad,
+                    acepta_dj=True
+                )
+                results[index] = {'reserva': reserva, 'error': error}
+            except Exception as e:
+                results[index] = {'reserva': None, 'error': str(e)}
+            finally:
+                connection.close()
+
+        results = [None] * 3
+        # Docente 1 pide 20
+        t1 = threading.Thread(target=worker, args=(self.docente1, 20, results, 0))
+        # Docente 2 pide 15 (20+15 = 35 > 30, uno debe fallar)
+        t2 = threading.Thread(target=worker, args=(self.docente2, 15, results, 1))
+        # Docente 3 pide 5 (si D1=20 y D2 falla, D3 debería pasar si hay concurrencia correcta)
+        t3 = threading.Thread(target=worker, args=(self.docente3, 5, results, 2))
+
+        t1.start()
+        t2.start()
+        t3.start()
+
+        t1.join()
+        t2.join()
+        t3.join()
+
+        # Recargamos la capacidad final
+        self.horario.refresh_from_db()
+
+        # El aforo no debe exceder 30
+        self.assertLessEqual(self.horario.capacidad_ocupada, 30)
+
+        # Deberíamos tener al menos un fallo de exceso de capacidad
+        errores = [r['error'] for r in results if r and r.get('error')]
+        self.assertTrue(
+            any("supera la capacidad" in e or "alcanzado su capacidad" in e or "locked" in str(e).lower() for e in errores),
+            f"Se esperaba que alguna reserva fallara por capacidad excedida o lock. Resultados: {results}"
+        )
