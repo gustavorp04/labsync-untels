@@ -15,7 +15,8 @@ def autenticar_usuario(codigo_universitario, password, rol_nombre):
         user = Usuario.objects.get(codigo_universitario=codigo_universitario)
         password_ok = check_password(password, user.password_hash)
     except Usuario.DoesNotExist:
-        check_password(password, 'pbkdf2_sha256$dummy$dummy$dummy')
+        # PBI-18: Prevención de timing attacks (usar un número entero válido para las iteraciones)
+        check_password(password, 'pbkdf2_sha256$100000$dummy$dummy')
         return None, "Credenciales inválidas"
         
     if not password_ok:
