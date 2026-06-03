@@ -30,7 +30,8 @@ api.interceptors.response.use(
     const url = error.config?.url || '';
     const esRutaAuth = url.includes('/api/auth/');
 
-    if ((status === 401 || status === 403) && !esRutaAuth) {
+    const esErrorNegocio = status === 403 && error.response?.data?.codigo;
+    if ((status === 401 || status === 403) && !esRutaAuth && !esErrorNegocio) {
       const theme = localStorage.getItem('app-theme');
       localStorage.clear();
       if (theme) localStorage.setItem('app-theme', theme);

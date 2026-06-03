@@ -141,6 +141,7 @@ def mis_reservas(request, id_usuario):
             if penalizacion_activa:
                 dias_restantes = (penalizacion_activa.fecha_fin.date() - ahora.date()).days
                 return Response({
+                    'codigo': 'PENALIZACION_ACTIVA',
                     'error': (
                         f"Tienes una penalización activa hasta el "
                         f"{penalizacion_activa.fecha_fin.strftime('%d/%m/%Y')} "
