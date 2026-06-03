@@ -82,16 +82,12 @@ function Jefatura() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const showToast = useCallback((tipo, texto) => {
     setToast({ tipo, texto });
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [metricasData, labsData] = await Promise.all([
@@ -106,7 +102,11 @@ function Jefatura() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleLogout = async () => {
     await logoutUser();

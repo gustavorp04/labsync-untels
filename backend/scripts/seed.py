@@ -14,7 +14,7 @@ from reservas.models import (
 )
 
 def ejecutar_sql_archivo(ruta_relativa):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ruta_archivo = os.path.join(base_dir, 'scripts sql', ruta_relativa)
     if not os.path.exists(ruta_archivo):
         print(f"Warning: File not found: {ruta_archivo}")
@@ -98,7 +98,7 @@ def generar_horarios_maestros():
         ('17:10', '18:50'), ('18:50', '20:30'), ('20:30', '22:10'),
     ]
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ruta_csv = os.path.join(base_dir, 'horarios.csv')
     bloqueados = {}
     
