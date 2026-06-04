@@ -41,8 +41,8 @@ services:
     build: ./frontend
     container_name: labsync_frontend
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     ports:
       - "3000:3000"
     environment:
