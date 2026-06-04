@@ -241,6 +241,10 @@
   align-items: center;
   gap: 8px;
 }
+.lm-legend-item span {
+  display: flex;
+  align-items: center;
+}
 .lm-legend-item .available   { color: #10b981; }
 .lm-legend-item .selected    { color: #3b82f6; }
 .lm-legend-item .occupied    { color: #ef4444; }

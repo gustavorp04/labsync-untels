@@ -221,12 +221,12 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
       </div>
 
       <div className="lm-legend">
-        <div className="lm-legend-item"><LegendIcon fill="none" /><span className="legend-icon available" /> Disponible</div>
-        <div className="lm-legend-item"><LegendIcon fill="currentColor" /><span className="legend-icon selected" /> Tu selección</div>
-        <div className="lm-legend-item"><LegendIcon fill="currentColor" /><span className="legend-icon occupied" /> Clase Reservada</div>
-        <div className="lm-legend-item"><LegendIcon fill="currentColor" /><span className="legend-icon pending" /> Pendiente</div>
-        <div className="lm-legend-item"><LegendIcon fill="currentColor" /><span className="legend-icon maintenance" /> Mantenimiento</div>
-        <div className="lm-legend-item"><LegendIcon fill="currentColor" /><span className="legend-icon broken" /> Dado de baja</div>
+        <div className="lm-legend-item"><span className="available"><LegendIcon fill="none" /></span> Disponible</div>
+        <div className="lm-legend-item"><span className="selected"><LegendIcon fill="currentColor" /></span> Tu selección</div>
+        <div className="lm-legend-item"><span className="occupied"><LegendIcon fill="currentColor" /></span> Clase Reservada</div>
+        <div className="lm-legend-item"><span className="pending"><LegendIcon fill="currentColor" /></span> Pendiente</div>
+        <div className="lm-legend-item"><span className="maintenance"><LegendIcon fill="currentColor" /></span> Mantenimiento</div>
+        <div className="lm-legend-item"><span className="broken"><LegendIcon fill="currentColor" /></span> Dado de baja</div>
       </div>
     </div>
   );
