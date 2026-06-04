@@ -507,4 +507,4 @@ class ConcurrenciaReservaTests(TransactionTestCase):
         self.assertTrue(
             any("supera la capacidad" in e or "alcanzado su capacidad" in e or "locked" in str(e).lower() for e in errores),
             f"Se esperaba que alguna reserva fallara por capacidad excedida o lock. Resultados: {results}"
-        )
+        )

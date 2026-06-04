@@ -2,16 +2,16 @@ FROM node:18
 
 WORKDIR /app
 
-# Aumentar memoria disponible para npm (React 19 + CRA tiene árbol de deps muy grande)
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# Usar Yarn en lugar de NPM para evitar los OOM (Out Of Memory)
+# al resolver los conflictos de dependencias entre React 19 y CRA 5.
+COPY package.json yarn.lock* ./
+RUN yarn install
 
-# Instalar dependencias primero (capa cacheada si package.json no cambia)
-COPY package*.json ./
-RUN npm install --legacy-peer-deps --no-audit --no-fund
-
-# Copiar código fuente
+# Copiar el código fuente completo
 COPY . .
 
+# Exponer el puerto de React (CRA)
 EXPOSE 3000
 
+# Ejecutar en modo desarrollo
 CMD ["npm", "start"]
