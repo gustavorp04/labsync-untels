@@ -78,8 +78,8 @@ class Command(BaseCommand):
         return bloqueados
 
     def _generar_horarios(self, hoy, bloqueados):
-        count = 0
         labs = list(Laboratorio.objects.all())
+        horarios = []
         for i in range(14):
             fecha = hoy + timedelta(days=i)
             if fecha.weekday() == 6:  # domingo
@@ -95,17 +95,14 @@ class Command(BaseCommand):
                     else:
                         estado = 'Disponible'
                         cap_ocupada = 0
-                    _, created = HorarioDisponible.objects.get_or_create(
+                    horarios.append(HorarioDisponible(
                         id_laboratorio=lab,
                         fecha=fecha,
                         hora_inicio=inicio,
-                        defaults={
-                            'hora_fin': fin,
-                            'capacidad_total': lab.aforo_maximo,
-                            'capacidad_ocupada': cap_ocupada,
-                            'estado': estado,
-                        },
-                    )
-                    if created:
-                        count += 1
-        return count
+                        hora_fin=fin,
+                        capacidad_total=lab.aforo_maximo,
+                        capacidad_ocupada=cap_ocupada,
+                        estado=estado,
+                    ))
+        creados = HorarioDisponible.objects.bulk_create(horarios, ignore_conflicts=True)
+        return len(creados)
