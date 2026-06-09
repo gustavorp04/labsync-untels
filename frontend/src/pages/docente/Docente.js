@@ -156,10 +156,13 @@ function Docente() {
   // M-2: AbortController para cancelar requests huérfanos al salir del paso
   useEffect(() => {
     let intervalId = null;
+    let isLoading = false;
     const abortCtrl = new AbortController();
 
     if (paso === 4 && labSel && horarioSel) {
       const cargarEquipos = async (showLoading = false) => {
+        if (!showLoading && isLoading) return;
+        isLoading = true;
         if (showLoading) setLoading(true);
         try {
           const data = await laboratorioService.getActivosPorLab(
@@ -188,6 +191,7 @@ function Docente() {
             console.error("Error al actualizar equipos en docente:", err);
           }
         } finally {
+          isLoading = false;
           if (showLoading) setLoading(false);
         }
       };
@@ -195,8 +199,8 @@ function Docente() {
       // Carga inicial
       cargarEquipos(true);
 
-      // Polling reactivo cada 3 segundos
-      intervalId = setInterval(() => cargarEquipos(false), 3000);
+      // Polling reactivo cada 15 segundos
+      intervalId = setInterval(() => cargarEquipos(false), 15000);
     }
 
     return () => {

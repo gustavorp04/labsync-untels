@@ -172,10 +172,13 @@ function Estudiante() {
   // M-2: AbortController para cancelar requests huérfanos al salir del paso
   useEffect(() => {
     let intervalId = null;
+    let isLoading = false;
     const abortCtrl = new AbortController();
 
     if (paso === 3 && labSel && horarioSel) {
       const cargarEquipos = async (showLoading = false) => {
+        if (!showLoading && isLoading) return;
+        isLoading = true;
         if (showLoading) setLoading(true);
         try {
           const data = await laboratorioService.getActivosPorLab(
@@ -201,6 +204,7 @@ function Estudiante() {
             console.error("Error al refrescar equipos:", err);
           }
         } finally {
+          isLoading = false;
           if (showLoading) setLoading(false);
         }
       };
@@ -208,8 +212,8 @@ function Estudiante() {
       // Carga inicial con spinner
       cargarEquipos(true);
 
-      // Polling en segundo plano cada 3 segundos (actualización silenciosa)
-      intervalId = setInterval(() => cargarEquipos(false), 3000);
+      // Polling en segundo plano cada 15 segundos (actualización silenciosa)
+      intervalId = setInterval(() => cargarEquipos(false), 15000);
     }
 
     return () => {
