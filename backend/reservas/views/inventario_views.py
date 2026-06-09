@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.core.cache import cache
 from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario
 from ..serializers.inventario_serializers import (
     CategoriaActivoSerializer, TipoActivoSerializer,
@@ -62,12 +63,21 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
+        id_lab = self.kwargs['id_laboratorio']
+        id_horario = request.query_params.get('id_horario')
+
+        if id_horario:
+            cache_key = f"activos_lab_{id_lab}_{id_horario}"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return Response(cached)
+
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         data = serializer.data
-        
+
         # Inyectar el campo estado_reserva e id_reserva en la respuesta JSON
-        if request.query_params.get('id_horario'):
+        if id_horario:
             estado_map = {a.id_activo: getattr(a, 'estado_reserva', None) for a in queryset}
             reserva_id_map = {a.id_activo: getattr(a, 'reserva_id', None) for a in queryset}
             for item in data:
@@ -75,7 +85,8 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
                 item['id_reserva'] = reserva_id_map.get(item['id_activo'], None)
                 # Mantenemos 'reservado' por compatibilidad temporal
                 item['reservado'] = bool(item['estado_reserva'])
-        
+            cache.set(cache_key, data, 20)
+
         return Response(data)
 
 

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import transaction
+from django.core.cache import cache
 from datetime import timedelta
 from ..serializers.reserva_serializers import CrearReservaSerializer, HorarioDisponibleSerializer
 from ..services import reserva_service
@@ -111,6 +112,9 @@ def mis_reservas(request, id_usuario):
             if error:
                 return Response({'error': error}, status=409)
 
+            horario_obj = data['horario_obj']
+            cache.delete(f"activos_lab_{horario_obj.id_laboratorio_id}_{horario_obj.id_horario}")
+
             return Response({
                 'mensaje': 'Reserva creada con éxito.',
                 'reserva_id': reserva.id_reserva
@@ -167,6 +171,12 @@ def mis_reservas(request, id_usuario):
             if error:
                 return Response({'error': error}, status=409)
 
+            try:
+                lab_id = HorarioDisponible.objects.values_list('id_laboratorio_id', flat=True).get(pk=id_horario)
+                cache.delete(f"activos_lab_{lab_id}_{id_horario}")
+            except Exception:
+                pass
+
             return Response({
                 'mensaje': 'Reserva de equipo creada con éxito.',
                 'reserva_id': reserva.id_reserva
@@ -199,6 +209,7 @@ def cancelar_reserva(request, id_usuario, id_reserva):
     observacion = motivo if motivo else "Reserva cancelada por el usuario."
     es_cancelacion_por_admin = str(request.user.id_usuario) != str(id_usuario)
 
+    lab_id = None
     try:
         with transaction.atomic():
             estado_anterior = reserva.estado
@@ -211,6 +222,7 @@ def cancelar_reserva(request, id_usuario, id_reserva):
             horario_id = reserva.id_horario_id
             if horario_id:
                 horario_locked = HorarioDisponible.objects.select_for_update().get(pk=horario_id)
+                lab_id = horario_locked.id_laboratorio_id
                 from ..services.reserva_service import recalcular_capacidad
                 recalcular_capacidad(horario_locked)
 
@@ -225,6 +237,10 @@ def cancelar_reserva(request, id_usuario, id_reserva):
                 )
             except Exception as log_err:
                 logger.warning("No se pudo crear el historial de reserva: %s", log_err)
+
+        # Invalidar caché de activos tras commit exitoso
+        if reserva.id_horario_id and lab_id:
+            cache.delete(f"activos_lab_{lab_id}_{reserva.id_horario_id}")
 
         # Notificar al titular si el admin cancela una reserva ajena
         if es_cancelacion_por_admin:
