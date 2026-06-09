@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'reservas',
     "corsheaders",
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -225,5 +226,12 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'reservas.utils.auth.CustomTokenAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'LabSync UNTELS API',
+    'DESCRIPTION': 'Documentación OpenAPI 3.0 generada con drf-spectacular',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
