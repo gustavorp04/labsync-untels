@@ -1,0 +1,32 @@
+name: Regenerar Horarios Disponibles
+
+on:
+  schedule:
+    - cron: '0 11 * * 1'  # Lunes 6:00am Lima (UTC-5 → 11:00am UTC)
+  workflow_dispatch:
+
+jobs:
+  regenerar-horarios:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r backend/requirements.txt
+
+      - name: Ejecutar regenerar_horarios
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
+          EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+        run: |
+          cd backend
+          python manage.py regenerar_horarios
