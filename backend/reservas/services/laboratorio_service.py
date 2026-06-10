@@ -420,6 +420,62 @@ def enviar_email_quorum_no_alcanzado(email, nombre_usuario, nombre_lab, fecha_re
         print(f"WARN: No se pudo enviar email a {email}: {e}")
 
 
+def enviar_email_incidencia(email, nombre_usuario, nombre_lab, num_serie, codigo_patrimonio, descripcion_dano, estado_activo_post):
+    """Notifica al último usuario responsable que se registró una incidencia en el equipo que usó."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+
+    subject = f"LabSync — Incidencia registrada en equipo que usaste en {nombre_lab}"
+    text_content = (
+        f"Hola {nombre_usuario},\n\n"
+        f"Se ha registrado una incidencia en el equipo que usaste en el laboratorio {nombre_lab}.\n\n"
+        f"Equipo: N/S {num_serie} / Patrimonio {codigo_patrimonio}\n"
+        f"Daño reportado: {descripcion_dano}\n"
+        f"Nuevo estado del equipo: {estado_activo_post}\n\n"
+        f"El administrador del laboratorio ha tomado nota del incidente.\n\nEquipo LabSync UNTELS"
+    )
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;
+                border: 1px solid #ddd; border-radius: 10px; padding: 24px;">
+        <h2 style="color: #d32f2f;">&#x1F6A8; Incidencia Registrada — {nombre_lab}</h2>
+        <p>Hola <strong>{nombre_usuario}</strong>,</p>
+        <p>Se ha registrado una incidencia en el equipo que utilizaste en el laboratorio
+        <strong>{nombre_lab}</strong>. El administrador del laboratorio ha tomado nota del incidente.</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Laboratorio</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{nombre_lab}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Número de serie</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{num_serie}</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Código patrimonio</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{codigo_patrimonio}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Daño reportado</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{descripcion_dano}</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Nuevo estado del equipo</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;"><strong style="color:#d32f2f;">{estado_activo_post}</strong></td>
+            </tr>
+        </table>
+        <p>El administrador del laboratorio ha tomado nota del incidente. Si tienes alguna consulta,
+        puedes comunicarte con el área de soporte de tu institución.</p>
+        <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
+    </div>
+    """
+    try:
+        msg = EmailMultiAlternatives(subject, text_content, settings.EMAIL_HOST_USER, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+    except Exception as e:
+        print(f"WARN: No se pudo enviar email a {email}: {e}")
+
+
 def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None):
     """
     PBI-12: Inhabilita manualmente un laboratorio, cancela todas sus reservas
@@ -536,6 +592,8 @@ def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, regist
 
     usuario_responsable = detalle.id_reserva.id_usuario
 
+    email_incidencia_data = None
+
     with transaction.atomic():
         try:
             # Crear el registro en Incidencia
@@ -560,7 +618,22 @@ def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, regist
             if error_maint:
                 raise Exception(error_maint)
 
+            # Recopilar datos para el email; se enviará fuera de la transacción
+            email_incidencia_data = {
+                'email': usuario_responsable.email,
+                'nombre_usuario': usuario_responsable.nombre,
+                'nombre_lab': lab_retorno.nombre if lab_retorno else activo.id_laboratorio.nombre,
+                'num_serie': activo.num_serie,
+                'codigo_patrimonio': activo.codigo_patrimonio,
+                'descripcion_dano': descripcion_dano,
+                'estado_activo_post': estado_activo_post,
+            }
+
         except Exception as e:
             return None, None, f"Error al procesar la incidencia: {str(e)}"
+
+    # Fuera del bloque transaccional atómico se realizan las llamadas de red (SMTP)
+    if email_incidencia_data:
+        enviar_email_incidencia(**email_incidencia_data)
 
     return incidencia, usuario_responsable, None
