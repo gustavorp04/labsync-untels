@@ -197,6 +197,7 @@ function Docente() {
       };
 
       // Carga inicial
+      setActivos([]);
       cargarEquipos(true);
 
       // Polling reactivo cada 15 segundos

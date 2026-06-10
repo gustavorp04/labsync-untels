@@ -210,6 +210,7 @@ function Estudiante() {
       };
 
       // Carga inicial con spinner
+      setActivos([]);
       cargarEquipos(true);
 
       // Polling en segundo plano cada 15 segundos (actualización silenciosa)
