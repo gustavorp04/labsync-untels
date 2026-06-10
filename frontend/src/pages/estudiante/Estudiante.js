@@ -160,6 +160,7 @@ function Estudiante() {
   // Carga de horarios en Paso 2
   useEffect(() => {
     if (paso === 2 && labSel) {
+      setHorarios([]);
       setLoading(true);
       reservaService.getHorariosPorLab(labSel.id_laboratorio)
         .then(data => setHorarios(data))

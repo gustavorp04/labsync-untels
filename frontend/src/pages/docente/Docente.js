@@ -144,6 +144,7 @@ function Docente() {
   // Fetch schedules when lab selected
   useEffect(() => {
     if (paso === 3 && labSel) {
+      setHorarios([]);
       setLoading(true);
       reservaService.getHorariosPorLab(labSel.id_laboratorio)
         .then(setHorarios)
