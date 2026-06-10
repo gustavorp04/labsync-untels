@@ -125,17 +125,17 @@
 .jef-brand-logo {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+  border-radius: 8px;
+  background: #2563eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 14px;
   color: #fff;
   letter-spacing: 0.5px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 }
 
 .jef-brand-name {
@@ -169,7 +169,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6c63ff 0%, #8b5cf6 100%);
+  background: #2563eb;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,9 +234,11 @@
 }
 
 .jef-nav-btn.active {
-  background: rgba(108, 99, 255, 0.14);
-  color: #6c63ff;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
   font-weight: 600;
+  border-right: 3px solid #2563eb;
+  border-radius: 8px 0 0 8px;
 }
 
 /* ── Theme section ── */
@@ -354,13 +356,10 @@
 }
 
 .jef-welcome h1 {
-  font-size: 1.9rem;
-  font-weight: 800;
+  font-size: 1.8rem;
+  font-weight: 700;
   margin: 0 0 6px;
-  background: linear-gradient(135deg, #6c63ff, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-color);
 }
 
 .jef-welcome p {
@@ -380,16 +379,15 @@
 }
 
 .jef-kpi-card {
-  background: var(--surface-color, rgba(255,255,255,0.03));
-  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
-  border-radius: 14px;
+  background: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   cursor: default;
 }
 
@@ -446,12 +444,11 @@
 }
 
 .jef-chart-card {
-  background: var(--surface-color, rgba(255,255,255,0.03));
-  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
-  border-radius: 16px;
+  background: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .jef-chart-title {
@@ -670,35 +667,47 @@
   box-shadow: 0 0 0 3px rgba(108,99,255,0.12);
 }
 
+.jef-export-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .jef-export-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+  gap: 8px;
+  padding: 10px 20px;
+  background: #2563eb;
   color: #fff;
-  border: none;
-  border-radius: 10px;
+  border: 1px solid #1d4ed8;
+  border-radius: 6px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.2s;
-  box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+  transition: background 0.15s;
 }
 
 .jef-export-btn svg { width: 18px; height: 18px; }
 
-.jef-export-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+.jef-export-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.jef-export-btn-xlsx {
+  background: #10b981;
+  border-color: #059669;
+}
+
+.jef-export-btn-xlsx:hover:not(:disabled) {
+  background: #059669;
 }
 
 .jef-export-btn:disabled {
-  background: #444;
+  background: var(--bg-input, #f3f4f6);
+  color: var(--text-muted, #9ca3af);
+  border-color: var(--border-color, #e5e7eb);
   cursor: not-allowed;
-  opacity: 0.6;
-  box-shadow: none;
-  transform: none;
 }
 
 /* Info card */

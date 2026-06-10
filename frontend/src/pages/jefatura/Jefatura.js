@@ -13,7 +13,7 @@ import {
   PointElement,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { getMetricasJefatura, exportarCsvJefatura } from '../../services/jefaturaService';
+import { getMetricasJefatura, exportarCsvJefatura, exportarXlsxJefatura } from '../../services/jefaturaService';
 import laboratorioService from '../../services/laboratorioService';
 import { logoutUser } from '../../services/auth';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -36,6 +36,7 @@ const Icon = {
   Home: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   BarChart: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
   Download: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  FileExcel: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="17"/><line x1="16" y1="13" x2="8" y2="17"/></svg>,
   Logout: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   Activity: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
   XCircle: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
@@ -48,7 +49,7 @@ const Icon = {
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',   icon: Icon.BarChart  },
-  { id: 'exportar',  label: 'Reportes CSV', icon: Icon.Download  },
+  { id: 'exportar',  label: 'Reportes', icon: Icon.Download  },
 ];
 
 function Jefatura() {
@@ -115,14 +116,27 @@ function Jefatura() {
     navigate('/');
   };
 
-  const handleExport = async () => {
+  const handleExportCsv = async () => {
     try {
       setExportLoading(true);
       await exportarCsvJefatura(fechaInicio, fechaFin, labId);
-      showToast('ok', 'Reporte exportado correctamente.');
+      showToast('ok', 'Reporte CSV exportado correctamente.');
     } catch (error) {
       console.error('Error al exportar:', error);
-      showToast('error', 'Hubo un error al exportar. Inténtelo de nuevo.');
+      showToast('error', 'Hubo un error al exportar CSV. Inténtelo de nuevo.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleExportXlsx = async () => {
+    try {
+      setExportLoading(true);
+      await exportarXlsxJefatura(fechaInicio, fechaFin, labId);
+      showToast('ok', 'Reporte Excel exportado correctamente.');
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      showToast('error', 'Hubo un error al exportar Excel. Inténtelo de nuevo.');
     } finally {
       setExportLoading(false);
     }
@@ -411,14 +425,14 @@ function Jefatura() {
         {vista === 'exportar' && (
           <div className="jef-content">
             <div className="jef-welcome">
-              <h1>Reportes CSV</h1>
-              <p>Exporta reportes de reservas y asistencias con filtros personalizados.</p>
+              <h1>Reportes de Operación</h1>
+              <p>Exporta reportes de reservas y asistencias en formato CSV o Excel.</p>
             </div>
 
             <div className="jef-chart-card jef-export-card">
-              <h3 className="jef-chart-title">Exportar Reporte de Reservas</h3>
+              <h3 className="jef-chart-title">Generar Reporte de Reservas</h3>
               <p className="jef-export-desc">
-                Selecciona los filtros para generar el reporte en formato CSV.
+                Selecciona los filtros para descargar la información detallada.
               </p>
 
               <div className="jef-export-filters">
@@ -453,14 +467,25 @@ function Jefatura() {
                 </div>
               </div>
 
-              <button
-                className="jef-export-btn"
-                onClick={handleExport}
-                disabled={exportLoading}
-              >
-                <Icon.Download />
-                {exportLoading ? 'Generando reporte…' : 'Exportar CSV'}
-              </button>
+              <div className="jef-export-actions">
+                <button
+                  className="jef-export-btn"
+                  onClick={handleExportCsv}
+                  disabled={exportLoading}
+                >
+                  <Icon.Download />
+                  {exportLoading ? 'Generando...' : 'Exportar a CSV'}
+                </button>
+
+                <button
+                  className="jef-export-btn jef-export-btn-xlsx"
+                  onClick={handleExportXlsx}
+                  disabled={exportLoading}
+                >
+                  <Icon.FileExcel />
+                  {exportLoading ? 'Generando...' : 'Exportar a Excel'}
+                </button>
+              </div>
             </div>
 
             {/* Info card */}
