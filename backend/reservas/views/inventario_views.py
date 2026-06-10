@@ -4,7 +4,8 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.core.cache import cache
-from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario, Laboratorio
+from django.db.models import OuterRef, Subquery
+from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario, Laboratorio, ReservaDetalle
 from ..serializers.inventario_serializers import (
     CategoriaActivoSerializer, TipoActivoSerializer,
     ActivoLaboratorioSerializer, HistorialMantenimientoSerializer
@@ -40,32 +41,31 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
     def get_queryset(self):
         id_lab = self.kwargs['id_laboratorio']
         id_horario = self.request.query_params.get('id_horario')
-        
+
         queryset = ActivoLaboratorio.objects.filter(
             id_laboratorio=id_lab
         ).select_related('id_tipo_activo', 'id_laboratorio').order_by('id_tipo_activo__nombre', 'num_serie')
 
-        # Si hay un horario, filtrar solo el tipo principal del lab y limitar al aforo
+        # Con id_horario: filtrar por tipo principal y anotar estado de reserva en una sola query
         if id_horario:
             laboratorio = Laboratorio.objects.select_related('id_tipo').get(pk=id_lab)
             tipo_equipo = laboratorio.id_tipo.tipo_equipo_minimo
-            queryset = queryset.filter(
-                id_tipo_activo__nombre=tipo_equipo
-            )[:laboratorio.aforo_maximo]
 
-            from ..models import ReservaDetalle
-            detalles = ReservaDetalle.objects.filter(
+            reserva_activa = ReservaDetalle.objects.filter(
+                id_activo=OuterRef('pk'),
                 id_reserva__id_horario=id_horario,
                 id_reserva__estado__in=['Programada', 'Pendiente']
-            ).select_related('id_reserva')
-            
-            estado_map = {d.id_activo_id: d.id_reserva.estado for d in detalles}
-            reserva_id_map = {d.id_activo_id: d.id_reserva_id for d in detalles}
-            
-            for activo in queryset:
-                activo.estado_reserva = estado_map.get(activo.id_activo, None)
-                activo.reserva_id = reserva_id_map.get(activo.id_activo, None)
-        
+            )
+
+            queryset = list(
+                queryset.filter(
+                    id_tipo_activo__nombre=tipo_equipo
+                ).annotate(
+                    estado_reserva=Subquery(reserva_activa.values('id_reserva__estado')[:1]),
+                    reserva_id=Subquery(reserva_activa.values('id_reserva_id')[:1])
+                )[:laboratorio.aforo_maximo]
+            )
+
         return queryset
 
     def list(self, request, *args, **kwargs):
