@@ -332,6 +332,9 @@ def exportar_csv_jefatura(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="reporte_reservas.csv"'
 
+    # Añadir BOM para que Excel detecte UTF-8
+    response.write('\ufeff')
+
     writer = csv.writer(response)
     writer.writerow([
         'Titular',
@@ -392,6 +395,110 @@ def exportar_csv_jefatura(request):
             motivo_cancel
         ])
 
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsJefatura])
+def exportar_xlsx_jefatura(request):
+    """PBI-10: Exportar listado de reservas y asistencias a XLSX para Jefatura con estilos."""
+    import openpyxl
+    from openpyxl.styles import PatternFill, Font
+    import io
+
+    fecha_inicio = request.query_params.get('fecha_inicio')
+    fecha_fin = request.query_params.get('fecha_fin')
+    laboratorio_id = request.query_params.get('laboratorio_id')
+
+    reservas = Reserva.objects.select_related(
+        'id_usuario', 'id_usuario__id_rol', 'id_horario', 'id_horario__id_laboratorio', 'asistencia'
+    ).order_by('-created_at')
+
+    if fecha_inicio:
+        reservas = reservas.filter(id_horario__fecha__gte=fecha_inicio)
+    if fecha_fin:
+        reservas = reservas.filter(id_horario__fecha__lte=fecha_fin)
+    if laboratorio_id:
+        reservas = reservas.filter(id_horario__id_laboratorio_id=laboratorio_id)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Reporte Reservas"
+
+    cabeceras = [
+        'Titular', 'Rol', 'Laboratorio', 'Fecha', 'Hora Inicio', 'Hora Fin',
+        'Estado Reserva', 'Asistencia', 'Cantidad Alumnos', 'Motivo Cancelación'
+    ]
+    ws.append(cabeceras)
+
+    # Estilos para la cabecera (Azul oscuro y texto blanco)
+    fill_color = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    font_blanca = Font(color="FFFFFF", bold=True)
+
+    for cell in ws[1]:
+        cell.fill = fill_color
+        cell.font = font_blanca
+
+    for r in reservas:
+        titular = r.id_usuario.nombre if r.id_usuario else 'N/A'
+        rol = r.id_usuario.id_rol.nombre if r.id_usuario and r.id_usuario.id_rol else 'N/A'
+        
+        horario = r.id_horario
+        if horario:
+            laboratorio = horario.id_laboratorio.nombre if horario.id_laboratorio else 'N/A'
+            fecha = horario.fecha.strftime('%Y-%m-%d')
+            hora_inicio = horario.hora_inicio.strftime('%H:%M')
+            hora_fin = horario.hora_fin.strftime('%H:%M')
+        else:
+            laboratorio, fecha, hora_inicio, hora_fin = 'N/A', 'N/A', 'N/A', 'N/A'
+            
+        estado = r.estado
+        
+        if hasattr(r, 'asistencia') and r.asistencia:
+            asistencia = 'Sí' if r.asistencia.asistio else 'No'
+        elif estado == 'Completada':
+            asistencia = 'Sí'
+        elif estado == 'No-show':
+            asistencia = 'No'
+        else:
+            asistencia = 'N/A'
+            
+        alumnos = r.cantidad_alumnos
+        
+        motivo_cancel = 'N/A'
+        if estado == 'Cancelada':
+            historial = r.historialreserva_set.filter(estado_nuevo='Cancelada').first()
+            if historial:
+                motivo_cancel = historial.observacion or 'N/A'
+
+        ws.append([
+            titular, rol, laboratorio, fecha, hora_inicio, hora_fin,
+            estado, asistencia, alumnos, motivo_cancel
+        ])
+
+    # Ajustar ancho de columnas automáticamente
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
+
+    # Guardar en memoria
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer, 
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="reporte_reservas.xlsx"'
     return response
 
 

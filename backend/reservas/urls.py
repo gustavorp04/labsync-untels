@@ -59,6 +59,7 @@ urlpatterns = [
 
     # PBI-10 / PBI-17: Jefatura
     path('api/v1/jefatura/reporte/csv/', reserva_views.exportar_csv_jefatura, name='v1-jefatura-csv'),
+    path('api/v1/jefatura/reporte/xlsx/', reserva_views.exportar_xlsx_jefatura, name='v1-jefatura-xlsx'),
     path('api/v1/jefatura/metricas/', reserva_views.metricas_jefatura, name='v1-jefatura-metricas'),
 
     # -------------------------------------------------------------------------
