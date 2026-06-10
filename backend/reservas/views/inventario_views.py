@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.core.cache import cache
-from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario
+from ..models import CategoriaActivo, TipoActivo, ActivoLaboratorio, HistorialMantenimiento, Usuario, Laboratorio
 from ..serializers.inventario_serializers import (
     CategoriaActivoSerializer, TipoActivoSerializer,
     ActivoLaboratorioSerializer, HistorialMantenimientoSerializer
@@ -44,9 +44,15 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
         queryset = ActivoLaboratorio.objects.filter(
             id_laboratorio=id_lab
         ).select_related('id_tipo_activo', 'id_laboratorio').order_by('id_tipo_activo__nombre', 'num_serie')
-        
-        # Si hay un horario, mapeamos el estado de reserva
+
+        # Si hay un horario, filtrar solo el tipo principal del lab y limitar al aforo
         if id_horario:
+            laboratorio = Laboratorio.objects.select_related('id_tipo').get(pk=id_lab)
+            tipo_equipo = laboratorio.id_tipo.tipo_equipo_minimo
+            queryset = queryset.filter(
+                id_tipo_activo__nombre=tipo_equipo
+            )[:laboratorio.aforo_maximo]
+
             from ..models import ReservaDetalle
             detalles = ReservaDetalle.objects.filter(
                 id_reserva__id_horario=id_horario,
