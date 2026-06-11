@@ -342,6 +342,23 @@ function Admin() {
     }
   };
 
+  const handleHabilitarLaboratorio = async () => {
+    try {
+      const data = await laboratorioService.habilitarLaboratorio(labSeleccionado.id_laboratorio);
+      setFeedbackMsg({ tipo: 'ok', texto: data.mensaje || 'Laboratorio habilitado con éxito.' });
+      // Recargar datos
+      await fetchLaboratorios();
+      // Actualizar el lab seleccionado
+      const laboratoriosActualizados = await laboratorioService.getLaboratorios();
+      const labActualizado = laboratoriosActualizados.find(l => l.id_laboratorio === labSeleccionado.id_laboratorio);
+      if (labActualizado) {
+        setLabSeleccionado(labActualizado);
+      }
+    } catch (err) {
+      setFeedbackMsg({ tipo: 'error', texto: err.response?.data?.error || 'Error al habilitar el laboratorio.' });
+    }
+  };
+
   const colorActivo = (estado) => {
     if (estado === 'Operativo') return '#10b981';
     if (estado === 'Mantenimiento') return '#f59e0b';
@@ -840,6 +857,28 @@ function Admin() {
                       Dar de baja aula
                     </button>
                   )}
+                  {!labSeleccionado.habilitado && (
+                    <button
+                      onClick={handleHabilitarLaboratorio}
+                      style={{
+                        background: '#d1fae5',
+                        color: '#059669',
+                        border: '1px solid #6ee7b7',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                      title="Habilitar todo el aula"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                      Habilitar aula
+                    </button>
+                  )}
                   <div style={{ flex: 1 }}>
                     <strong>{labSeleccionado.nombre}</strong>
                     <span style={{ opacity: 0.6, fontSize: 13, marginLeft: 10 }}>
@@ -861,13 +900,15 @@ function Admin() {
                 ) : (
                   <div style={{ marginBottom: 32 }}>
                     {activos.length > 0 ? (
-                      <LabMap 
-                        activos={activos} 
-                        activoSel={activoModal} 
-                        onSelect={abrirModalActivo} 
-                        {...getLabLayout(labSeleccionado?.codigo_patrimonio)}
-                        adminMode={true}
-                      />
+                      <div style={!labSeleccionado.habilitado ? { opacity: 0.5, filter: 'grayscale(100%)', pointerEvents: 'none' } : {}}>
+                        <LabMap 
+                          activos={activos} 
+                          activoSel={activoModal} 
+                          onSelect={abrirModalActivo} 
+                          {...getLabLayout(labSeleccionado?.codigo_patrimonio)}
+                          adminMode={true}
+                        />
+                      </div>
                     ) : (
                       <p style={{ opacity: 0.6 }}>No hay equipos registrados.</p>
                     )}

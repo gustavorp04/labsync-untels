@@ -56,6 +56,11 @@ const inhabilitarLaboratorio = async (idLab, motivo, usuarioId) => {
   return res.data;
 };
 
+const habilitarLaboratorio = async (idLab) => {
+  const res = await api.post(`/v1/laboratorios/${idLab}/habilitar/`);
+  return res.data;
+};
+
 const laboratorioService = {
   getLaboratorios,
   getActivosPorLab,
@@ -63,6 +68,7 @@ const laboratorioService = {
   actualizarEstadoActivo,
   registrarIncidencia,
   inhabilitarLaboratorio,
+  habilitarLaboratorio,
 };
 
 export default laboratorioService;

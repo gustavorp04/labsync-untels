@@ -220,6 +220,28 @@ def inhabilitar_laboratorio_view(request, id_laboratorio):
 
 @api_view(['POST'])
 @permission_classes([IsAdminOrJefatura])
+def habilitar_laboratorio_view(request, id_laboratorio):
+    """
+    Habilita un laboratorio manualmente.
+    """
+    from ..models import Laboratorio
+    try:
+        laboratorio = Laboratorio.objects.get(pk=id_laboratorio)
+        if laboratorio.habilitado:
+            return Response({'mensaje': 'El laboratorio ya estaba habilitado.'}, status=status.HTTP_200_OK)
+        
+        laboratorio.habilitado = True
+        laboratorio.save()
+        return Response({
+            'mensaje': f'Laboratorio "{laboratorio.nombre}" habilitado correctamente.'
+        }, status=status.HTTP_200_OK)
+    except Laboratorio.DoesNotExist:
+        return Response({'error': 'Laboratorio no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrJefatura])
 def registrar_incidencia_view(request, id_laboratorio, id_activo):
     """
     PBI-22: Registra una incidencia para una PC y un laboratorio.
