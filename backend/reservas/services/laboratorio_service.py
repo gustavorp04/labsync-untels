@@ -71,6 +71,7 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
     emails_a_enviar = []
     emails_pc_reasignada = []
     emails_pc_cancelada = []
+    emails_pc_docente_inhabilitada = []
     mensajes = []
     success = False
     error_msg = None
@@ -158,49 +159,62 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                             d.save()
                             mensajes.append(f"Reserva {horario.fecha} reasignada a {libre.num_serie}")
                             usuario = d.id_reserva.id_usuario
-                            if usuario.id_rol.nombre == 'estudiante':
-                                emails_pc_reasignada.append({
-                                    'email': usuario.email,
-                                    'nombre_usuario': usuario.nombre,
-                                    'num_serie_original': activo.num_serie,
-                                    'codigo_patrimonio_original': activo.codigo_patrimonio,
-                                    'codigo_patrimonio_nuevo': libre.codigo_patrimonio,
-                                    'fecha_reserva': horario.fecha.strftime('%d/%m/%Y'),
-                                })
+                            # Notificar siempre si se reasigna
+                            emails_pc_reasignada.append({
+                                'email': usuario.email,
+                                'nombre_usuario': usuario.nombre,
+                                'num_serie_original': activo.num_serie,
+                                'codigo_patrimonio_original': activo.codigo_patrimonio,
+                                'codigo_patrimonio_nuevo': libre.codigo_patrimonio,
+                                'fecha_reserva': horario.fecha.strftime('%d/%m/%Y'),
+                            })
                         else:
-                            # Si no hay equipo libre de reemplazo, cancelamos la reserva de forma controlada
+                            usuario = d.id_reserva.id_usuario
                             reserva = d.id_reserva
-                            estado_anterior_reserva = reserva.estado
-                            reserva.estado = 'Cancelada'
-                            reserva.save()
                             
-                            # Registrar la cancelación en el historial de reservas
-                            try:
-                                from ..models import HistorialReserva
-                                HistorialReserva.objects.create(
-                                    reserva=reserva,
-                                    estado_anterior=estado_anterior_reserva,
-                                    estado_nuevo='Cancelada',
-                                    observacion=f"Cancelación automática: Equipo {activo.num_serie} inhabilitado y sin reemplazo operativo libre."
-                                )
-                            except Exception as log_err:
-                                import logging
-                                logger = logging.getLogger('reservas')
-                                logger.warning("Error al registrar historial de cancelación automática: %s", log_err)
-
-                            # Liberar capacidad ocupada del horario
-                            if horario:
-                                from .reserva_service import recalcular_capacidad
-                                recalcular_capacidad(horario)
-
-                            mensajes.append(f"Reserva {horario.fecha} cancelada por falta de equipos operativos libres.")
-                            usuario = reserva.id_usuario
                             if usuario.id_rol.nombre == 'estudiante':
+                                # Si no hay equipo libre de reemplazo para un estudiante, se cancela
+                                estado_anterior_reserva = reserva.estado
+                                reserva.estado = 'Cancelada'
+                                reserva.save()
+                                
+                                # Registrar la cancelación en el historial de reservas
+                                try:
+                                    from ..models import HistorialReserva
+                                    HistorialReserva.objects.create(
+                                        reserva=reserva,
+                                        estado_anterior=estado_anterior_reserva,
+                                        estado_nuevo='Cancelada',
+                                        observacion=f"Cancelación automática: Equipo {activo.num_serie} inhabilitado y sin reemplazo operativo libre."
+                                    )
+                                except Exception as log_err:
+                                    import logging
+                                    logger = logging.getLogger('reservas')
+                                    logger.warning("Error al registrar historial de cancelación automática: %s", log_err)
+
+                                # Liberar capacidad ocupada del horario
+                                if horario:
+                                    from .reserva_service import recalcular_capacidad
+                                    recalcular_capacidad(horario)
+
+                                mensajes.append(f"Reserva {horario.fecha} cancelada por falta de equipos operativos libres.")
                                 emails_pc_cancelada.append({
                                     'email': usuario.email,
                                     'nombre_usuario': usuario.nombre,
                                     'num_serie_original': activo.num_serie,
                                     'fecha_reserva': horario.fecha.strftime('%d/%m/%Y') if horario else 'Desconocida',
+                                })
+                            else:
+                                # Para docentes, si falla 1 PC, NO cancelamos la reserva entera.
+                                # Solo eliminamos el detalle de esa PC para liberar la relación.
+                                d.delete()
+                                mensajes.append(f"PC {activo.num_serie} removida de la reserva docente {horario.fecha}.")
+                                emails_pc_docente_inhabilitada.append({
+                                    'email': usuario.email,
+                                    'nombre_usuario': usuario.nombre,
+                                    'num_serie_original': activo.num_serie,
+                                    'fecha_reserva': horario.fecha.strftime('%d/%m/%Y') if horario else 'Desconocida',
+                                    'nombre_lab': laboratorio.nombre
                                 })
 
                 success = True
@@ -236,6 +250,15 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
             nombre_usuario=email_data['nombre_usuario'],
             num_serie_original=email_data['num_serie_original'],
             fecha_reserva=email_data['fecha_reserva'],
+        )
+
+    for email_data in emails_pc_docente_inhabilitada:
+        enviar_email_pc_docente_inhabilitada(
+            email=email_data['email'],
+            nombre_usuario=email_data['nombre_usuario'],
+            num_serie_original=email_data['num_serie_original'],
+            fecha_reserva=email_data['fecha_reserva'],
+            nombre_lab=email_data['nombre_lab']
         )
 
     # Si el estado es el mismo, el laboratorio de retorno se toma del activo
@@ -377,6 +400,52 @@ def enviar_email_reserva_cancelada_sin_reemplazo(email, nombre_usuario, num_seri
         msg.send()
     except Exception as e:
         print(f"WARN: No se pudo enviar email a {email}: {e}")
+
+
+def enviar_email_pc_docente_inhabilitada(email, nombre_usuario, num_serie_original, fecha_reserva, nombre_lab):
+    """Envía email al docente titular cuando una PC de su clase fue inhabilitada y no hay reemplazos."""
+    from django.core.mail import EmailMultiAlternatives
+    from django.conf import settings
+
+    subject = f"LabSync — Equipo inhabilitado en tu reserva de {nombre_lab}"
+    text_content = (
+        f"Hola {nombre_usuario},\n\n"
+        f"Te informamos que un equipo de tu reserva para el {fecha_reserva} en {nombre_lab} "
+        f"(N/S: {num_serie_original}) ha sido inhabilitado por mantenimiento y no hay equipos de reemplazo disponibles.\n\n"
+        f"Tu reserva general sigue vigente y puedes realizar tu clase con normalidad usando el resto de los equipos operativos.\n\n"
+        f"Equipo LabSync UNTELS"
+    )
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;
+                border: 1px solid #ddd; border-radius: 10px; padding: 24px;">
+        <h2 style="color: #f57c00;">&#x26A0;&#xFE0F; Equipo en Mantenimiento — Reserva Vigente</h2>
+        <p>Hola <strong>{nombre_usuario}</strong>,</p>
+        <p>Te informamos que un equipo de tu reserva ha sido <strong>inhabilitado por mantenimiento</strong> y no hay unidades de reemplazo disponibles en este momento.</p>
+        <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Laboratorio</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{nombre_lab}</td>
+            </tr>
+            <tr>
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Equipo afectado (N/S)</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{num_serie_original}</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="padding:8px; border:1px solid #ddd;"><strong>Fecha reservada</strong></td>
+                <td style="padding:8px; border:1px solid #ddd;">{fecha_reserva}</td>
+            </tr>
+        </table>
+        <p><strong>Importante:</strong> Tu reserva general de laboratorio <strong style="color:#2e7d32;">sigue vigente</strong>. Puedes dictar tu clase con normalidad utilizando los demás equipos operativos del aula.</p>
+        <p style="color:#888; font-size:12px;">Este es un mensaje automático de LabSync UNTELS.</p>
+    </div>
+    """
+    try:
+        msg = EmailMultiAlternatives(subject, text_content, settings.EMAIL_HOST_USER, [email])
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+    except Exception as e:
+        print(f"WARN: No se pudo enviar email a {email}: {e}")
+
 
 
 def enviar_email_quorum_no_alcanzado(email, nombre_usuario, nombre_lab, fecha_reserva):

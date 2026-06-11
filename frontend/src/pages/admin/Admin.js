@@ -98,6 +98,10 @@ function Admin() {
   const [incidenciaDano, setIncidenciaDano] = useState("");
   const [incidenciaEstado, setIncidenciaEstado] = useState("Mantenimiento");
 
+  // Modal para inhabilitar todo el laboratorio
+  const [inhabilitarLabModal, setInhabilitarLabModal] = useState(false);
+  const [inhabilitarLabMotivo, setInhabilitarLabMotivo] = useState("");
+
   useEffect(() => {
     fetchReservas();
     fetchUsuarios();
@@ -307,6 +311,34 @@ function Admin() {
       await fetchLaboratorios();
     } catch (err) {
       setFeedbackMsg({ tipo: 'error', texto: err.response?.data?.error || 'Error al registrar la incidencia.' });
+    }
+  };
+
+  const handleInhabilitarLaboratorio = async () => {
+    if (!inhabilitarLabMotivo.trim()) {
+      setFeedbackMsg({ tipo: 'error', texto: 'El motivo es obligatorio para dar de baja un aula.' });
+      return;
+    }
+    try {
+      const adminId = localStorage.getItem('userId') || localStorage.getItem('id_usuario');
+      const data = await laboratorioService.inhabilitarLaboratorio(
+        labSeleccionado.id_laboratorio,
+        inhabilitarLabMotivo,
+        adminId
+      );
+      setFeedbackMsg({ tipo: 'ok', texto: data.mensaje || 'Laboratorio inhabilitado con éxito.' });
+      setInhabilitarLabModal(false);
+      setInhabilitarLabMotivo("");
+      // Recargar datos
+      await fetchLaboratorios();
+      // Actualizar el lab seleccionado
+      const laboratoriosActualizados = await laboratorioService.getLaboratorios();
+      const labActualizado = laboratoriosActualizados.find(l => l.id_laboratorio === labSeleccionado.id_laboratorio);
+      if (labActualizado) {
+        setLabSeleccionado(labActualizado);
+      }
+    } catch (err) {
+      setFeedbackMsg({ tipo: 'error', texto: err.response?.data?.error || 'Error al inhabilitar el laboratorio.' });
     }
   };
 
@@ -786,6 +818,28 @@ function Admin() {
                   }}>
                     {labSeleccionado.habilitado ? 'HABILITADO' : 'INHABILITADO'}
                   </div>
+                  {labSeleccionado.habilitado && (
+                    <button
+                      onClick={() => setInhabilitarLabModal(true)}
+                      style={{
+                        background: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fca5a5',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                      title="Dar de baja todo el aula"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                      Dar de baja aula
+                    </button>
+                  )}
                   <div style={{ flex: 1 }}>
                     <strong>{labSeleccionado.nombre}</strong>
                     <span style={{ opacity: 0.6, fontSize: 13, marginLeft: 10 }}>
@@ -1530,6 +1584,56 @@ function Admin() {
                 >
                   Registrar Incidencia
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL INHABILITAR AULA COMPLETA */}
+        {inhabilitarLabModal && labSeleccionado && (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ maxWidth: 450 }}>
+              <div className="modal-header">
+                <h2>Dar de baja {labSeleccionado.nombre}</h2>
+                <button className="close-modal" onClick={() => setInhabilitarLabModal(false)}>&times;</button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ background: '#fee2e2', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 14, lineHeight: 1.5 }}>
+                  <strong>⚠️ ¡Atención!</strong> Al dar de baja este laboratorio, se <strong>cancelarán automáticamente</strong> todas las reservas futuras programadas y se notificará a los usuarios.
+                </div>
+                <div>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Motivo de la baja <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <textarea
+                    placeholder="Ej. Problemas eléctricos en todo el salón, filtración de agua..."
+                    value={inhabilitarLabMotivo}
+                    onChange={(e) => setInhabilitarLabMotivo(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-color)', minHeight: 90, resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button className="cancel-btn" onClick={() => setInhabilitarLabModal(false)} style={{ padding: '8px 16px' }}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="save-btn"
+                    onClick={handleInhabilitarLaboratorio}
+                    disabled={inhabilitarLabMotivo.trim().length === 0}
+                    style={{
+                      background: '#dc2626',
+                      opacity: inhabilitarLabMotivo.trim().length === 0 ? 0.5 : 1,
+                      cursor: inhabilitarLabMotivo.trim().length === 0 ? 'not-allowed' : 'pointer',
+                      padding: '8px 16px',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontWeight: 600
+                    }}
+                  >
+                    Confirmar Baja
+                  </button>
+                </div>
               </div>
             </div>
           </div>

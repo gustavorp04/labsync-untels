@@ -47,12 +47,22 @@ const registrarIncidencia = async (idLab, idActivo, descripcion_dano, estado_act
   return res.data;
 };
 
+/** PBI-12: Inhabilita un laboratorio manualmente con un motivo */
+const inhabilitarLaboratorio = async (idLab, motivo, usuarioId) => {
+  const res = await api.post(`/v1/laboratorios/${idLab}/inhabilitar/`, {
+    motivo,
+    usuario_id: usuarioId,
+  });
+  return res.data;
+};
+
 const laboratorioService = {
   getLaboratorios,
   getActivosPorLab,
   getHistorialLab,
   actualizarEstadoActivo,
   registrarIncidencia,
+  inhabilitarLaboratorio,
 };
 
 export default laboratorioService;
