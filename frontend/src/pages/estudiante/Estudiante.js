@@ -30,7 +30,7 @@ function StatusBadge({ estado }) {
     Pendiente:  { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
     Completada: { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
     Cancelada:  { bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' },
-    'No-Show':   { bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
+    'No-show':   { bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
   }[estado] || { bg: '#f3f4f6', color: '#374151', dot: '#9ca3af' };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>

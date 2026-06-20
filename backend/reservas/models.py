@@ -87,6 +87,12 @@ class HorarioDisponible(models.Model):
             models.Index(fields=['fecha', 'estado'], name='horario_fecha_estado_idx'),
             models.Index(fields=['fecha'], name='horario_fecha_idx'),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(estado__in=['Disponible', 'Completo', 'Inhabilitado']),
+                name='horario_estado_valido',
+            )
+        ]
 
 
 class Incidencia(models.Model):
@@ -188,6 +194,10 @@ class Reserva(models.Model):
     class Meta:
         managed = True
         db_table = 'reserva'
+        indexes = [
+            models.Index(fields=['estado'], name='reserva_estado_idx'),
+            models.Index(fields=['id_horario', 'estado'], name='reserva_horario_estado_idx'),
+        ]
         constraints = [
             # ID-11: constraint a nivel de BD — Django choices solo valida en forms/serializers.
             models.CheckConstraint(

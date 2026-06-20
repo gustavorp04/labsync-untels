@@ -3,9 +3,12 @@ import secrets
 from datetime import timedelta
 from django.utils import timezone
 from django.conf import settings as django_settings
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+
+class LoginRateThrottle(AnonRateThrottle):
+    scope = 'login'
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
 from ..models import SesionUsuario, PerfilEstudiante
@@ -67,7 +70,6 @@ def _base_login(request, expected_role):
         is_prod = not django_settings.DEBUG
         response = Response({
             'mensaje': 'Login exitoso',
-            'token': token,
             **user_data          # nombre, id_usuario, rol, carrera, ciclo, etc.
         })
         response.set_cookie(
@@ -81,28 +83,27 @@ def _base_login(request, expected_role):
         )
         return response
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        logger.error(f"Error en login para {request.data.get('usuario')}: {str(e)}\n{error_trace}")
-        return Response({
-            "error": f"Error interno: {str(e)}", 
-            "trace": error_trace
-        }, status=500)
+        logger.error("Error en login para %s: %s", request.data.get('usuario'), e, exc_info=True)
+        return Response({"error": "Error interno del servidor. Intente más tarde."}, status=500)
 
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def login_estudiante(request):
     return _base_login(request, 'estudiante')
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def login_docente(request):
     return _base_login(request, 'docente')
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def login_admin(request):
     return _base_login(request, 'admin_lab')
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def login_jefatura(request):
     return _base_login(request, 'jefatura')
 

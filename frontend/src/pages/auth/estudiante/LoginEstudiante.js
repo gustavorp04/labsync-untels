@@ -34,7 +34,6 @@ const LoginEstudiante = () => {
       // Using the specific role for the API call (or we can update the API later)
       const data = await loginUser(username, password, 'estudiante');
       
-      localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.rol || 'estudiante');
       localStorage.setItem('nombre', data.nombre || 'Estudiante');
       localStorage.setItem('id_usuario', data.id_usuario || '');

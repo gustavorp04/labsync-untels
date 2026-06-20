@@ -7,21 +7,11 @@ const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,
+  withCredentials: true,   // C-2: envía la cookie httpOnly auth_token en cada request
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token && !config.url?.includes('/api/auth/')) {
-      config.headers['Authorization'] = `Token ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 api.interceptors.response.use(
   (response) => response,

@@ -70,11 +70,6 @@ def mis_reservas(request, id_usuario):
         return Response({'error': "Usuario no encontrado."}, status=404)
 
     if request.method == 'GET':
-        try:
-            reserva_service.purgar_pendientes_vencidos()
-        except Exception as e:
-            logger.warning("Error en purgar_pendientes_vencidos en mis_reservas: %s", e)
-
         from ..serializers.reserva_serializers import ReservaSerializer
         # A-1: select_related + prefetch_related eliminan el N+1 del serializer
         reservas = (

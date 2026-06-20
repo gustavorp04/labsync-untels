@@ -41,9 +41,9 @@ def solicitar_recuperacion_password(email):
         )
         
         enviar_email_reset(email, token)
-        return True, "Correo enviado"
+        return True, "Si el correo está registrado, recibirás las instrucciones."
     except Usuario.DoesNotExist:
-        return False, "Email no existe"
+        return True, "Si el correo está registrado, recibirás las instrucciones."
     except Exception as e:
         import logging
         logger = logging.getLogger('reservas')
@@ -103,8 +103,20 @@ def resetear_password(token, password):
 def verificar_token(token):
     token_hashed = hashlib.sha256(token.strip().upper().encode('utf-8')).hexdigest()
     return PasswordReset.objects.filter(
-        token_hash=token_hashed, 
-        usado=False, 
+        token_hash=token_hashed,
+        usado=False,
         fecha_expiracion__gt=timezone.now()
     ).exists()
+
+
+def purgar_sesiones_expiradas():
+    """Elimina sesiones vencidas para evitar crecimiento indefinido de SesionUsuario."""
+    from ..models import SesionUsuario
+    import logging
+    logger = logging.getLogger('reservas')
+    ahora = timezone.now()
+    deleted, _ = SesionUsuario.objects.filter(fecha_expiracion__lt=ahora).delete()
+    if deleted:
+        logger.info("Sesiones expiradas eliminadas: %d", deleted)
+    return deleted
 

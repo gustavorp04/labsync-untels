@@ -25,16 +25,6 @@ class CustomTokenAuthentication(BaseAuthentication):
                     token = auth_header.split(' ')[1]
                     token_source = 'header Token'
 
-        # --- LOG TEMPORAL (eliminar tras diagnóstico) ---
-        logger.warning('[AUTH] método=%s path=%s', request.method, request.path)
-        if token:
-            logger.warning('[AUTH] token_source=%s token=...%s', token_source, token[-8:])
-        else:
-            logger.warning('[AUTH] sin token — cookie=%s Authorization=%s',
-                           request.COOKIES.get('auth_token', '(vacío)'),
-                           request.headers.get('Authorization', '(vacío)'))
-        # -------------------------------------------------
-
         if not token:
             return None
 

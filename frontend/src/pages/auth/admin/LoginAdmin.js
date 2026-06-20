@@ -25,7 +25,6 @@ const LoginAdmin = () => {
     try {
       const data = await loginUser(username, password, 'admin');
       
-      localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.rol);
       localStorage.setItem('nombre', data.nombre);
       localStorage.setItem('id_usuario', data.id_usuario);

@@ -41,9 +41,10 @@ class ReservasConfig(AppConfig):
             from .services.reserva_service import (
                 cerrar_dia_reservas,
                 purgar_pendientes_vencidos,
-                enviar_recordatorios_24h,          # PBI-11
-                notificar_penalizaciones_expiradas, # PBI-07
+                enviar_recordatorios_24h,
+                notificar_penalizaciones_expiradas,
             )
+            from .services.auth_service import purgar_sesiones_expiradas
 
             scheduler = BackgroundScheduler(timezone='America/Lima')
 
@@ -85,12 +86,22 @@ class ReservasConfig(AppConfig):
                 replace_existing=True,
             )
 
+            # ── Limpieza de sesiones expiradas ───────────────────────────────
+            # Cada 24h elimina filas de SesionUsuario ya vencidas.
+            scheduler.add_job(
+                purgar_sesiones_expiradas,
+                IntervalTrigger(hours=24),
+                id='purgar_sesiones_expiradas',
+                replace_existing=True,
+            )
+
             scheduler.start()
             logger.info(
                 "Scheduler iniciado: cerrar_dia_reservas (23:59) | "
                 "purgar_pendientes (5 min) | "
-                "recordatorios_24h (08:00) | "       # PBI-11
-                "notif_pen_expiradas (1 h)"           # PBI-07
+                "recordatorios_24h (08:00) | "
+                "notif_pen_expiradas (1 h) | "
+                "purgar_sesiones (24 h)"
             )
 
         except ImportError:

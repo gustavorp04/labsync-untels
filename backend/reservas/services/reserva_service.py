@@ -8,8 +8,16 @@ from datetime import timedelta, datetime as dt_datetime
 from ..models import (
     Reserva, HorarioDisponible, ActivoLaboratorio, ReservaDetalle,
     HistorialMantenimiento, Usuario, TipoLaboratorio, HistorialReserva,
-    Asistencia, Penalizacion, RecordatorioEnviado,
+    Asistencia, Penalizacion, RecordatorioEnviado, ConfiguracionSistema,
 )
+
+
+def get_config(clave, default):
+    """Lee un valor de ConfiguracionSistema; devuelve `default` si la clave no existe."""
+    try:
+        return ConfiguracionSistema.objects.get(clave=clave).valor
+    except ConfiguracionSistema.DoesNotExist:
+        return default
 
 logger = logging.getLogger('reservas')
 
@@ -124,7 +132,7 @@ def enviar_recordatorios_24h():
 # PBI-07 · PENALIZACIONES POR NO-SHOW
 # =============================================================================
 
-SEMANAS_PENALIZACION = 2
+SEMANAS_PENALIZACION = int(get_config('SEMANAS_PENALIZACION', 2))
 
 
 def aplicar_penalizacion_noshow(reserva):
@@ -526,20 +534,29 @@ def purgar_pendientes_vencidos():
     limite = timezone.now() - timedelta(minutes=5)
 
     # Buscamos reservas pendientes creadas hace más de 5 min
-    pendientes = Reserva.objects.filter(
+    pendientes = list(Reserva.objects.filter(
         estado='Pendiente',
         created_at__lt=limite
+    ).select_related('id_usuario', 'id_usuario__id_rol', 'id_horario', 'id_horario__id_laboratorio'))
+
+    if not pendientes:
+        return 0
+
+    # Pre-computar totales por horario en una sola query (evita N+1)
+    horario_ids = {r.id_horario_id for r in pendientes}
+    totales_qs = (
+        Reserva.objects
+        .filter(id_horario_id__in=horario_ids, estado__in=['Programada', 'Pendiente'])
+        .values('id_horario_id')
+        .annotate(total=models.Sum('cantidad_alumnos'))
     )
+    total_por_horario = {t['id_horario_id']: t['total'] or 0 for t in totales_qs}
 
     count = 0
     emails_quorum = []
     with transaction.atomic():
         for r in pendientes:
-            # Solo purgamos si para ese horario NO se llegó a 10
-            total_horario = Reserva.objects.filter(
-                id_horario=r.id_horario,
-                estado__in=['Programada', 'Pendiente']
-            ).aggregate(total=models.Sum('cantidad_alumnos'))['total'] or 0
+            total_horario = total_por_horario.get(r.id_horario_id, 0)
 
             if total_horario < 10:
                 estado_anterior = r.estado
