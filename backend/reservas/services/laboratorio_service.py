@@ -66,7 +66,7 @@ def _cancelar_y_notificar_reservas_futuras(laboratorio, motivo):
     return notificados, emails_a_enviar
 
 
-def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None, id_incidencia=None):
+def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', usuario_id=None, id_incidencia=None, imagen=None):
     """Actualiza equipo, recalcula lab (PBI-02) y reasigna (PBI-04). Propaga PBI-12 si el lab se inhabilita."""
     emails_a_enviar = []
     emails_pc_reasignada = []
@@ -127,6 +127,7 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                     id_incidencia=id_incidencia,
                     fecha_cambio=timezone.now(),
                     registrado_por=usuario_registrador,
+                    imagen=imagen,
                 )
 
                 mensajes = []
@@ -545,7 +546,7 @@ def enviar_email_incidencia(email, nombre_usuario, nombre_lab, num_serie, codigo
         print(f"WARN: No se pudo enviar email a {email}: {e}")
 
 
-def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None):
+def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None, imagen=None):
     """
     PBI-12: Inhabilita manualmente un laboratorio, cancela todas sus reservas
     futuras y notifica por email a los titulares afectados.
@@ -563,6 +564,8 @@ def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None):
                 return laboratorio, [], "El laboratorio ya estaba inhabilitado."
 
             laboratorio.habilitado = False
+            if imagen is not None:
+                laboratorio.imagen_inhabilitacion = imagen
             laboratorio.save()
 
             hoy = timezone.now().date()
@@ -623,7 +626,7 @@ def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None):
     return laboratorio, notificados, None
 
 
-def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, registrado_por):
+def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, registrado_por, imagen=None):
     """
     PBI-22: Registra una incidencia para un equipo activo.
     Busca automáticamente el último usuario que tuvo una reserva Completada o Asistió
@@ -671,7 +674,8 @@ def registrar_incidencia(id_activo, descripcion_dano, estado_activo_post, regist
                 id_activo=activo,
                 descripcion_dano=descripcion_dano,
                 fecha_reporte=timezone.now(),
-                estado_activo_post=estado_activo_post
+                estado_activo_post=estado_activo_post,
+                imagen=imagen,
             )
 
             # Llamar a actualizar_estado_activo para cambiar el estado, reasignar reservas futuras

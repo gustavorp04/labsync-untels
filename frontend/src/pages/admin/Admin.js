@@ -97,10 +97,15 @@ function Admin() {
   const [incidenciaModal, setIncidenciaModal] = useState(null);
   const [incidenciaDano, setIncidenciaDano] = useState("");
   const [incidenciaEstado, setIncidenciaEstado] = useState("Mantenimiento");
+  const [incidenciaImagen, setIncidenciaImagen] = useState(null);
 
   // Modal para inhabilitar todo el laboratorio
   const [inhabilitarLabModal, setInhabilitarLabModal] = useState(false);
   const [inhabilitarLabMotivo, setInhabilitarLabMotivo] = useState("");
+  const [inhabilitarLabImagen, setInhabilitarLabImagen] = useState(null);
+
+  // Imagen para cambio de estado de equipo individual
+  const [cambioEstadoImagen, setCambioEstadoImagen] = useState(null);
 
   useEffect(() => {
     fetchReservas();
@@ -194,6 +199,11 @@ function Admin() {
     setUserPage(1);
   }, [userSearchTerm, filterRol]);
 
+  // Limpiar imágenes cuando se cierran los modales
+  useEffect(() => { if (!incidenciaModal) setIncidenciaImagen(null); }, [incidenciaModal]);
+  useEffect(() => { if (!inhabilitarLabModal) setInhabilitarLabImagen(null); }, [inhabilitarLabModal]);
+  useEffect(() => { if (!activoModal) setCambioEstadoImagen(null); }, [activoModal]);
+
   const fetchReservas = async () => {
     try {
       const data = await reservaService.getTodasLasReservas();
@@ -271,13 +281,12 @@ function Admin() {
       return;
     }
     try {
-      const adminId = localStorage.getItem('userId') || localStorage.getItem('id_usuario');
       await laboratorioService.actualizarEstadoActivo(
         labSeleccionado.id_laboratorio,
         activoModal.id_activo,
         cambioEstado.estado,
         cambioEstado.motivo,
-        adminId
+        cambioEstadoImagen
       );
       setFeedbackMsg({ tipo: 'ok', texto: `Equipo actualizado a "${cambioEstado.estado}" correctamente.` });
       setActivoModal(null);
@@ -299,7 +308,8 @@ function Admin() {
         labSeleccionado.id_laboratorio,
         incidenciaModal.id_activo,
         incidenciaDano,
-        incidenciaEstado
+        incidenciaEstado,
+        incidenciaImagen
       );
       setFeedbackMsg({ tipo: 'ok', texto: data.mensaje || 'Incidencia registrada con éxito.' });
       setIncidenciaModal(null);
@@ -324,7 +334,8 @@ function Admin() {
       const data = await laboratorioService.inhabilitarLaboratorio(
         labSeleccionado.id_laboratorio,
         inhabilitarLabMotivo,
-        adminId
+        adminId,
+        inhabilitarLabImagen
       );
       setFeedbackMsg({ tipo: 'ok', texto: data.mensaje || 'Laboratorio inhabilitado con éxito.' });
       setInhabilitarLabModal(false);
@@ -1589,7 +1600,7 @@ function Admin() {
                 </small>
               </div>
 
-              <div className="form-group" style={{ marginBottom: 24 }}>
+              <div className="form-group" style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
                   Estado resultante del equipo <span style={{ color: '#dc2626' }}>*</span>
                 </label>
@@ -1602,6 +1613,23 @@ function Admin() {
                   <option value="Mantenimiento">Mantenimiento</option>
                   <option value="Dado de baja">Dado de baja</option>
                 </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+                  Imagen de evidencia <small style={{ fontWeight: 400, opacity: 0.65 }}>(opcional)</small>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setIncidenciaImagen(e.target.files[0] || null)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: 13, boxSizing: 'border-box' }}
+                />
+                {incidenciaImagen && (
+                  <small style={{ display: 'block', marginTop: 4, opacity: 0.6, fontSize: 11 }}>
+                    {incidenciaImagen.name}
+                  </small>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
@@ -1652,6 +1680,22 @@ function Admin() {
                     onChange={(e) => setInhabilitarLabMotivo(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-color)', minHeight: 90, resize: 'vertical', background: 'var(--bg-input)', color: 'var(--text-main)' }}
                   />
+                </div>
+                <div>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Imagen de evidencia <small style={{ fontWeight: 400, opacity: 0.65 }}>(opcional)</small>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setInhabilitarLabImagen(e.target.files[0] || null)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                  {inhabilitarLabImagen && (
+                    <small style={{ display: 'block', marginTop: 4, opacity: 0.6, fontSize: 11 }}>
+                      {inhabilitarLabImagen.name}
+                    </small>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 10 }}>
                   <button className="cancel-btn" onClick={() => setInhabilitarLabModal(false)} style={{ padding: '8px 16px' }}>
@@ -1802,6 +1846,24 @@ function Admin() {
                     value={cambioEstado.motivo}
                     onChange={e => setCambioEstado({ ...cambioEstado, motivo: e.target.value })}
                   />
+                </div>
+
+                {/* IMAGEN OPCIONAL */}
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label style={{ fontSize: 13 }}>
+                    Imagen de evidencia <small style={{ fontWeight: 400, opacity: 0.65 }}>(opcional)</small>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setCambioEstadoImagen(e.target.files[0] || null)}
+                    style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                  {cambioEstadoImagen && (
+                    <small style={{ display: 'block', marginTop: 4, opacity: 0.6, fontSize: 11 }}>
+                      {cambioEstadoImagen.name}
+                    </small>
+                  )}
                 </div>
 
                 {/* ACCIONES */}

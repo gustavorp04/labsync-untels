@@ -17,5 +17,6 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             'descripcion_dano',
             'usuario_reporta',
             'fecha_formateada',
-            'estado_activo_post'
+            'estado_activo_post',
+            'imagen',
         ]

@@ -1,64 +1,184 @@
-# LabSync UNTELS 🔬💻
+# LabSync UNTELS
 
 Sistema integral para la gestión de reservas de laboratorios y auditoría de activos tecnológicos en la **Universidad Nacional Tecnológica de Lima Sur (UNTELS)**.
 
-## 🏗️ Arquitectura del Sistema
-El proyecto sigue un patrón de **Arquitectura Desacoplada (Client-Server)**:
-- **Frontend:** Single Page Application (SPA) desarrollada con React.js.
-- **Backend:** API REST robusta construida con Django Rest Framework (DRF).
-- **Base de Datos:** PostgreSQL para almacenamiento relacional persistente.
-- **Contenedores:** Orquestación completa mediante Docker y Docker Compose.
+## Stack tecnológico
 
-## 📁 Estructura del Directorio
-```text
-reserva_aulas/
-├── backend/                # Lógica de servidor y API REST (Django)
-│   ├── config/             # Configuración central del proyecto
-│   ├── reservas/           # Aplicación principal (Modelos, Vistas, Serializadores)
-│   └── seed_completo.py    # Script maestro de carga de datos
-├── frontend/               # Interfaz de usuario (React)
-│   ├── src/
-│   │   ├── components/     # Componentes reutilizables
-│   │   ├── pages/          # Vistas principales (Admin, Docente, Estudiante)
-│   │   └── services/       # Comunicación con la API
-├── scripts sql/            # Scripts oficiales de Base de Datos (Schema & Seeds)
-└── docker-compose.yml      # Configuración de contenedores
+| Capa | Tecnología |
+|---|---|
+| Backend | Python 3.11 · Django 5.2.13 · Django REST Framework 3.17.1 |
+| Frontend | React 19 · Axios · React Router |
+| Base de datos | PostgreSQL 15 |
+| Autenticación | httpOnly cookie (sesión propia, sin JWT externo) |
+| Contenedores | Docker · Docker Compose |
+| Deploy | Render (backend) · Vercel (frontend) |
+
+## Estructura del repositorio
+
+```
+labsync-untels/
+├── backend/
+│   ├── config/             # settings.py, urls.py, wsgi/asgi
+│   ├── reservas/
+│   │   ├── models.py       # Modelos Django (todos en un solo archivo)
+│   │   ├── views/          # Vistas por dominio (auth, reserva, laboratorio...)
+│   │   ├── services/       # Lógica de negocio (auth_service, reserva_service, laboratorio_service)
+│   │   ├── serializers/    # Serializers DRF por dominio
+│   │   ├── migrations/     # Migraciones Django
+│   │   └── utils/          # auth.py (permisos), logging_filters.py
+│   ├── scripts sql/        # Schema y seeds PostgreSQL
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── pages/          # Por rol: estudiante/, docente/, admin/, jefatura/
+│       ├── services/       # api.js, auth.js, reservaService.js, laboratorioService.js
+│       └── components/     # LabMap, ProtectedRoute, ThemeToggle
+├── docker-compose.yml
+└── .env                    # Variables de entorno (NO commitear)
 ```
 
-## 🛠️ Tecnologías Utilizadas
-- **Backend:** Python 3.10+, Django 5.x, Django Rest Framework.
-- **Frontend:** React 18, Hooks (useState, useEffect), Axios.
-- **Base de Datos:** PostgreSQL 15.
-- **DevOps:** Docker, GitHub Actions (CI/CD).
+## Configuración rápida con Docker
 
-## 🚀 Instalación y Uso
+### 1. Requisitos previos
+- Docker Desktop instalado y corriendo
+- Git
 
-### Clonar el repositorio
+### 2. Clonar el repositorio
+
 ```bash
 git clone https://github.com/gustavorp04/labsync-untels.git
 cd labsync-untels
 ```
 
-### Ejecución con Docker
-1. Levantar los servicios:
-   ```bash
-   docker-compose up -d --build
-   ```
-2. Poblar la base de datos con datos reales de la universidad:
-   ```bash
-   docker exec -it labsync_backend python seed_completo.py
-   ```
+### 3. Crear el archivo `.env` en la raíz
 
-## 👥 Roles del Sistema
-1. **Administrador de Laboratorio:** Gestión de incidencias, validación de reservas y auditoría de equipos.
-2. **Jefatura de Laboratorio:** Supervisión general y reportes de uso.
-3. **Docente:** Reserva de ambientes para clases extra y laboratorios libres.
-4. **Estudiante:** Consulta de disponibilidad y gestión de perfil.
+```env
+DB_PASS=tu_contraseña_segura
+```
 
-## 🔑 Credenciales de Prueba
-- **Administrador:** `ADM0001` / `AdminLab_2026`
-- **Docente:** `D0001` / `DocSist_2026`
-- **Estudiante:** `202310001` / `EstSist_2026`
+### 4. Levantar los servicios
 
-## 📄 Licencia
-Este proyecto es de uso académico para la UNTELS - Ciclo VIII.
+```bash
+docker-compose up -d --build
+```
+
+Esto inicia:
+- **PostgreSQL 15** en `localhost:5432`
+- **Django API** en `http://localhost:8000`
+- **React dev server** en `http://localhost:3000`
+
+### 5. Aplicar migraciones y cargar datos de prueba
+
+```bash
+# Migraciones (se ejecutan automáticamente al arrancar el backend, pero si falla:)
+docker exec -it labsync_backend python manage.py migrate
+
+# Cargar schema base
+docker exec -i labsync_db psql -U postgres -d LabSyncUNTELS < "backend/scripts sql/labsync_schema.sql"
+
+# Cargar datos de prueba
+docker exec -i labsync_db psql -U postgres -d LabSyncUNTELS < "backend/scripts sql/seed_demo.sql"
+docker exec -i labsync_db psql -U postgres -d LabSyncUNTELS < "backend/scripts sql/seed_laboratorios.sql"
+```
+
+### 6. Abrir la aplicación
+
+Navega a [http://localhost:3000](http://localhost:3000)
+
+## Configuración local sin Docker
+
+### Backend
+
+```bash
+cd backend
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+# Variables de entorno mínimas
+export DATABASE_URL=postgres://postgres:tu_pass@localhost:5432/LabSyncUNTELS
+export DJANGO_DEBUG=True
+
+python manage.py migrate
+python manage.py runserver
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+# Crea frontend/.env con la URL del backend:
+echo "REACT_APP_API_URL=http://localhost:8000" > .env
+npm start
+```
+
+## Credenciales de prueba
+
+| Rol | Código | Contraseña | URL de login |
+|---|---|---|---|
+| Administrador de Lab | `ADM0001` | `AdminLab_2026` | `/login-admin` |
+| Jefatura | `JEF0001` | `Jefatura_2026` | `/login-jefatura` |
+| Docente | `D0001` | `DocSist_2026` | `/login-docente` |
+| Estudiante | `202310001` | `EstSist_2026` | `/login-estudiante` |
+
+> Credenciales adicionales de prueba en `backend/scripts sql/seed_demo.sql`.
+
+## Funcionalidades principales
+
+### Estudiantes
+- Reserva de PC/puesto en laboratorio por horario disponible
+- Declaración jurada al reservar
+- Vista de mis reservas con estados en tiempo real
+- Pantalla de penalización con cuenta regresiva (bloqueo de 2 semanas por no presentarse)
+
+### Docentes
+- Reserva prioritaria de laboratorio completo (desplaza reservas de estudiantes)
+- Historial de reservas
+
+### Administrador de Laboratorio
+- Gestión de inventario de activos (PCs, monitores, periféricos)
+- Cambio de estado de equipos con motivo e imagen opcional de evidencia
+- Registro de incidencias con imagen opcional
+- Inhabilitación de laboratorio completo con motivo e imagen opcional
+- Validación de asistencia y marcado de no-show
+- Cancelación de reservas
+
+### Jefatura
+- Dashboard con métricas de uso
+- Descarga de reportes en Excel
+- Supervisión de reservas y usuarios
+
+### Sistema
+- APScheduler para tareas automáticas: purga de pendientes expirados, notificaciones 24h antes, penalizaciones por no-show
+- Emails automáticos con SMTP (Gmail)
+- Rate limiting en endpoints de login (5 intentos/min)
+- Sesiones via httpOnly cookie (resistente a XSS)
+
+## Variables de entorno
+
+| Variable | Descripción | Default dev |
+|---|---|---|
+| `SECRET_KEY` | Clave secreta Django | valor de desarrollo |
+| `DATABASE_URL` | URL completa de PostgreSQL | — |
+| `DJANGO_DEBUG` | Modo debug | `False` |
+| `ALLOWED_HOSTS` | Hosts permitidos (separados por coma) | `localhost,127.0.0.1` |
+| `CORS_ALLOWED_ORIGINS` | Orígenes CORS permitidos | `http://localhost:3000` |
+| `EMAIL_HOST_USER` | Cuenta Gmail para envío de emails | — |
+| `EMAIL_HOST_PASSWORD` | App Password de Gmail | — |
+
+## Documentación de la API
+
+Con el servidor corriendo, la documentación OpenAPI 3.0 está disponible en:
+
+```
+http://localhost:8000/api/docs/
+```
+
+## Licencia
+
+Proyecto académico — UNTELS, Ciclo VIII, 2026.

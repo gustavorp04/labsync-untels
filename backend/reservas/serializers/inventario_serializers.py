@@ -58,5 +58,6 @@ class HistorialMantenimientoSerializer(serializers.ModelSerializer):
             'registrado_por',
             'registrado_por_nombre',
             'registrado_por_rol',
+            'imagen',
         ]
         read_only_fields = ['id_historial', 'fecha_cambio', 'activo_serie', 'activo_tipo', 'registrado_por_nombre', 'registrado_por_rol']

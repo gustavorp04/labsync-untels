@@ -102,6 +102,7 @@ class Incidencia(models.Model):
     descripcion_dano = models.TextField()
     fecha_reporte = models.DateTimeField()
     estado_activo_post = models.CharField(max_length=20)
+    imagen = models.ImageField(upload_to='incidencias/', blank=True, null=True)
 
     class Meta:
         managed = True
@@ -121,6 +122,7 @@ class Laboratorio(models.Model):
         ('MESAS', 'Mesas de Trabajo')
     ]
     tipo_layout = models.CharField(max_length=10, choices=TIPOS_LAYOUT, default='GRID')
+    imagen_inhabilitacion = models.ImageField(upload_to='inhabilitaciones/', blank=True, null=True)
 
     class Meta:
         managed = True
@@ -276,6 +278,7 @@ class HistorialMantenimiento(models.Model):
     id_incidencia = models.ForeignKey(Incidencia, models.DO_NOTHING, db_column='id_incidencia', blank=True, null=True)
     fecha_cambio = models.DateTimeField()
     registrado_por = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='registrado_por')
+    imagen = models.ImageField(upload_to='mantenimiento/', blank=True, null=True)
 
     class Meta:
         managed = True

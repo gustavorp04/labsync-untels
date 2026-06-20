@@ -134,8 +134,9 @@ class ActivoUpdateView(generics.UpdateAPIView):
             return Response({"error": "Usuario no autenticado correctamente."}, status=status.HTTP_401_UNAUTHORIZED)
         usuario_id = request.user.id_usuario
 
+        imagen = request.FILES.get('imagen', None)
         activo, laboratorio, mensajes, error = laboratorio_service.actualizar_estado_activo(
-            id_activo, nuevo_estado, motivo, usuario_id
+            id_activo, nuevo_estado, motivo, usuario_id, imagen=imagen
         )
 
         if error:
@@ -202,10 +203,12 @@ def inhabilitar_laboratorio_view(request, id_laboratorio):
     if not motivo.strip():
         return Response({'error': 'Debe indicar el motivo de inhabilitación.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    imagen = request.FILES.get('imagen', None)
     laboratorio, notificados, error = inhabilitar_laboratorio(
         id_laboratorio=id_laboratorio,
         motivo=motivo,
-        usuario_id=request.data.get('usuario_id')
+        usuario_id=request.data.get('usuario_id'),
+        imagen=imagen,
     )
 
     if error:
@@ -275,12 +278,16 @@ def registrar_incidencia_view(request, id_laboratorio, id_activo):
         return Response({"error": "Usuario no autenticado correctamente."}, status=status.HTTP_401_UNAUTHORIZED)
     usuario_id = request.user.id_usuario
 
+    # Imagen opcional (multipart/form-data)
+    imagen = request.FILES.get('imagen', None)
+
     # Llamar al servicio
     incidencia, usuario_responsable, error = laboratorio_service.registrar_incidencia(
         id_activo=id_activo,
         descripcion_dano=descripcion_dano,
         estado_activo_post=estado_activo_post,
-        registrado_por=usuario_id
+        registrado_por=usuario_id,
+        imagen=imagen,
     )
 
     if error:

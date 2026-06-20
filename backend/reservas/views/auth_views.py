@@ -11,7 +11,7 @@ class LoginRateThrottle(AnonRateThrottle):
     scope = 'login'
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
-from ..models import SesionUsuario, PerfilEstudiante
+from ..models import SesionUsuario, PerfilEstudiante, Penalizacion
 
 logger = logging.getLogger('reservas')
 
@@ -36,7 +36,6 @@ def _base_login(request, expected_role):
         
         # PBI-04: Datos de carrera dinámicos para Estudiantes
         if expected_role == 'estudiante':
-            # Búsqueda ultra-robusta del perfil
             try:
                 perfil = PerfilEstudiante.objects.get(id_usuario=user)
             except PerfilEstudiante.DoesNotExist:
@@ -46,12 +45,26 @@ def _base_login(request, expected_role):
                 perfil = None
 
             if perfil:
-                # Obtenemos el nombre de la carrera directamente de la BD
                 user_data['carrera'] = perfil.id_carrera.nombre if perfil.id_carrera else 'Desconocida'
                 user_data['ciclo'] = perfil.ciclo
             else:
                 user_data['carrera'] = 'Desconocida'
                 user_data['ciclo'] = 0
+
+            # PBI-07: Penalización activa — se informa al frontend para mostrar countdown en login
+            ahora = timezone.now()
+            pen = Penalizacion.objects.filter(
+                id_usuario=user,
+                fecha_fin__gt=ahora,
+            ).order_by('-fecha_fin').first()
+            if pen:
+                user_data['penalizacion_activa'] = True
+                user_data['penalizacion_fin'] = pen.fecha_fin.isoformat()
+                user_data['penalizacion_motivo'] = pen.motivo or 'No-show: no se presentó a la reserva.'
+            else:
+                user_data['penalizacion_activa'] = False
+                user_data['penalizacion_fin'] = None
+                user_data['penalizacion_motivo'] = None
 
         # Crear sesión y token de acceso
         token = secrets.token_hex(32)

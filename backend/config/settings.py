@@ -157,6 +157,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Configuración de WhiteNoise para compresión y cache
 STORAGES = {
     "staticfiles": {

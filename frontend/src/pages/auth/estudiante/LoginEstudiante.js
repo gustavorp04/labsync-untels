@@ -39,6 +39,14 @@ const LoginEstudiante = () => {
       localStorage.setItem('id_usuario', data.id_usuario || '');
       localStorage.setItem('carrera', data.carrera || '');
       localStorage.setItem('ciclo', data.ciclo || '');
+      // PBI-07: persiste penalización para que el dashboard muestre countdown al entrar
+      if (data.penalizacion_activa) {
+        localStorage.setItem('penalizacion_fin', data.penalizacion_fin);
+        localStorage.setItem('penalizacion_motivo', data.penalizacion_motivo || '');
+      } else {
+        localStorage.removeItem('penalizacion_fin');
+        localStorage.removeItem('penalizacion_motivo');
+      }
 
       navigate('/estudiante');
     } catch (err) {

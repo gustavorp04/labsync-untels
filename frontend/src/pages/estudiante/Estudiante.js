@@ -40,6 +40,109 @@ function StatusBadge({ estado }) {
   );
 }
 
+// ─── PBI-07: Pantalla de penalización con countdown ─────────────────────────
+function calcularConteo(fechaFin) {
+  const ahora = Date.now();
+  const fin   = new Date(fechaFin).getTime();
+  const diff  = Math.max(0, fin - ahora);
+  const dias  = Math.floor(diff / 86400000);
+  const horas = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000)  / 60000);
+  const segs  = Math.floor((diff % 60000)    / 1000);
+  return { dias, horas, mins, segs, expirado: diff <= 0 };
+}
+
+function PenaltyScreen({ fechaFin, motivo, onLogout, onDismiss }) {
+  const [conteo, setConteo] = useState(() => calcularConteo(fechaFin));
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const nuevo = calcularConteo(fechaFin);
+      setConteo(nuevo);
+      if (nuevo.expirado) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [fechaFin]);
+
+  const pad = (n) => String(n).padStart(2, '0');
+
+  if (conteo.expirado) {
+    localStorage.removeItem('penalizacion_fin');
+    localStorage.removeItem('penalizacion_motivo');
+    onDismiss();
+    return null;
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'var(--bg-main, #0f172a)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: 24, textAlign: 'center',
+    }}>
+      <div style={{
+        maxWidth: 480, width: '100%',
+        background: 'var(--bg-card, #1e293b)',
+        border: '1px solid #ef4444',
+        borderRadius: 20, padding: '40px 32px',
+        boxShadow: '0 0 48px #ef444440',
+      }}>
+        {/* Icono */}
+        <div style={{ fontSize: 56, marginBottom: 12 }}>🚫</div>
+        <h2 style={{ color: '#ef4444', margin: '0 0 8px', fontSize: 22 }}>Cuenta bloqueada</h2>
+        <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: 14, margin: '0 0 28px', lineHeight: 1.6 }}>
+          {motivo || 'No se presentó a una reserva programada.'}
+          <br />No puedes realizar nuevas reservas hasta que termine el período de penalización.
+        </p>
+
+        {/* Countdown */}
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 32 }}>
+          {[
+            { val: conteo.dias,  label: 'Días' },
+            { val: conteo.horas, label: 'Horas' },
+            { val: conteo.mins,  label: 'Minutos' },
+            { val: conteo.segs,  label: 'Segundos' },
+          ].map(({ val, label }) => (
+            <div key={label} style={{
+              background: 'var(--bg-input, #0f172a)',
+              border: '1px solid #ef4444',
+              borderRadius: 12, padding: '12px 16px', minWidth: 70,
+            }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#ef4444', fontVariantNumeric: 'tabular-nums' }}>
+                {pad(val)}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted, #64748b)', marginTop: 4 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 12, color: 'var(--text-muted, #64748b)', marginBottom: 24 }}>
+          Penalización activa hasta:{' '}
+          <strong style={{ color: 'var(--text-main, #e2e8f0)' }}>
+            {new Date(fechaFin).toLocaleString('es-PE', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </strong>
+        </p>
+
+        <button
+          onClick={onLogout}
+          style={{
+            background: 'transparent', border: '1px solid #ef4444',
+            color: '#ef4444', borderRadius: 10, padding: '10px 28px',
+            cursor: 'pointer', fontSize: 14, fontWeight: 600,
+          }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function Estudiante() {
   const navigate = useNavigate();
   // Persistencia de sesión (Sobrevivir a F5)
@@ -82,6 +185,12 @@ function Estudiante() {
 
   // Detalle de reserva modal
   const [reservaDetalle, setReservaDetalle] = useState(null);
+
+  // PBI-07: Penalización — leída de localStorage (cargada en el login)
+  const [penalizacionFin, setPenalizacionFin] = useState(
+    () => localStorage.getItem('penalizacion_fin') || null
+  );
+  const penalizacionMotivo = localStorage.getItem('penalizacion_motivo') || '';
 
   // User Data (Normalizada para compatibilidad)
   const userId   = localStorage.getItem("id_usuario") || "";
@@ -268,6 +377,18 @@ function Estudiante() {
     acc[h.fecha].push(h);
     return acc;
   }, {});
+
+  // PBI-07: Si la penalización sigue activa, bloquear con el countdown
+  if (penalizacionFin && new Date(penalizacionFin) > new Date()) {
+    return (
+      <PenaltyScreen
+        fechaFin={penalizacionFin}
+        motivo={penalizacionMotivo}
+        onLogout={handleLogout}
+        onDismiss={() => setPenalizacionFin(null)}
+      />
+    );
+  }
 
   return (
     <div className="est-layout">

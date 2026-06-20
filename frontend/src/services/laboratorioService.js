@@ -29,17 +29,30 @@ const getHistorialLab = async (idLab) => {
   return res.data;
 };
 
-/** Cambia el estado de un equipo individual */
-const actualizarEstadoActivo = async (idLab, idActivo, estado, motivo) => {
-  const res = await api.patch(`/v1/laboratorios/${idLab}/activos/${idActivo}/estado/`, {
-    estado,
-    motivo,
-  });
+/** Cambia el estado de un equipo individual. Si se pasa imagen, usa FormData. */
+const actualizarEstadoActivo = async (idLab, idActivo, estado, motivo, imagen = null) => {
+  if (imagen) {
+    const form = new FormData();
+    form.append('estado', estado);
+    form.append('motivo', motivo);
+    form.append('imagen', imagen);
+    const res = await api.patch(`/v1/laboratorios/${idLab}/activos/${idActivo}/estado/`, form);
+    return res.data;
+  }
+  const res = await api.patch(`/v1/laboratorios/${idLab}/activos/${idActivo}/estado/`, { estado, motivo });
   return res.data;
 };
 
-/** PBI-22: Registra una incidencia para un equipo activo */
-const registrarIncidencia = async (idLab, idActivo, descripcion_dano, estado_activo_post) => {
+/** PBI-22: Registra una incidencia para un equipo activo. Si se pasa imagen, usa FormData. */
+const registrarIncidencia = async (idLab, idActivo, descripcion_dano, estado_activo_post, imagen = null) => {
+  if (imagen) {
+    const form = new FormData();
+    form.append('descripcion_dano', descripcion_dano);
+    form.append('estado_activo_post', estado_activo_post);
+    form.append('imagen', imagen);
+    const res = await api.post(`/v1/laboratorios/${idLab}/activos/${idActivo}/incidencia/`, form);
+    return res.data;
+  }
   const res = await api.post(`/v1/laboratorios/${idLab}/activos/${idActivo}/incidencia/`, {
     descripcion_dano,
     estado_activo_post,
@@ -47,8 +60,16 @@ const registrarIncidencia = async (idLab, idActivo, descripcion_dano, estado_act
   return res.data;
 };
 
-/** PBI-12: Inhabilita un laboratorio manualmente con un motivo */
-const inhabilitarLaboratorio = async (idLab, motivo, usuarioId) => {
+/** PBI-12: Inhabilita un laboratorio manualmente con un motivo. Si se pasa imagen, usa FormData. */
+const inhabilitarLaboratorio = async (idLab, motivo, usuarioId, imagen = null) => {
+  if (imagen) {
+    const form = new FormData();
+    form.append('motivo', motivo);
+    form.append('usuario_id', usuarioId ?? '');
+    form.append('imagen', imagen);
+    const res = await api.post(`/v1/laboratorios/${idLab}/inhabilitar/`, form);
+    return res.data;
+  }
   const res = await api.post(`/v1/laboratorios/${idLab}/inhabilitar/`, {
     motivo,
     usuario_id: usuarioId,
