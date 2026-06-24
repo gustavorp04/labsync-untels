@@ -2,25 +2,30 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Estudiante from './Estudiante';
+import EstudianteReservar from './Reservar';
+import EstudianteMisReservas from './MisReservas';
 import laboratorioService from '../../services/laboratorioService';
 import reservaService from '../../services/reservaService';
 
-// ─── Mocks de módulos ────────────────────────────────────────────────────────
+// --- Mocks de módulos ---
+
+let mockNavigate = jest.fn();
+let mockShowToast = jest.fn();
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
+  useOutletContext: () => ({ showToast: mockShowToast }),
 }));
 
 jest.mock('../../services/laboratorioService');
 jest.mock('../../services/reservaService');
 
-// ThemeToggle usa CSS variables que no existen en jsdom
 jest.mock('../../components/ThemeToggle', () => () => null);
 
-// LabMap simplificado: renderiza un botón por activo para que los tests puedan
-// seleccionar equipos sin depender del layout SVG real
+jest.mock('../../components/labLayoutConfig', () => ({ getLabLayout: jest.fn(() => ({})) }));
+
+// LabMap simplificado: renderiza un botón por activo
 jest.mock('../../components/LabMap', () => ({ activos = [], onSelect }) => (
   <div data-testid="lab-map">
     {activos.map((a) => (
@@ -35,7 +40,7 @@ jest.mock('../../components/LabMap', () => ({ activos = [], onSelect }) => (
   </div>
 ));
 
-// ─── Fixtures ────────────────────────────────────────────────────────────────
+// --- Fixtures ---
 
 const LAB = {
   id_laboratorio: 1,
@@ -74,31 +79,21 @@ const RESERVA_PROGRAMADA = {
   estado: 'Programada',
 };
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
-
-function renderEstudiante() {
-  return render(
-    <MemoryRouter>
-      <Estudiante />
-    </MemoryRouter>
-  );
-}
-
-// ─── Suite ───────────────────────────────────────────────────────────────────
+// --- Suite ---
 
 describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNavigate = jest.fn();
+    mockShowToast = jest.fn();
     localStorage.clear();
     sessionStorage.clear();
 
-    // Simular sesión de estudiante de Sistemas (filtra labs tipo "computo")
     localStorage.setItem('id_usuario', '42');
     localStorage.setItem('nombre', 'Carlos Pérez');
     localStorage.setItem('carrera', 'Ingeniería de Sistemas');
     localStorage.setItem('ciclo', '5');
 
-    // Defaults de servicios para cada test
     laboratorioService.getLaboratorios.mockResolvedValue([LAB]);
     laboratorioService.getActivosPorLab.mockResolvedValue([ACTIVO]);
     reservaService.getHorariosPorLab.mockResolvedValue([HORARIO]);
@@ -113,12 +108,12 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     jest.restoreAllMocks();
   });
 
-  // ── Test 1 ─────────────────────────────────────────────────────────────────
   test('(1) estudiante crea una reserva válida recorriendo los 4 pasos del wizard', async () => {
-    renderEstudiante();
-
-    // Abrir wizard de reserva desde la barra lateral
-    userEvent.click(screen.getByRole('button', { name: /Reservar/i }));
+    render(
+      <MemoryRouter>
+        <EstudianteReservar />
+      </MemoryRouter>
+    );
 
     // Paso 1: seleccionar laboratorio
     userEvent.click(await screen.findByText('Lab Cómputo A1'));
@@ -129,20 +124,18 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
     // Paso 3: mapa de equipos — seleccionar la PC
     userEvent.click(await screen.findByTestId('equipo-55'));
 
-    // Esperar que el botón "Continuar" quede habilitado y avanzar
-    const btnContinuar = await screen.findByRole('button', { name: /Continuar/i });
+    const btnContinuar = await screen.findByRole('button', { name: /^Continuar$/i });
     expect(btnContinuar).not.toBeDisabled();
     userEvent.click(btnContinuar);
 
     // Paso 4: aceptar declaración jurada y confirmar
-    await screen.findByText(/Confirmar Reserva/i);
+    await screen.findByRole('heading', { name: /Confirmar Reserva/i });
     userEvent.click(screen.getByRole('checkbox'));
 
     const btnConfirmar = screen.getByRole('button', { name: /Confirmar y Finalizar/i });
     expect(btnConfirmar).not.toBeDisabled();
     userEvent.click(btnConfirmar);
 
-    // El servicio debe recibir el payload completo del wizard
     await waitFor(() =>
       expect(reservaService.crearReservaEstudiante).toHaveBeenCalledWith({
         user_id: '42',
@@ -152,32 +145,31 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
       })
     );
 
-    // Toast de confirmación debe aparecer
-    await screen.findByText(/Reserva registrada/i);
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith('ok', expect.stringMatching(/Reserva registrada/i))
+    );
   });
 
-  // ── Test 2 ─────────────────────────────────────────────────────────────────
   test('(2) estudiante cancela una reserva existente exitosamente', async () => {
     reservaService.getMisReservas.mockResolvedValue([RESERVA_PROGRAMADA]);
     jest.spyOn(window, 'confirm').mockReturnValue(true);
 
-    renderEstudiante();
+    render(
+      <MemoryRouter>
+        <EstudianteMisReservas />
+      </MemoryRouter>
+    );
 
-    // Navegar a "Mis Reservas"
-    userEvent.click(screen.getByRole('button', { name: /Mis Reservas/i }));
-
-    // Esperar que aparezca la reserva cargada
     await screen.findByText('Lab Cómputo A1');
 
-    // Disparar cancelación
     userEvent.click(screen.getByRole('button', { name: /^Cancelar$/i }));
 
-    // El servicio debe llamarse con el id de reserva y el userId de sesión
     await waitFor(() =>
       expect(reservaService.cancelarReserva).toHaveBeenCalledWith(200, '42')
     );
 
-    // Toast de éxito debe aparecer
-    await screen.findByText(/Reserva cancelada correctamente/i);
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith('ok', expect.stringMatching(/Reserva cancelada/i))
+    );
   });
 });

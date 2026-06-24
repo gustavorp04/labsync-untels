@@ -1,0 +1,298 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import laboratorioService from "../../services/laboratorioService";
+import reservaService from "../../services/reservaService";
+import LabMap from "../../components/LabMap";
+import { getLabLayout } from "../../components/labLayoutConfig";
+
+const Icon = {
+  ChevronLeft: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
+  Shield:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  Search:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+};
+
+function EstudianteReservar() {
+  const navigate = useNavigate();
+  const { showToast } = useOutletContext();
+
+  const userId  = localStorage.getItem("id_usuario") || "";
+  const nombre  = localStorage.getItem("nombre")  || localStorage.getItem("username") || "Estudiante";
+  const carrera = localStorage.getItem("carrera") || "";
+
+  const normalize = useCallback((str) => (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""), []);
+  const carreraNorm = useMemo(() => normalize(carrera), [carrera, normalize]);
+
+  const tiposEspecialidad = useMemo(() => {
+    if (carreraNorm.includes('sist')) return ['computo'];
+    if (carreraNorm.includes('amb'))  return ['ambiental'];
+    if (carreraNorm.includes('elec')) return ['electronica'];
+    return [];
+  }, [carreraNorm]);
+
+  const tiposPermitidos = useMemo(() => [...tiposEspecialidad, 'fisica'], [tiposEspecialidad]);
+
+  const [paso, setPaso]         = useState(() => parseInt(sessionStorage.getItem("est_paso")) || 1);
+  const [laboratorios, setLaboratorios] = useState([]);
+  const [horarios, setHorarios] = useState([]);
+  const [activos, setActivos]   = useState([]);
+  const [loading, setLoading]   = useState(false);
+
+  const [labSel, setLabSel]         = useState(() => JSON.parse(sessionStorage.getItem("est_labSel")) || null);
+  const [horarioSel, setHorarioSel] = useState(() => JSON.parse(sessionStorage.getItem("est_horarioSel")) || null);
+  const [activoSel, setActivoSel]   = useState(() => JSON.parse(sessionStorage.getItem("est_activoSel")) || null);
+  const [labSearchTerm, setLabSearchTerm] = useState("");
+
+  const activoSelRef = useRef(activoSel);
+  useEffect(() => { activoSelRef.current = activoSel; }, [activoSel]);
+
+  const [aceptaDJ, setAceptaDJ] = useState(false);
+  const [showDJ, setShowDJ]     = useState(false);
+
+  useEffect(() => { sessionStorage.setItem("est_paso",       paso.toString()); }, [paso]);
+  useEffect(() => { sessionStorage.setItem("est_labSel",     JSON.stringify(labSel)); }, [labSel]);
+  useEffect(() => { sessionStorage.setItem("est_horarioSel", JSON.stringify(horarioSel)); }, [horarioSel]);
+  useEffect(() => { sessionStorage.setItem("est_activoSel",  JSON.stringify(activoSel)); }, [activoSel]);
+
+  // Guard: reset step if prereqs are missing (F5 crash fix)
+  useEffect(() => {
+    if (paso === 2 && !labSel) setPaso(1);
+    if (paso === 3 && (!labSel || !horarioSel)) setPaso(1);
+    if (paso === 4 && (!labSel || !horarioSel || !activoSel)) setPaso(1);
+  }, [paso, labSel, horarioSel, activoSel]);
+
+  // Load labs on step 1
+  useEffect(() => {
+    const abortCtrl = new AbortController();
+    setLoading(true);
+    laboratorioService.getLaboratorios(tiposPermitidos, { signal: abortCtrl.signal })
+      .then(data => setLaboratorios(data))
+      .catch(err => { if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') showToast('error', 'Error al cargar laboratorios'); })
+      .finally(() => setLoading(false));
+    return () => abortCtrl.abort();
+  }, [tiposPermitidos, tiposEspecialidad.length, showToast]);
+
+  // Load horarios on step 2
+  useEffect(() => {
+    if (paso === 2 && labSel) {
+      setHorarios([]);
+      setLoading(true);
+      reservaService.getHorariosPorLab(labSel.id_laboratorio)
+        .then(data => setHorarios(data))
+        .catch(() => showToast('error', 'Error al cargar horarios'))
+        .finally(() => setLoading(false));
+    }
+  }, [paso, labSel, showToast]);
+
+  // Load activos + polling on step 3
+  useEffect(() => {
+    if (!(paso === 3 && labSel && horarioSel)) return;
+    let intervalId = null;
+    let isLoading = false;
+    const abortCtrl = new AbortController();
+
+    const cargarEquipos = async (showLoading = false) => {
+      if (!showLoading && isLoading) return;
+      isLoading = true;
+      if (showLoading) setLoading(true);
+      try {
+        const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario, { signal: abortCtrl.signal });
+        setActivos(data);
+        if (activoSelRef.current) {
+          const pc = data.find(a => a.id_activo === activoSelRef.current.id_activo);
+          if (pc && (pc.reservado || pc.estado_reserva === "Pendiente" || pc.estado !== "Operativo")) {
+            setActivoSel(null);
+            showToast('error', 'El equipo seleccionado ha sido reservado o inhabilitado por otro usuario.');
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'CanceledError' && err.code !== 'ERR_CANCELED') console.error(err);
+      } finally {
+        isLoading = false;
+        if (showLoading) setLoading(false);
+      }
+    };
+
+    setActivos([]);
+    cargarEquipos(true);
+    intervalId = setInterval(() => cargarEquipos(false), 15000);
+    return () => { if (intervalId) clearInterval(intervalId); abortCtrl.abort(); };
+  }, [paso, labSel, horarioSel, showToast]);
+
+  const handleSubmitReserva = async () => {
+    if (!aceptaDJ) return showToast('error', 'Debes aceptar la declaración jurada.');
+    setLoading(true);
+    try {
+      await reservaService.crearReservaEstudiante({
+        user_id: userId,
+        id_horario: horarioSel.id_horario,
+        id_activo: activoSel.id_activo,
+        acepto_declaracion_jurada: true,
+      });
+      showToast('ok', '¡Reserva registrada! Tienes 5 minutos para que se unan 10 alumnos o será cancelada.');
+      setPaso(1);
+      navigate('/estudiante/mis-reservas');
+    } catch (err) {
+      showToast('error', err.response?.data?.error || 'Error al reservar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const horariosByDate = horarios.reduce((acc, h) => {
+    if (!acc[h.fecha]) acc[h.fecha] = [];
+    acc[h.fecha].push(h);
+    return acc;
+  }, {});
+
+  return (
+    <div className="est-wizard">
+      {/* PASO 1 */}
+      {paso === 1 && (
+        <div className="est-section">
+          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
+            <h2>Selecciona un Laboratorio</h2>
+            <div className="doc-search-box">
+              <Icon.Search />
+              <input type="text" placeholder="Buscar por código o nombre..." value={labSearchTerm} onChange={e => setLabSearchTerm(e.target.value)} />
+            </div>
+          </div>
+          {loading ? <div className="est-loading">Cargando laboratorios...</div> : (
+            <div className="est-lab-grid">
+              {laboratorios.filter(lab => {
+                const term = labSearchTerm.toLowerCase();
+                return (lab.nombre||'').toLowerCase().includes(term) || (lab.codigo_patrimonio||'').toLowerCase().includes(term);
+              }).map(lab => (
+                <button key={lab.id_laboratorio} className="est-lab-card" onClick={() => { setLabSel(lab); setHorarioSel(null); setActivoSel(null); setPaso(2); }}>
+                  <div className="est-lab-name">{lab.nombre}</div>
+                  <div className="est-lab-foot">🖥 {lab.equipos_operativos}/{lab.aforo_maximo} operativos</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PASO 2 */}
+      {paso === 2 && (
+        <div className="est-section">
+          <button className="est-back" onClick={() => setPaso(1)} style={{ marginBottom:16 }}><Icon.ChevronLeft /> Volver</button>
+          <h2>Horarios Disponibles</h2>
+          <div className="est-calendar">
+            {Object.entries(horariosByDate).map(([fecha, slots]) => (
+              <div key={fecha} className="est-cal-day">
+                <div className="est-cal-date">{fecha}</div>
+                {slots.map(h => (
+                  <button
+                    key={h.id_horario}
+                    className={`est-cal-slot ${!h.es_reservable ? 'blocked' : ''}`}
+                    onClick={() => { if (!h.es_reservable) return; setHorarioSel(h); setActivoSel(null); setPaso(3); }}
+                    disabled={!h.es_reservable}
+                    title={!h.es_reservable ? "Bloqueado por límite de 24h" : ""}
+                  >
+                    {h.hora_inicio.slice(0,5)} - {h.hora_fin.slice(0,5)}
+                    {!h.es_reservable && <span style={{display:'block',fontSize:10,opacity:0.6}}>Bloqueado</span>}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PASO 3 */}
+      {paso === 3 && (
+        <div className="est-section">
+          <button className="est-back" onClick={() => setPaso(2)} style={{ marginBottom:16 }}><Icon.ChevronLeft /> Volver</button>
+          <h2>Mapa de Equipos</h2>
+          <LabMap activos={activos} activoSel={activoSel} onSelect={setActivoSel} {...getLabLayout(labSel?.codigo_patrimonio)} />
+
+          {activoSel && (
+            <div className="est-activo-panel">
+              <div className="est-activo-panel-header">
+                <div className="est-activo-panel-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{width:20,height:20}}><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="1" y1="15" x2="4" y2="15"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="12" x2="23" y2="12"/><line x1="20" y1="15" x2="23" y2="15"/></svg>
+                </div>
+                <div className="est-activo-panel-title">
+                  <strong>{activoSel.tipo_activo_nombre || 'Equipo'}</strong>
+                  <span className="est-activo-badge"><span style={{width:7,height:7,borderRadius:'50%',background:'#10b981',display:'inline-block',marginRight:4}}/>Operativo</span>
+                </div>
+                <button className="est-activo-panel-close" onClick={() => setActivoSel(null)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div className="est-activo-panel-body">
+                <div className="est-activo-chips">
+                  <div className="est-activo-chip"><span className="est-activo-chip-label">Código</span><strong>{activoSel.codigo_patrimonio||'—'}</strong></div>
+                  <div className="est-activo-chip"><span className="est-activo-chip-label">N° Serie</span><strong>{activoSel.num_serie||'—'}</strong></div>
+                </div>
+                {(() => {
+                  const puestoNum = activoSel.num_serie?.split('-').slice(-1)[0];
+                  if (!puestoNum) return null;
+                  const perifericos = activos.filter(a => a.id_activo !== activoSel.id_activo && a.num_serie?.endsWith(`-${puestoNum}`));
+                  if (!perifericos.length) return null;
+                  return (
+                    <div className="est-perifericos">
+                      <div className="est-perifericos-title">Periféricos incluidos en el puesto:</div>
+                      {perifericos.map(p => (
+                        <div key={p.id_activo} className="est-periferico-row">
+                          <span className="est-periferico-tipo">{p.tipo_activo_nombre}</span>
+                          <span className="est-periferico-serie">{p.num_serie}</span>
+                          <span className={`est-periferico-dot ${p.estado==='Operativo'?'ok':'bad'}`}/>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+          <button className="est-btn-primary" onClick={() => setPaso(4)} disabled={!activoSel}>Continuar</button>
+        </div>
+      )}
+
+      {/* PASO 4 */}
+      {paso === 4 && (
+        <div className="est-section est-confirm">
+          <button className="est-back" onClick={() => setPaso(3)} style={{ marginBottom:16 }}><Icon.ChevronLeft /> Volver</button>
+          <h2>Confirmar Reserva</h2>
+          <div className="est-confirm-card">
+            <div className="est-confirm-row"><span>Laboratorio</span><strong>{labSel?.nombre}</strong></div>
+            <div className="est-confirm-row"><span>Código</span><strong>{labSel?.codigo_patrimonio}</strong></div>
+            <div className="est-confirm-row"><span>Fecha</span><strong>{horarioSel?.fecha}</strong></div>
+            <div className="est-confirm-row"><span>Horario</span><strong>{horarioSel?.hora_inicio?.slice(0,5)} – {horarioSel?.hora_fin?.slice(0,5)}</strong></div>
+            <div className="est-confirm-row"><span>Equipo</span><strong>{activoSel?.codigo_patrimonio||activoSel?.num_serie||'1 equipo'}</strong></div>
+          </div>
+
+          <div className="est-dj-box">
+            <div className="est-dj-header" onClick={() => setShowDJ(!showDJ)} style={{ cursor:'pointer',display:'flex',alignItems:'center',gap:8 }}>
+              <Icon.Shield />
+              <span>Declaración Jurada Digital</span>
+              <span style={{ marginLeft:'auto',fontSize:12,opacity:0.6 }}>{showDJ ? '▲ Ocultar' : '▼ Leer'}</span>
+            </div>
+            {showDJ && (
+              <div className="est-dj-text" style={{ marginTop:12 }}>
+                <p>Yo, <strong>{nombre}</strong>, declaro bajo juramento que:</p>
+                <ol style={{ paddingLeft:20,marginTop:8 }}>
+                  <li style={{ marginBottom:6 }}>Asumo plena responsabilidad sobre el equipo <strong>{activoSel?.codigo_patrimonio||'asignado'}</strong> del laboratorio <strong>{labSel?.nombre}</strong> durante el horario reservado.</li>
+                  <li style={{ marginBottom:6 }}>Me comprometo a reportar cualquier daño, rayadura o anomalía física al asistente de laboratorio de forma inmediata.</li>
+                  <li style={{ marginBottom:6 }}>El equipo informático será utilizado exclusivamente para fines académicos y de investigación.</li>
+                  <li style={{ marginBottom:6 }}>Entiendo que el mal uso, retiro de periféricos o daños intencionales generará la cancelación de mi acceso y las penalizaciones académicas correspondientes.</li>
+                </ol>
+              </div>
+            )}
+            <label className="est-dj-check" style={{ display:'flex',alignItems:'center',gap:10,marginTop:12,cursor:'pointer' }}>
+              <input type="checkbox" checked={aceptaDJ} onChange={e => setAceptaDJ(e.target.checked)} style={{ cursor:'pointer' }} />
+              <span>He leído y acepto la Declaración Jurada de Responsabilidad Estudiantil</span>
+            </label>
+          </div>
+
+          <button className="est-btn-primary" onClick={handleSubmitReserva} disabled={loading || !aceptaDJ}>
+            {loading ? 'Procesando...' : 'Confirmar y Finalizar Reserva'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default EstudianteReservar;
