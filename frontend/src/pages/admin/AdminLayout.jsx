@@ -141,7 +141,6 @@ function AdminLayout() {
     setReservaDetalleModal,
     handleCancelarReservaAdmin, handleAsistencia,
     fetchReservas, fetchLaboratorios, fetchHistorialReservas,
-    reservas,
   };
 
   return (

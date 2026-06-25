@@ -1,0 +1,21 @@
+# Archivos que NO se suben al build de Cloud Run (gcloud run deploy --source).
+# Si este archivo existe, gcloud lo usa en lugar de .gitignore.
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+.venv/
+entorno/
+env/
+venv/
+db.sqlite3
+*.sqlite3
+staticfiles/
+media/
+scratch/
+scratch_test_race.py
+scripts sql/

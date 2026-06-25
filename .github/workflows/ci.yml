@@ -83,3 +83,12 @@ jobs:
         npm install
         npm run lint --if-present
         npm test -- --passWithNoTests
+
+    # Compila igual que el despliegue (CI=true trata warnings como errores).
+    # Detecta fallos de build en el PR, antes de llegar a producción.
+    - name: Build de producción (verificación)
+      env:
+        CI: true
+      run: |
+        cd frontend
+        npm run build

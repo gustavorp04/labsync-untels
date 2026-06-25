@@ -11,19 +11,44 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# -----------------------------------------------------------------------------
+# Carga de variables desde un archivo .env local (solo desarrollo).
+# No sobrescribe variables ya presentes en el entorno (en Cloud Run / Docker /
+# CI mandan las variables reales). Si no existe .env, no hace nada.
+# -----------------------------------------------------------------------------
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding='utf-8').splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith('#') or '=' not in _line:
+            continue
+        _key, _, _val = _line.partition('=')
+        os.environ.setdefault(_key.strip(), _val.strip().strip('"').strip("'"))
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-desarrollo-local-no-usar-en-pro')
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').strip().lower() in ('true', '1', 'yes', 'on')
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# En desarrollo (DEBUG=True) se permite una clave por defecto; en producción
+# (DEBUG=False) la variable de entorno SECRET_KEY es obligatoria.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-desarrollo-local-no-usar-en-pro'
+    else:
+        raise ImproperlyConfigured(
+            'La variable de entorno SECRET_KEY es obligatoria cuando DEBUG=False. '
+            'Defínela en el entorno de despliegue (Cloud Run / Docker / CI).'
+        )
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
