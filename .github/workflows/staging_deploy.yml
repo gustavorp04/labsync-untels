@@ -60,6 +60,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Aplicar migraciones a la BD de producción ANTES de desplegar el código nuevo.
+      # Paso explícito y observable: si una migración falla, el workflow se pone rojo
+      # y el deploy no continua (no dependemos del arranque del contenedor para migrar).
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r backend/requirements.txt
+
+      - name: Aplicar migraciones a la BD de producción
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          cd backend
+          python manage.py migrate --no-input
+
       - name: Autenticar en Google Cloud
         uses: google-github-actions/auth@v2
         with:
