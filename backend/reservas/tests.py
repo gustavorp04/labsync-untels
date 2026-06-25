@@ -12,6 +12,7 @@ from reservas.models import (
     HorarioDisponible, Reserva, ActivoLaboratorio, TipoActivo, CategoriaActivo, 
     ReservaDetalle, HistorialReserva
 )
+from reservas.utils.auth import hash_session_token
 
 # Cliente de rest_framework
 # pyrefly: ignore [missing-import]
@@ -41,7 +42,7 @@ class LaboratorioAPITests(TestCase):
         self.token_value = 'dummy_token_hex_32_chars_value'
         self.sesion = SesionUsuario.objects.create(
             id_usuario=self.user,
-            token=self.token_value,
+            token=hash_session_token(self.token_value),
             fecha_expiracion=timezone.now() + timedelta(hours=24)
         )
         
@@ -135,14 +136,14 @@ class InhabilitacionLaboratorioTests(TestCase):
         self.student_token = 'student_token_value_32_chars_long_xyz'
         SesionUsuario.objects.create(
             id_usuario=self.student,
-            token=self.student_token,
+            token=hash_session_token(self.student_token),
             fecha_expiracion=timezone.now() + timedelta(hours=2)
         )
         
         self.admin_token = 'admin_token_value_32_chars_long_abc'
         SesionUsuario.objects.create(
             id_usuario=self.admin,
-            token=self.admin_token,
+            token=hash_session_token(self.admin_token),
             fecha_expiracion=timezone.now() + timedelta(hours=2)
         )
         
@@ -323,7 +324,7 @@ class NotificacionIncidenciaTests(TestCase):
         self.admin_token = 'admin_token_value_32_chars_long_abc'
         SesionUsuario.objects.create(
             id_usuario=self.admin,
-            token=self.admin_token,
+            token=hash_session_token(self.admin_token),
             fecha_expiracion=timezone.now() + timedelta(hours=2)
         )
         
