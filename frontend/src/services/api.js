@@ -10,6 +10,11 @@ const api = axios.create({
   withCredentials: true,   // C-2: envía la cookie httpOnly auth_token en cada request
   headers: {
     'Content-Type': 'application/json',
+    // S-1 (CWE-352): cabecera no-simple que obliga al navegador a hacer preflight
+    // CORS en cada petición que muta estado; el backend la exige para la auth por
+    // cookie, de modo que un sitio cross-site no autorizado no puede ejecutar la
+    // petición real (protección CSRF).
+    'X-Requested-With': 'XMLHttpRequest',
   },
 });
 

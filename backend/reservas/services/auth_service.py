@@ -1,14 +1,14 @@
-import re
+import logging
 import hashlib
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils.crypto import get_random_string
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import timedelta
 from ..models import Usuario, PasswordReset
+
+logger = logging.getLogger('reservas')
 
 def autenticar_usuario(codigo_universitario, password, rol_nombre):
     try:
@@ -28,7 +28,10 @@ def autenticar_usuario(codigo_universitario, password, rol_nombre):
 def solicitar_recuperacion_password(email):
     try:
         user = Usuario.objects.get(email=email)
-        token = get_random_string(6).upper()
+        # S-3 (CWE-330): código de 8 caracteres sobre un alfabeto de 32 símbolos
+        # (sin caracteres ambiguos 0/O/1/I) → ~32^8 combinaciones, en mayúsculas
+        # ya canónicas (el .upper() previo colapsaba el alfabeto y reducía la entropía).
+        token = get_random_string(8, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')
         token_hashed = hashlib.sha256(token.encode('utf-8')).hexdigest()
         
         # Limpiar antiguos y crear nuevo
@@ -45,8 +48,6 @@ def solicitar_recuperacion_password(email):
     except Usuario.DoesNotExist:
         return True, "Si el correo está registrado, recibirás las instrucciones."
     except Exception as e:
-        import logging
-        logger = logging.getLogger('reservas')
         logger.error("Error en solicitar_recuperacion_password para %s: %s", email, e)
         return False, "No se pudo enviar el correo. Intente más tarde."
 
@@ -68,8 +69,6 @@ def enviar_email_reset(email, token):
     try:
         msg.send()
     except Exception as e:
-        import logging
-        logger = logging.getLogger('reservas')
         logger.error("Error al enviar email de recuperación a %s: %s", email, e)
         raise
 
@@ -112,8 +111,6 @@ def verificar_token(token):
 def purgar_sesiones_expiradas():
     """Elimina sesiones vencidas para evitar crecimiento indefinido de SesionUsuario."""
     from ..models import SesionUsuario
-    import logging
-    logger = logging.getLogger('reservas')
     ahora = timezone.now()
     deleted, _ = SesionUsuario.objects.filter(fecha_expiracion__lt=ahora).delete()
     if deleted:

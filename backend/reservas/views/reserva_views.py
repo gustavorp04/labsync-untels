@@ -159,9 +159,9 @@ def mis_reservas(request, id_usuario):
                     acepta_dj=acepta_dj
                 )
             except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return Response({'error': f"Error interno: {str(e)}"}, status=500)
+                # S-4 (CWE-209): registrar el detalle internamente, no exponerlo.
+                logger.error("Error al crear reserva de estudiante: %s", e, exc_info=True)
+                return Response({'error': "Error interno del servidor. Intente más tarde."}, status=500)
 
             if error:
                 return Response({'error': error}, status=409)
@@ -261,10 +261,10 @@ def cancelar_reserva(request, id_usuario, id_reserva):
 
         return Response({'mensaje': 'Reserva cancelada correctamente.'})
     except Exception as e:
+        # S-4 (CWE-209): no exponer detalles internos de la excepción al cliente.
         logger.error("Error al cancelar reserva %s: %s", id_reserva, e, exc_info=True)
         return Response({
-            'error': "Error interno al procesar la cancelación.",
-            'detalle': str(e)
+            'error': "Error interno al procesar la cancelación."
         }, status=500)
 
 
@@ -272,7 +272,13 @@ def cancelar_reserva(request, id_usuario, id_reserva):
 @permission_classes([IsAuthenticated, IsAdminOrJefatura])  # ID-05: solo admin/jefatura
 def marcar_asistencia(request, id_reserva):
     """PBI-06: Administrador marca asistencia o No-Show."""
-    asistio = request.data.get('asistio', False)
+    # L-4 (CWE-704): coerción explícita — un string como "false" es truthy en Python
+    # y marcaría Completada por error.
+    raw_asistio = request.data.get('asistio', False)
+    if isinstance(raw_asistio, str):
+        asistio = raw_asistio.strip().lower() in ('true', '1', 'yes', 'si', 'sí')
+    else:
+        asistio = bool(raw_asistio)
     ok, error = reserva_service.marcar_asistencia(id_reserva, asistio)
     
     if not ok:
@@ -305,17 +311,23 @@ def get_historial_reservas(request):
     return Response(serializer.data)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsJefatura])
-def exportar_csv_jefatura(request):
-    """PBI-10: Exportar listado de reservas y asistencias a CSV para Jefatura."""
-    fecha_inicio = request.query_params.get('fecha_inicio')
-    fecha_fin = request.query_params.get('fecha_fin')
-    laboratorio_id = request.query_params.get('laboratorio_id')
+# Q-3: cabeceras y construcción de filas compartidas por los exportadores CSV/XLSX.
+_CABECERAS_REPORTE = [
+    'Titular', 'Rol', 'Laboratorio', 'Fecha', 'Hora Inicio', 'Hora Fin',
+    'Estado Reserva', 'Asistencia', 'Cantidad Alumnos', 'Motivo Cancelación',
+]
 
+
+def _filtrar_reservas_reporte(request):
+    """Q-3: queryset de reservas con los filtros opcionales de fecha/laboratorio,
+    común a los exportadores de Jefatura."""
     reservas = Reserva.objects.select_related(
         'id_usuario', 'id_usuario__id_rol', 'id_horario', 'id_horario__id_laboratorio', 'asistencia'
     ).order_by('-created_at')
+
+    fecha_inicio = request.query_params.get('fecha_inicio')
+    fecha_fin = request.query_params.get('fecha_fin')
+    laboratorio_id = request.query_params.get('laboratorio_id')
 
     if fecha_inicio:
         reservas = reservas.filter(id_horario__fecha__gte=fecha_inicio)
@@ -323,6 +335,51 @@ def exportar_csv_jefatura(request):
         reservas = reservas.filter(id_horario__fecha__lte=fecha_fin)
     if laboratorio_id:
         reservas = reservas.filter(id_horario__id_laboratorio_id=laboratorio_id)
+    return reservas
+
+
+def _fila_reporte(r):
+    """Q-3: convierte una Reserva en la fila de 10 columnas del reporte."""
+    titular = r.id_usuario.nombre if r.id_usuario else 'N/A'
+    rol = r.id_usuario.id_rol.nombre if r.id_usuario and r.id_usuario.id_rol else 'N/A'
+
+    horario = r.id_horario
+    if horario:
+        laboratorio = horario.id_laboratorio.nombre if horario.id_laboratorio else 'N/A'
+        fecha = horario.fecha.strftime('%Y-%m-%d')
+        hora_inicio = horario.hora_inicio.strftime('%H:%M')
+        hora_fin = horario.hora_fin.strftime('%H:%M')
+    else:
+        laboratorio, fecha, hora_inicio, hora_fin = 'N/A', 'N/A', 'N/A', 'N/A'
+
+    estado = r.estado
+
+    if hasattr(r, 'asistencia') and r.asistencia:
+        asistencia = 'Sí' if r.asistencia.asistio else 'No'
+    elif estado == 'Completada':
+        asistencia = 'Sí'
+    elif estado == 'No-show':
+        asistencia = 'No'
+    else:
+        asistencia = 'N/A'
+
+    motivo_cancel = 'N/A'
+    if estado == 'Cancelada':
+        historial = r.historialreserva_set.filter(estado_nuevo='Cancelada').first()
+        if historial:
+            motivo_cancel = historial.observacion or 'N/A'
+
+    return [
+        titular, rol, laboratorio, fecha, hora_inicio, hora_fin,
+        estado, asistencia, r.cantidad_alumnos, motivo_cancel,
+    ]
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsJefatura])
+def exportar_csv_jefatura(request):
+    """PBI-10: Exportar listado de reservas y asistencias a CSV para Jefatura."""
+    reservas = _filtrar_reservas_reporte(request)
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="reporte_reservas.csv"'
@@ -331,64 +388,9 @@ def exportar_csv_jefatura(request):
     response.write('\ufeff')
 
     writer = csv.writer(response)
-    writer.writerow([
-        'Titular',
-        'Rol',
-        'Laboratorio',
-        'Fecha',
-        'Hora Inicio',
-        'Hora Fin',
-        'Estado Reserva',
-        'Asistencia',
-        'Cantidad Alumnos',
-        'Motivo Cancelación'
-    ])
-
+    writer.writerow(_CABECERAS_REPORTE)
     for r in reservas:
-        titular = r.id_usuario.nombre if r.id_usuario else 'N/A'
-        rol = r.id_usuario.id_rol.nombre if r.id_usuario and r.id_usuario.id_rol else 'N/A'
-        
-        horario = r.id_horario
-        if horario:
-            laboratorio = horario.id_laboratorio.nombre if horario.id_laboratorio else 'N/A'
-            fecha = horario.fecha.strftime('%Y-%m-%d')
-            hora_inicio = horario.hora_inicio.strftime('%H:%M')
-            hora_fin = horario.hora_fin.strftime('%H:%M')
-        else:
-            laboratorio, fecha, hora_inicio, hora_fin = 'N/A', 'N/A', 'N/A', 'N/A'
-            
-        estado = r.estado
-        
-        # Determine attendance
-        if hasattr(r, 'asistencia') and r.asistencia:
-            asistencia = 'Sí' if r.asistencia.asistio else 'No'
-        elif estado == 'Completada':
-            asistencia = 'Sí'
-        elif estado == 'No-show':
-            asistencia = 'No'
-        else:
-            asistencia = 'N/A'
-            
-        alumnos = r.cantidad_alumnos
-        
-        motivo_cancel = 'N/A'
-        if estado == 'Cancelada':
-            historial = r.historialreserva_set.filter(estado_nuevo='Cancelada').first()
-            if historial:
-                motivo_cancel = historial.observacion or 'N/A'
-
-        writer.writerow([
-            titular,
-            rol,
-            laboratorio,
-            fecha,
-            hora_inicio,
-            hora_fin,
-            estado,
-            asistencia,
-            alumnos,
-            motivo_cancel
-        ])
+        writer.writerow(_fila_reporte(r))
 
     return response
 
@@ -401,30 +403,13 @@ def exportar_xlsx_jefatura(request):
     from openpyxl.styles import PatternFill, Font
     import io
 
-    fecha_inicio = request.query_params.get('fecha_inicio')
-    fecha_fin = request.query_params.get('fecha_fin')
-    laboratorio_id = request.query_params.get('laboratorio_id')
-
-    reservas = Reserva.objects.select_related(
-        'id_usuario', 'id_usuario__id_rol', 'id_horario', 'id_horario__id_laboratorio', 'asistencia'
-    ).order_by('-created_at')
-
-    if fecha_inicio:
-        reservas = reservas.filter(id_horario__fecha__gte=fecha_inicio)
-    if fecha_fin:
-        reservas = reservas.filter(id_horario__fecha__lte=fecha_fin)
-    if laboratorio_id:
-        reservas = reservas.filter(id_horario__id_laboratorio_id=laboratorio_id)
+    reservas = _filtrar_reservas_reporte(request)
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Reporte Reservas"
 
-    cabeceras = [
-        'Titular', 'Rol', 'Laboratorio', 'Fecha', 'Hora Inicio', 'Hora Fin',
-        'Estado Reserva', 'Asistencia', 'Cantidad Alumnos', 'Motivo Cancelación'
-    ]
-    ws.append(cabeceras)
+    ws.append(_CABECERAS_REPORTE)
 
     # Estilos para la cabecera (Azul oscuro y texto blanco)
     fill_color = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
@@ -435,54 +420,13 @@ def exportar_xlsx_jefatura(request):
         cell.font = font_blanca
 
     for r in reservas:
-        titular = r.id_usuario.nombre if r.id_usuario else 'N/A'
-        rol = r.id_usuario.id_rol.nombre if r.id_usuario and r.id_usuario.id_rol else 'N/A'
-        
-        horario = r.id_horario
-        if horario:
-            laboratorio = horario.id_laboratorio.nombre if horario.id_laboratorio else 'N/A'
-            fecha = horario.fecha.strftime('%Y-%m-%d')
-            hora_inicio = horario.hora_inicio.strftime('%H:%M')
-            hora_fin = horario.hora_fin.strftime('%H:%M')
-        else:
-            laboratorio, fecha, hora_inicio, hora_fin = 'N/A', 'N/A', 'N/A', 'N/A'
-            
-        estado = r.estado
-        
-        if hasattr(r, 'asistencia') and r.asistencia:
-            asistencia = 'Sí' if r.asistencia.asistio else 'No'
-        elif estado == 'Completada':
-            asistencia = 'Sí'
-        elif estado == 'No-show':
-            asistencia = 'No'
-        else:
-            asistencia = 'N/A'
-            
-        alumnos = r.cantidad_alumnos
-        
-        motivo_cancel = 'N/A'
-        if estado == 'Cancelada':
-            historial = r.historialreserva_set.filter(estado_nuevo='Cancelada').first()
-            if historial:
-                motivo_cancel = historial.observacion or 'N/A'
-
-        ws.append([
-            titular, rol, laboratorio, fecha, hora_inicio, hora_fin,
-            estado, asistencia, alumnos, motivo_cancel
-        ])
+        ws.append(_fila_reporte(r))
 
     # Ajustar ancho de columnas automáticamente
     for col in ws.columns:
-        max_length = 0
         column = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2)
-        ws.column_dimensions[column].width = adjusted_width
+        max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
+        ws.column_dimensions[column].width = max_length + 2
 
     # Guardar en memoria
     buffer = io.BytesIO()

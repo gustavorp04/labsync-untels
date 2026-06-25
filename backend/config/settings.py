@@ -90,10 +90,29 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # S-1 (CWE-352): exige cabecera no-simple (X-Requested-With) en las peticiones
+    # que mutan estado y se autentican por cookie, forzando preflight CORS y
+    # bloqueando así los ataques CSRF cross-site.
+    'reservas.utils.security.RequireRequestedWithForCookieAuthMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = False      # ID-08: usa la whitelist de CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True       # C-2: necesario para que el navegador envíe la cookie auth_token en cross-origin
+
+# =============================================================================
+# S-5 · HARDENING DE SEGURIDAD (solo activo en producción, DEBUG=False)
+# =============================================================================
+# Evita degradar la seguridad en local (HTTP) pero la fuerza en despliegue.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+if not DEBUG:
+    # Cloud Run / proxies terminan TLS y reenvían el esquema en esta cabecera.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000          # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 ROOT_URLCONF = 'config.urls'
 
@@ -119,7 +138,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 #Configuración para PostgreSQL
-import os
 import dj_database_url
 import sys
 
@@ -145,6 +163,29 @@ else:
 
 
 
+# =============================================================================
+# CACHE (P-3)
+# =============================================================================
+# Throttling (S-3) y el caché de activos usan este backend. En producción con
+# varios workers de gunicorn, LocMemCache es por-proceso y no comparte estado;
+# si se define REDIS_URL se usa un caché compartido (backend nativo de Django,
+# sin dependencias extra). En local cae a LocMemCache.
+_redis_url = os.environ.get('REDIS_URL')
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -167,7 +208,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-pe'
 
 TIME_ZONE = 'America/Lima'
 
@@ -202,8 +243,10 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'tu-correo-local@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'tu-token-local')
+# S-6: sin credenciales por defecto. Si no se configuran, el envío de correo
+# simplemente fallará de forma controlada (ya está manejado en el código).
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
@@ -261,6 +304,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/min',
         'login': '5/min',
+        # S-3: limitar fuerza bruta sobre recuperación/verificación de código.
+        'forgot_password': '5/hour',
+        'verify_token': '20/hour',
     },
 }
 

@@ -31,15 +31,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             'id_rol', 'perfildocente', 'perfilestudiante', 'perfilestudiante__id_carrera'
         )
 
-    # --- LOG TEMPORAL (eliminar tras diagnóstico) ---
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            logger.warning('ERRORES CREAR USUARIO: %s', serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return super().create(request, *args, **kwargs)
-    # -------------------------------------------------
-
 
 class ReservaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]

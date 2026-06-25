@@ -13,6 +13,7 @@ from ..serializers.inventario_serializers import (
 from .. import services
 from ..services import laboratorio_service
 from ..utils.auth import IsAdminOrJefatura
+from ..utils.validators import validar_imagen
 
 
 class CategoriaActivoListView(generics.ListAPIView):
@@ -135,6 +136,10 @@ class ActivoUpdateView(generics.UpdateAPIView):
         usuario_id = request.user.id_usuario
 
         imagen = request.FILES.get('imagen', None)
+        error_imagen = validar_imagen(imagen)  # S-8
+        if error_imagen:
+            return Response({"error": error_imagen}, status=status.HTTP_400_BAD_REQUEST)
+
         activo, laboratorio, mensajes, error = laboratorio_service.actualizar_estado_activo(
             id_activo, nuevo_estado, motivo, usuario_id, imagen=imagen
         )
@@ -187,9 +192,6 @@ class HistorialPorLaboratorioView(generics.ListAPIView):
 # PBI-12 — Endpoint para inhabilitar laboratorio manualmente
 # =============================================================================
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework import status
 from ..services.laboratorio_service import inhabilitar_laboratorio
 
 @api_view(['POST'])
@@ -204,10 +206,17 @@ def inhabilitar_laboratorio_view(request, id_laboratorio):
         return Response({'error': 'Debe indicar el motivo de inhabilitación.'}, status=status.HTTP_400_BAD_REQUEST)
 
     imagen = request.FILES.get('imagen', None)
+    error_imagen = validar_imagen(imagen)  # S-8
+    if error_imagen:
+        return Response({'error': error_imagen}, status=status.HTTP_400_BAD_REQUEST)
+
+    # S-7 (CWE-639): el autor se toma de la sesión autenticada, no del body,
+    # para no falsear la auditoría.
+    usuario_id = request.user.id_usuario if hasattr(request.user, 'id_usuario') else None
     laboratorio, notificados, error = inhabilitar_laboratorio(
         id_laboratorio=id_laboratorio,
         motivo=motivo,
-        usuario_id=request.data.get('usuario_id'),
+        usuario_id=usuario_id,
         imagen=imagen,
     )
 
@@ -280,6 +289,9 @@ def registrar_incidencia_view(request, id_laboratorio, id_activo):
 
     # Imagen opcional (multipart/form-data)
     imagen = request.FILES.get('imagen', None)
+    error_imagen = validar_imagen(imagen)  # S-8
+    if error_imagen:
+        return Response({"error": error_imagen}, status=status.HTTP_400_BAD_REQUEST)
 
     # Llamar al servicio
     incidencia, usuario_responsable, error = laboratorio_service.registrar_incidencia(

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
@@ -6,6 +7,16 @@ from django.utils import timezone
 from reservas.models import SesionUsuario
 
 logger = logging.getLogger(__name__)
+
+
+def hash_session_token(raw_token):
+    """S-2 (CWE-312): los tokens de sesión se guardan hasheados en BD.
+
+    Así, una filtración de `sesion_usuario` no expone tokens reutilizables.
+    El token en claro solo vive en la cookie httpOnly del cliente.
+    """
+    return hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+
 
 class CustomTokenAuthentication(BaseAuthentication):
     def authenticate(self, request):
@@ -28,26 +39,29 @@ class CustomTokenAuthentication(BaseAuthentication):
         if not token:
             return None
 
+        # S-2: en BD el token está hasheado; comparamos por hash, nunca en claro.
+        token_hash = hash_session_token(token)
+
         now = timezone.now()
         try:
             sesion = SesionUsuario.objects.select_related('id_usuario', 'id_usuario__id_rol').get(
-                token=token,
+                token=token_hash,
                 fecha_expiracion__gt=now
             )
-            logger.warning('[AUTH] OK — usuario=%s rol=%s expira=%s',
-                           sesion.id_usuario.nombre,
-                           getattr(sesion.id_usuario.id_rol, 'nombre', None),
-                           sesion.fecha_expiracion)
+            logger.debug('[AUTH] OK — usuario=%s rol=%s expira=%s',
+                         sesion.id_usuario.nombre,
+                         getattr(sesion.id_usuario.id_rol, 'nombre', None),
+                         sesion.fecha_expiracion)
             return (sesion.id_usuario, token)
         except SesionUsuario.DoesNotExist:
             # Distinguir si el token existe pero expiró, o no existe en absoluto
             try:
-                sesion_vencida = SesionUsuario.objects.select_related('id_usuario').get(token=token)
-                logger.warning('[AUTH] FALLO — sesión EXPIRADA: usuario=%s, expiró=%s, ahora=%s',
-                               sesion_vencida.id_usuario.nombre,
-                               sesion_vencida.fecha_expiracion, now)
+                sesion_vencida = SesionUsuario.objects.select_related('id_usuario').get(token=token_hash)
+                logger.info('[AUTH] FALLO — sesión EXPIRADA: usuario=%s, expiró=%s, ahora=%s',
+                            sesion_vencida.id_usuario.nombre,
+                            sesion_vencida.fecha_expiracion, now)
             except SesionUsuario.DoesNotExist:
-                logger.warning('[AUTH] FALLO — token NO EXISTE en sesion_usuario: ...%s', token[-8:])
+                logger.info('[AUTH] FALLO — token NO EXISTE en sesion_usuario')
             raise AuthenticationFailed('Token inválido o expirado')
 
 

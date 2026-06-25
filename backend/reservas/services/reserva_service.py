@@ -132,7 +132,16 @@ def enviar_recordatorios_24h():
 # PBI-07 · PENALIZACIONES POR NO-SHOW
 # =============================================================================
 
-SEMANAS_PENALIZACION = int(get_config('SEMANAS_PENALIZACION', 2))
+def _semanas_penalizacion():
+    """L-2: lee la configuración en cada llamada (no al importar el módulo).
+
+    Evita consultar la BD durante el arranque/migraciones y permite que un
+    cambio en ConfiguracionSistema surta efecto sin reiniciar el proceso.
+    """
+    try:
+        return int(get_config('SEMANAS_PENALIZACION', 2))
+    except (TypeError, ValueError):
+        return 2
 
 
 def aplicar_penalizacion_noshow(reserva):
@@ -159,7 +168,7 @@ def aplicar_penalizacion_noshow(reserva):
         return
 
     ahora = timezone.now()
-    fecha_fin = ahora + timedelta(weeks=SEMANAS_PENALIZACION)
+    fecha_fin = ahora + timedelta(weeks=_semanas_penalizacion())
 
     try:
         with transaction.atomic():

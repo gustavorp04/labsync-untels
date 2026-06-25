@@ -2,10 +2,9 @@ FROM node:18
 
 WORKDIR /app
 
-# Usar Yarn en lugar de NPM para evitar los OOM (Out Of Memory)
-# al resolver los conflictos de dependencias entre React 19 y CRA 5.
-COPY package.json yarn.lock* ./
-RUN yarn install
+# Copiar los archivos de dependencias e instalar con npm
+COPY package.json package-lock.json* ./
+RUN npm install
 
 # Copiar el código fuente completo
 COPY . .

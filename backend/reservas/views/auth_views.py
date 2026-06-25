@@ -9,9 +9,16 @@ from rest_framework.throttling import AnonRateThrottle
 
 class LoginRateThrottle(AnonRateThrottle):
     scope = 'login'
+
+class ForgotPasswordThrottle(AnonRateThrottle):
+    scope = 'forgot_password'
+
+class VerifyTokenThrottle(AnonRateThrottle):
+    scope = 'verify_token'
 from ..services import auth_service
 from ..serializers.auth_serializers import LoginSerializer, ResetPasswordSerializer, UserSerializer
 from ..models import SesionUsuario, PerfilEstudiante, Penalizacion
+from ..utils.auth import hash_session_token
 
 logger = logging.getLogger('reservas')
 
@@ -29,8 +36,10 @@ def _base_login(request, expected_role):
         user, error = auth_service.autenticar_usuario(data['usuario'], data['password'], expected_role)
         
         if error:
-            status_code = 403 if error == "Rol incorrecto" else 400
-            return Response({'error': error}, status=status_code)
+            # L-1: respuesta uniforme para no filtrar si el fallo fue por
+            # credenciales o por rol (anti-enumeración). `autenticar_usuario`
+            # siempre devuelve "Credenciales inválidas".
+            return Response({'error': error}, status=400)
 
         user_data = UserSerializer(user).data
         
@@ -66,16 +75,17 @@ def _base_login(request, expected_role):
                 user_data['penalizacion_fin'] = None
                 user_data['penalizacion_motivo'] = None
 
-        # Crear sesión y token de acceso
+        # Crear sesión y token de acceso.
+        # S-2: el token en claro solo viaja en la cookie; en BD guardamos su hash.
         token = secrets.token_hex(32)
         fecha_expiracion = timezone.now() + timedelta(hours=8)
         SesionUsuario.objects.create(
             id_usuario=user,
-            token=token,
+            token=hash_session_token(token),
             fecha_expiracion=fecha_expiracion
         )
 
-        logger.info(f"Login exitoso para usuario: {data['usuario']} con rol {expected_role}")
+        logger.info("Login exitoso para usuario: %s con rol %s", data['usuario'], expected_role)
 
         # C-2: El token viaja en una cookie httpOnly — no se expone en el body.
         # SameSite=None+Secure en producción (cross-origin Vercel↔GCP);
@@ -121,6 +131,7 @@ def login_jefatura(request):
     return _base_login(request, 'jefatura')
 
 @api_view(['POST'])
+@throttle_classes([ForgotPasswordThrottle])
 def forgot_password(request):
     try:
         email = request.data.get("email")
@@ -160,8 +171,9 @@ def logout_view(request):
     token = request.COOKIES.get('auth_token')
     if token:
         try:
-            SesionUsuario.objects.filter(token=token).delete()
-            logger.info("Logout: sesión invalidada para token …%s", token[-6:])
+            # S-2: en BD el token está hasheado.
+            SesionUsuario.objects.filter(token=hash_session_token(token)).delete()
+            logger.info("Logout: sesión invalidada.")
         except Exception as exc:
             logger.warning("Logout: error al invalidar sesión: %s", exc)
 
@@ -181,6 +193,7 @@ def logout_view(request):
 
 
 @api_view(['POST'])
+@throttle_classes([VerifyTokenThrottle])
 def verify_token(request):
     try:
         token = request.data.get("token")

@@ -3,8 +3,8 @@ from django.db import models
 
 class ActivoLaboratorio(models.Model):
     id_activo = models.AutoField(primary_key=True)
-    id_laboratorio = models.ForeignKey('Laboratorio', models.DO_NOTHING, db_column='id_laboratorio')
-    id_tipo_activo = models.ForeignKey('TipoActivo', models.DO_NOTHING, db_column='id_tipo_activo')
+    id_laboratorio = models.ForeignKey('Laboratorio', models.PROTECT, db_column='id_laboratorio')
+    id_tipo_activo = models.ForeignKey('TipoActivo', models.PROTECT, db_column='id_tipo_activo')
     num_serie = models.CharField(unique=True, max_length=60)
     codigo_patrimonio = models.CharField(max_length=30, blank=True, null=True)
     ESTADOS = [
@@ -20,6 +20,9 @@ class ActivoLaboratorio(models.Model):
     class Meta:
         managed = True
         db_table = 'activo_laboratorio'
+        indexes = [
+            models.Index(fields=['id_laboratorio', 'estado'], name='activo_lab_estado_idx'),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(estado__in=['Operativo', 'Mantenimiento', 'Dado de baja']),
@@ -30,7 +33,7 @@ class ActivoLaboratorio(models.Model):
 
 class Asistencia(models.Model):
     id_asistencia = models.AutoField(primary_key=True)
-    id_reserva = models.OneToOneField('Reserva', models.DO_NOTHING, db_column='id_reserva')
+    id_reserva = models.OneToOneField('Reserva', models.CASCADE, db_column='id_reserva')
     hora_ingreso = models.DateTimeField(blank=True, null=True)
     hora_salida = models.DateTimeField(blank=True, null=True)
     asistio = models.BooleanField()
@@ -42,7 +45,7 @@ class Asistencia(models.Model):
 
 class Carrera(models.Model):
     id_carrera = models.AutoField(primary_key=True)
-    id_facultad = models.ForeignKey('Facultad', models.DO_NOTHING, db_column='id_facultad')
+    id_facultad = models.ForeignKey('Facultad', models.PROTECT, db_column='id_facultad')
     nombre = models.CharField(max_length=100)
 
     class Meta:
@@ -71,7 +74,7 @@ class Facultad(models.Model):
 
 class HorarioDisponible(models.Model):
     id_horario = models.AutoField(primary_key=True)
-    id_laboratorio = models.ForeignKey('Laboratorio', models.DO_NOTHING, db_column='id_laboratorio')
+    id_laboratorio = models.ForeignKey('Laboratorio', models.PROTECT, db_column='id_laboratorio')
     fecha = models.DateField()
     hora_inicio = models.TimeField()
     hora_fin = models.TimeField()
@@ -97,8 +100,8 @@ class HorarioDisponible(models.Model):
 
 class Incidencia(models.Model):
     id_incidencia = models.AutoField(primary_key=True)
-    id_detalle = models.ForeignKey('ReservaDetalle', models.DO_NOTHING, db_column='id_detalle')
-    id_activo = models.ForeignKey(ActivoLaboratorio, models.DO_NOTHING, db_column='id_activo')
+    id_detalle = models.ForeignKey('ReservaDetalle', models.PROTECT, db_column='id_detalle')
+    id_activo = models.ForeignKey(ActivoLaboratorio, models.PROTECT, db_column='id_activo')
     descripcion_dano = models.TextField()
     fecha_reporte = models.DateTimeField()
     estado_activo_post = models.CharField(max_length=20)
@@ -111,8 +114,8 @@ class Incidencia(models.Model):
 
 class Laboratorio(models.Model):
     id_laboratorio = models.AutoField(primary_key=True)
-    id_tipo = models.ForeignKey('TipoLaboratorio', models.DO_NOTHING, db_column='id_tipo')
-    id_facultad = models.ForeignKey(Facultad, models.DO_NOTHING, db_column='id_facultad')
+    id_tipo = models.ForeignKey('TipoLaboratorio', models.PROTECT, db_column='id_tipo')
+    id_facultad = models.ForeignKey(Facultad, models.PROTECT, db_column='id_facultad')
     nombre = models.CharField(max_length=100)
     codigo_patrimonio = models.CharField(unique=True, max_length=30)
     aforo_maximo = models.IntegerField()
@@ -130,7 +133,7 @@ class Laboratorio(models.Model):
 
 
 class PasswordReset(models.Model):
-    id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='id_usuario')
+    id_usuario = models.ForeignKey('Usuario', models.CASCADE, db_column='id_usuario')
     token_hash = models.CharField(unique=True, max_length=255)
     fecha_expiracion = models.DateTimeField()
     usado = models.BooleanField()
@@ -142,8 +145,8 @@ class PasswordReset(models.Model):
 
 class Penalizacion(models.Model):
     id_penalizacion = models.AutoField(primary_key=True)
-    id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='id_usuario')
-    id_reserva = models.OneToOneField('Reserva', models.DO_NOTHING, db_column='id_reserva')
+    id_usuario = models.ForeignKey('Usuario', models.PROTECT, db_column='id_usuario')
+    id_reserva = models.OneToOneField('Reserva', models.PROTECT, db_column='id_reserva')
     fecha_inicio = models.DateTimeField()
     fecha_fin = models.DateTimeField()
     # PBI-07: motivo de la penalización y seguimiento de notificación de expiración
@@ -157,7 +160,7 @@ class Penalizacion(models.Model):
 
 class PerfilDocente(models.Model):
     id_perfil = models.AutoField(primary_key=True)
-    id_usuario = models.OneToOneField('Usuario', models.DO_NOTHING, db_column='id_usuario')
+    id_usuario = models.OneToOneField('Usuario', models.CASCADE, db_column='id_usuario')
     departamento = models.CharField(max_length=100)
 
     class Meta:
@@ -167,8 +170,8 @@ class PerfilDocente(models.Model):
 
 class PerfilEstudiante(models.Model):
     id_perfil = models.AutoField(primary_key=True)
-    id_usuario = models.OneToOneField('Usuario', models.DO_NOTHING, db_column='id_usuario')
-    id_carrera = models.ForeignKey(Carrera, models.DO_NOTHING, db_column='id_carrera')
+    id_usuario = models.OneToOneField('Usuario', models.CASCADE, db_column='id_usuario')
+    id_carrera = models.ForeignKey(Carrera, models.PROTECT, db_column='id_carrera')
     ciclo = models.SmallIntegerField()
 
     class Meta:
@@ -185,8 +188,8 @@ class Reserva(models.Model):
         ('No-show', 'No-show'),
     ]
     id_reserva = models.AutoField(primary_key=True)
-    id_usuario = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='id_usuario')
-    id_horario = models.ForeignKey(HorarioDisponible, models.DO_NOTHING, db_column='id_horario')
+    id_usuario = models.ForeignKey('Usuario', models.PROTECT, db_column='id_usuario')
+    id_horario = models.ForeignKey(HorarioDisponible, models.PROTECT, db_column='id_horario')
     cantidad_alumnos = models.IntegerField()
     acepto_declaracion_jurada = models.BooleanField()
     estado = models.CharField(max_length=20, choices=ESTADOS)
@@ -211,8 +214,8 @@ class Reserva(models.Model):
 
 class ReservaDetalle(models.Model):
     id_detalle = models.AutoField(primary_key=True)
-    id_reserva = models.ForeignKey(Reserva, models.DO_NOTHING, db_column='id_reserva')
-    id_activo = models.ForeignKey(ActivoLaboratorio, models.DO_NOTHING, db_column='id_activo')
+    id_reserva = models.ForeignKey(Reserva, models.CASCADE, db_column='id_reserva')
+    id_activo = models.ForeignKey(ActivoLaboratorio, models.PROTECT, db_column='id_activo')
 
     class Meta:
         managed = True
@@ -231,7 +234,7 @@ class Rol(models.Model):
 
 class TipoActivo(models.Model):
     id_tipo_activo = models.AutoField(primary_key=True)
-    id_categoria = models.ForeignKey(CategoriaActivo, models.DO_NOTHING, db_column='id_categoria')
+    id_categoria = models.ForeignKey(CategoriaActivo, models.PROTECT, db_column='id_categoria')
     nombre = models.CharField(unique=True, max_length=50)
     descripcion = models.CharField(max_length=200, blank=True, null=True)
 
@@ -253,7 +256,7 @@ class TipoLaboratorio(models.Model):
 
 class Usuario(models.Model):
     id_usuario = models.AutoField(primary_key=True)
-    id_rol = models.ForeignKey(Rol, models.DO_NOTHING, db_column='id_rol')
+    id_rol = models.ForeignKey(Rol, models.PROTECT, db_column='id_rol')
     nombre = models.CharField(max_length=120)
     email = models.CharField(unique=True, max_length=150)
     password_hash = models.CharField(max_length=255)
@@ -271,13 +274,13 @@ class Usuario(models.Model):
 
 class HistorialMantenimiento(models.Model):
     id_historial = models.AutoField(primary_key=True)
-    id_activo = models.ForeignKey(ActivoLaboratorio, models.DO_NOTHING, db_column='id_activo')
+    id_activo = models.ForeignKey(ActivoLaboratorio, models.PROTECT, db_column='id_activo')
     estado_anterior = models.CharField(max_length=20)
     estado_nuevo = models.CharField(max_length=20)
     motivo = models.TextField(blank=True, null=True)
-    id_incidencia = models.ForeignKey(Incidencia, models.DO_NOTHING, db_column='id_incidencia', blank=True, null=True)
+    id_incidencia = models.ForeignKey(Incidencia, models.SET_NULL, db_column='id_incidencia', blank=True, null=True)
     fecha_cambio = models.DateTimeField()
-    registrado_por = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='registrado_por')
+    registrado_por = models.ForeignKey(Usuario, models.PROTECT, db_column='registrado_por')
     imagen = models.ImageField(upload_to='mantenimiento/', blank=True, null=True)
 
     class Meta:
@@ -299,11 +302,11 @@ class ConfiguracionSistema(models.Model):
 
 class HistorialReserva(models.Model):
     id_historial = models.AutoField(primary_key=True)
-    reserva = models.ForeignKey('Reserva', models.DO_NOTHING, db_column='id_reserva')
+    reserva = models.ForeignKey('Reserva', models.CASCADE, db_column='id_reserva')
     estado_anterior = models.CharField(max_length=20)
     estado_nuevo = models.CharField(max_length=20)
     fecha_cambio = models.DateTimeField(auto_now_add=True)
-    usuario_cambio = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='usuario_cambio', null=True)
+    usuario_cambio = models.ForeignKey('Usuario', models.SET_NULL, db_column='usuario_cambio', null=True)
     observacion = models.TextField(blank=True, null=True)
 
     class Meta:

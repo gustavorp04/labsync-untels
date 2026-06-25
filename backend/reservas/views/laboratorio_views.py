@@ -1,6 +1,7 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from reservas.models import Laboratorio
+from django.db.models import Prefetch
+from reservas.models import Laboratorio, ActivoLaboratorio
 from reservas.serializers.laboratorio_serializers import (
     LaboratorioListSerializer,
     LaboratorioDetailSerializer,
@@ -73,8 +74,19 @@ class LaboratorioListView(generics.ListAPIView):
         return qs
 
 class LaboratorioDetailView(generics.RetrieveAPIView):
-    """Devuelve el detalle de un lab y sus PCs"""
+    """Devuelve el detalle de un lab y sus PCs.
+    Optimizado con select_related + prefetch_related para evitar N+1 queries
+    (~60 queries → 2-3 queries)."""
     permission_classes = [IsAuthenticated]
-    queryset = Laboratorio.objects.all()
+    queryset = Laboratorio.objects.select_related(
+        'id_tipo', 'id_facultad'
+    ).prefetch_related(
+        Prefetch(
+            'activolaboratorio_set',
+            queryset=ActivoLaboratorio.objects.select_related(
+                'id_tipo_activo'
+            ).order_by('id_tipo_activo__nombre', 'num_serie'),
+        )
+    )
     serializer_class = LaboratorioDetailSerializer
     lookup_field = 'id_laboratorio'

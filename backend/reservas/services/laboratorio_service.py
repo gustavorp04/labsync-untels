@@ -1,6 +1,26 @@
+import logging
+import threading
 from django.db import transaction, models
 from django.utils import timezone
 from ..models import Laboratorio, ActivoLaboratorio, ReservaDetalle, Reserva, HistorialMantenimiento, Usuario
+
+logger = logging.getLogger('reservas')
+
+
+def _enviar_emails_en_segundo_plano(envios):
+    """P-1: Dispara el envío SMTP (bloqueante) en un hilo daemon para no
+    retener la respuesta HTTP. `envios` es una lista de callables sin argumentos;
+    cada uno maneja/loguea sus propios errores."""
+    def _worker():
+        for enviar in envios:
+            try:
+                enviar()
+            except Exception as exc:
+                logger.warning("P-1 | Error al enviar email en segundo plano: %s", exc)
+
+    if not envios:
+        return
+    threading.Thread(target=_worker, daemon=True).start()
 
 def calcular_habilitacion_lab(laboratorio):
     """Regla PBI-02: Valida mínimos operativos."""
@@ -31,6 +51,8 @@ def _cancelar_y_notificar_reservas_futuras(laboratorio, motivo):
         estado__in=['Programada', 'Pendiente']
     ).select_related('id_usuario', 'id_horario', 'id_horario__id_laboratorio')
 
+    from .reserva_service import recalcular_capacidad
+
     notificados = []
     emails_a_enviar = []
     for reserva in reservas_afectadas:
@@ -46,12 +68,10 @@ def _cancelar_y_notificar_reservas_futuras(laboratorio, motivo):
             observacion=f"Cancelación automática PBI-12: Laboratorio inhabilitado. Motivo: {motivo}"
         )
 
-        # Liberar capacidad del horario
-        horario = reserva.id_horario
-        horario.capacidad_ocupada = max(0, (horario.capacidad_ocupada or 0) - 1)
-        if horario.estado == 'Completo':
-            horario.estado = 'Disponible'
-        horario.save()
+        # L-3: liberar capacidad usando la fuente de verdad (conteo real) bajo lock,
+        # en vez de un decremento manual que puede divergir.
+        horario = HorarioDisponible.objects.select_for_update().get(pk=reserva.id_horario_id)
+        recalcular_capacidad(horario)
 
         usuario = reserva.id_usuario
         emails_a_enviar.append({
@@ -220,47 +240,37 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
 
                 success = True
         except Exception as e:
-            error_msg = str(e)
+            # S-4 (CWE-209): registrar el detalle, devolver mensaje genérico.
+            logger.error("Error al actualizar estado del activo %s: %s", id_activo, e, exc_info=True)
+            error_msg = "No se pudo actualizar el estado del equipo. Intente más tarde."
 
     if not success:
         return None, None, [], error_msg
 
-    # Fuera del bloque transaccional atómico se realizan las llamadas de red (SMTP)
+    # P-1: el envío SMTP (bloqueante) se hace fuera de la transacción y en
+    # segundo plano para no retener la respuesta HTTP cuando hay muchos correos.
+    envios = []
     for email_data in emails_a_enviar:
-        enviar_email_inhabilitacion(
-            email=email_data['email'],
-            nombre_usuario=email_data['nombre_usuario'],
-            nombre_lab=email_data['nombre_lab'],
-            fecha_reserva=email_data['fecha_reserva'],
-            motivo=email_data['motivo']
-        )
-
+        envios.append(lambda d=email_data: enviar_email_inhabilitacion(
+            email=d['email'], nombre_usuario=d['nombre_usuario'], nombre_lab=d['nombre_lab'],
+            fecha_reserva=d['fecha_reserva'], motivo=d['motivo']))
     for email_data in emails_pc_reasignada:
-        enviar_email_pc_reasignada(
-            email=email_data['email'],
-            nombre_usuario=email_data['nombre_usuario'],
-            num_serie_original=email_data['num_serie_original'],
-            codigo_patrimonio_original=email_data['codigo_patrimonio_original'],
-            codigo_patrimonio_nuevo=email_data['codigo_patrimonio_nuevo'],
-            fecha_reserva=email_data['fecha_reserva'],
-        )
-
+        envios.append(lambda d=email_data: enviar_email_pc_reasignada(
+            email=d['email'], nombre_usuario=d['nombre_usuario'],
+            num_serie_original=d['num_serie_original'],
+            codigo_patrimonio_original=d['codigo_patrimonio_original'],
+            codigo_patrimonio_nuevo=d['codigo_patrimonio_nuevo'],
+            fecha_reserva=d['fecha_reserva']))
     for email_data in emails_pc_cancelada:
-        enviar_email_reserva_cancelada_sin_reemplazo(
-            email=email_data['email'],
-            nombre_usuario=email_data['nombre_usuario'],
-            num_serie_original=email_data['num_serie_original'],
-            fecha_reserva=email_data['fecha_reserva'],
-        )
-
+        envios.append(lambda d=email_data: enviar_email_reserva_cancelada_sin_reemplazo(
+            email=d['email'], nombre_usuario=d['nombre_usuario'],
+            num_serie_original=d['num_serie_original'], fecha_reserva=d['fecha_reserva']))
     for email_data in emails_pc_docente_inhabilitada:
-        enviar_email_pc_docente_inhabilitada(
-            email=email_data['email'],
-            nombre_usuario=email_data['nombre_usuario'],
-            num_serie_original=email_data['num_serie_original'],
-            fecha_reserva=email_data['fecha_reserva'],
-            nombre_lab=email_data['nombre_lab']
-        )
+        envios.append(lambda d=email_data: enviar_email_pc_docente_inhabilitada(
+            email=d['email'], nombre_usuario=d['nombre_usuario'],
+            num_serie_original=d['num_serie_original'], fecha_reserva=d['fecha_reserva'],
+            nombre_lab=d['nombre_lab']))
+    _enviar_emails_en_segundo_plano(envios)
 
     # Si el estado es el mismo, el laboratorio de retorno se toma del activo
     lab_retorno = laboratorio if laboratorio else (activo.id_laboratorio if activo else None)
@@ -590,12 +600,10 @@ def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None, imagen=None
                     observacion=f"Cancelación automática PBI-12: Laboratorio inhabilitado. Motivo: {motivo}"
                 )
 
-                # Liberar capacidad del horario
-                horario = reserva.id_horario
-                horario.capacidad_ocupada = max(0, (horario.capacidad_ocupada or 0) - 1)
-                if horario.estado == 'Completo':
-                    horario.estado = 'Disponible'
-                horario.save()
+                # L-3: liberar capacidad usando la fuente de verdad (conteo real) bajo lock.
+                from .reserva_service import recalcular_capacidad
+                horario = HorarioDisponible.objects.select_for_update().get(pk=reserva.id_horario_id)
+                recalcular_capacidad(horario)
 
                 # Recopilar datos del destinatario para envío fuera de la transacción
                 usuario = reserva.id_usuario
@@ -611,17 +619,17 @@ def inhabilitar_laboratorio(id_laboratorio, motivo, usuario_id=None, imagen=None
         except Laboratorio.DoesNotExist:
             return None, [], "Laboratorio no encontrado."
         except Exception as e:
-            return None, [], str(e)
+            # S-4 (CWE-209): registrar el detalle, devolver mensaje genérico.
+            logger.error("Error al inhabilitar laboratorio %s: %s", id_laboratorio, e, exc_info=True)
+            return None, [], "No se pudo inhabilitar el laboratorio. Intente más tarde."
 
-    # Fuera del bloque transaccional atómico se realizan las llamadas de red (SMTP)
-    for email_data in emails_a_enviar:
-        enviar_email_inhabilitacion(
-            email=email_data['email'],
-            nombre_usuario=email_data['nombre_usuario'],
-            nombre_lab=email_data['nombre_lab'],
-            fecha_reserva=email_data['fecha_reserva'],
-            motivo=email_data['motivo']
-        )
+    # P-1: envío SMTP en segundo plano para no bloquear la respuesta HTTP.
+    _enviar_emails_en_segundo_plano([
+        (lambda d=email_data: enviar_email_inhabilitacion(
+            email=d['email'], nombre_usuario=d['nombre_usuario'], nombre_lab=d['nombre_lab'],
+            fecha_reserva=d['fecha_reserva'], motivo=d['motivo']))
+        for email_data in emails_a_enviar
+    ])
 
     return laboratorio, notificados, None
 
