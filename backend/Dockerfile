@@ -19,5 +19,8 @@ COPY . /app/
 # Recolectar estáticos con una SECRET_KEY temporal solo para el build
 RUN SECRET_KEY="build-temp-key" python manage.py collectstatic --no-input
 
-# Al arrancar: migrate, inyectar coordenadas de mapas (seed), luego gunicorn
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--worker-class", "gthread", "--timeout", "120"]
+# Normalizar saltos de línea (por si se editó en Windows) y dar permisos de ejecución
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Al arrancar: migrate (aplica migraciones pendientes) y luego gunicorn
+CMD ["/app/entrypoint.sh"]
