@@ -149,6 +149,8 @@ if 'test' in sys.argv:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    # Disable SSL redirect in tests to prevent 301 responses when using HTTP test client
+    SECURE_SSL_REDIRECT = False
 else:
     # Render provee DATABASE_URL automáticamente. Usamos el string local como fallback en desarrollo.
     DATABASES = {
