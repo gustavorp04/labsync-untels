@@ -48,8 +48,9 @@ const LoginDocente = () => {
 
         <form onSubmit={handleSubmit} className="neo-form-group" style={{ gap: '1.25rem' }}>
           <div className="neo-form-group">
-            <label className="neo-label">Correo Institucional / DNI</label>
+            <label className="neo-label" htmlFor="doc-codigo">Correo Institucional / DNI</label>
             <input
+              id="doc-codigo"
               className="neo-input"
               type="text"
               placeholder="Ej. ddocente@untels.edu.pe"
@@ -59,8 +60,8 @@ const LoginDocente = () => {
           </div>
 
           <div className="neo-form-group">
-            <label className="neo-label">Contraseña</label>
-            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="neo-label" htmlFor="doc-password">Contraseña</label>
+            <PasswordInput id="doc-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

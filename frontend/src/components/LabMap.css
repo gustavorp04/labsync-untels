@@ -127,6 +127,22 @@
   margin-top: 4px;
 }
 
+.lm-pc-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-top: 2px;
+  letter-spacing: 0.2px;
+}
+.lm-pc-badge--available    { background: rgba(16,185,129,0.15);  color: #10b981; }
+.lm-pc-badge--selected     { background: rgba(59,130,246,0.2);   color: #3b82f6; }
+.lm-pc-badge--occupied     { background: rgba(239,68,68,0.15);   color: #ef4444; }
+.lm-pc-badge--pending      { background: rgba(234,179,8,0.15);   color: #eab308; }
+.lm-pc-badge--maintenance  { background: rgba(139,92,246,0.15);  color: #8b5cf6; }
+.lm-pc-badge--broken       { background: rgba(71,85,105,0.1);    color: #475569; }
+.lm-pc-badge--empty        { display: none; }
+
 /* PC — estados */
 .lm-pc--available { color: #10b981; }
 .lm-pc--available:hover {

@@ -28,10 +28,13 @@ function DocenteLayout() {
   const nombre = localStorage.getItem("nombre") || "Docente";
   const depto  = localStorage.getItem("departamento") || "";
 
-  const showToast = useCallback((tipo, texto, dur = 4000) => {
+  const showToast = useCallback((tipo, texto, dur) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ tipo, texto });
-    toastTimerRef.current = setTimeout(() => setToast(null), dur);
+    const timeout = dur !== undefined ? dur : (tipo === 'error' ? 0 : 4000);
+    if (timeout > 0) {
+      toastTimerRef.current = setTimeout(() => setToast(null), timeout);
+    }
   }, []);
 
   useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
@@ -48,9 +51,20 @@ function DocenteLayout() {
   return (
     <div className="doc-layout">
       {toast && (
-        <div className={`doc-toast doc-toast--${toast.tipo}`}>
+        <div
+          role={toast.tipo === 'error' ? 'alert' : 'status'}
+          aria-live={toast.tipo === 'error' ? 'assertive' : 'polite'}
+          className={`doc-toast doc-toast--${toast.tipo}`}
+        >
           {toast.tipo === 'ok' ? <Icon.Check /> : '⚠'}
           <span>{toast.texto}</span>
+          {toast.tipo === 'error' && (
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Cerrar notificación"
+              style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit', fontSize: 18, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+            >×</button>
+          )}
         </div>
       )}
 

@@ -155,15 +155,26 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
   }
 
   /* ── PC / Monitor card ─────────────────────────────────────────────── */
+  const PC_ESTADO_LABEL = {
+    available:   'Libre',
+    selected:    'Seleccionado',
+    occupied:    'Reservado',
+    pending:     'Pendiente',
+    maintenance: 'Mantenimiento',
+    broken:      'Baja',
+    empty:       '',
+  };
+
   function PcCard({ a }) {
     const estado = getEstado(a);
     const shortCode = a.codigo_patrimonio?.split("-").slice(-1)[0] || "—";
+    const estadoLabel = PC_ESTADO_LABEL[estado] || '';
     return (
       <button
         className={`lm-pc lm-pc--${estado}`}
         onClick={() => handleClick(a)}
         disabled={!adminMode && (estado === "broken" || estado === "occupied" || estado === "maintenance" || estado === "pending")}
-        title={a.num_serie || "Sin código"}
+        aria-label={`Puesto ${shortCode}${estadoLabel ? ` — ${estadoLabel}` : ''}`}
       >
         <div className="lm-pc-icon-wrapper">
           <Monitor
@@ -173,6 +184,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
           />
         </div>
         <span className="lm-pc-number">{shortCode}</span>
+        <span className={`lm-pc-badge lm-pc-badge--${estado}`}>{estadoLabel}</span>
       </button>
     );
   }

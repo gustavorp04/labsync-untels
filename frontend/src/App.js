@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Auth Pages
+import LoginSelector from "./pages/auth/LoginSelector";
 import LoginEstudiante from "./pages/auth/estudiante/LoginEstudiante";
 import LoginDocente from "./pages/auth/docente/LoginDocente";
 import LoginAdmin from "./pages/auth/admin/LoginAdmin";
@@ -47,7 +48,7 @@ function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/" element={<Navigate to="/login/estudiante" />} />
+        <Route path="/" element={<LoginSelector />} />
 
         {/* Auth */}
         <Route path="/login/estudiante" element={<LoginEstudiante />} />
@@ -105,7 +106,7 @@ function App() {
           <Route path="reportes"  element={<JefaturaReportes />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/login/estudiante" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );

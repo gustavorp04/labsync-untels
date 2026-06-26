@@ -1088,4 +1088,128 @@ td {
   .activo-drawer {
     width: 100% !important;
   }
-}
+}
+
+/* # ADMIN INICIO */
+
+.adm-inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 900px;
+}
+
+.adm-welcome-text h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.adm-welcome-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.adm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.adm-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--card-shadow);
+}
+
+.adm-stat-val {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.adm-stat-lbl {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.adm-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: -12px;
+}
+
+.adm-quick-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adm-quick-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--card-shadow);
+}
+
+.adm-quick-card:hover {
+  border-color: var(--untels-blue);
+  box-shadow: 0 0 0 1px var(--untels-blue);
+}
+
+.adm-quick-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: rgba(59,130,246,0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--untels-blue);
+}
+
+.adm-quick-info {
+  flex: 1;
+}
+
+.adm-quick-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.adm-quick-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.adm-quick-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .adm-stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .adm-stat-grid { grid-template-columns: 1fr 1fr; }
+}

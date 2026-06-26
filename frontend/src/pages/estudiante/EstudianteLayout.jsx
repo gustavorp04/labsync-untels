@@ -86,10 +86,13 @@ function EstudianteLayout() {
   const carrera = localStorage.getItem("carrera") || "";
   const ciclo   = localStorage.getItem("ciclo")   || "";
 
-  const showToast = useCallback((tipo, texto, dur = 5000) => {
+  const showToast = useCallback((tipo, texto, dur) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ tipo, texto });
-    toastTimerRef.current = setTimeout(() => setToast(null), dur);
+    const timeout = dur !== undefined ? dur : (tipo === 'error' ? 0 : 5000);
+    if (timeout > 0) {
+      toastTimerRef.current = setTimeout(() => setToast(null), timeout);
+    }
   }, []);
 
   useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
@@ -116,7 +119,22 @@ function EstudianteLayout() {
 
   return (
     <div className="est-layout">
-      {toast && <div className={`est-toast est-toast--${toast.tipo}`}>{toast.texto}</div>}
+      {toast && (
+        <div
+          role={toast.tipo === 'error' ? 'alert' : 'status'}
+          aria-live={toast.tipo === 'error' ? 'assertive' : 'polite'}
+          className={`est-toast est-toast--${toast.tipo}`}
+        >
+          <span>{toast.texto}</span>
+          {toast.tipo === 'error' && (
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Cerrar notificación"
+              style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit', fontSize: 18, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+            >×</button>
+          )}
+        </div>
+      )}
 
       <aside className="est-sidebar">
         <div className="est-brand">

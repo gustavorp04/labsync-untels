@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import laboratorioService from "../../services/laboratorioService";
 import reservaService from "../../services/reservaService";
 import LabMap from "../../components/LabMap";
@@ -14,6 +14,7 @@ const Icon = {
 function EstudianteReservar() {
   const navigate = useNavigate();
   const { showToast } = useOutletContext();
+  const [searchParams] = useSearchParams();
 
   const userId  = localStorage.getItem("id_usuario") || "";
   const nombre  = localStorage.getItem("nombre")  || localStorage.getItem("username") || "Estudiante";
@@ -47,6 +48,8 @@ function EstudianteReservar() {
 
   const [aceptaDJ, setAceptaDJ] = useState(false);
   const [showDJ, setShowDJ]     = useState(false);
+  const [inviteUrl, setInviteUrl] = useState('');
+  const [copied, setCopied]       = useState(false);
 
   useEffect(() => { sessionStorage.setItem("est_paso",       paso.toString()); }, [paso]);
   useEffect(() => { sessionStorage.setItem("est_labSel",     JSON.stringify(labSel)); }, [labSel]);
@@ -59,6 +62,27 @@ function EstudianteReservar() {
     if (paso === 3 && (!labSel || !horarioSel)) setPaso(1);
     if (paso === 4 && (!labSel || !horarioSel || !activoSel)) setPaso(1);
   }, [paso, labSel, horarioSel, activoSel]);
+
+  // Auto-fill from invite link (?lab=ID&horario=ID)
+  useEffect(() => {
+    const labId     = searchParams.get('lab');
+    const horarioId = searchParams.get('horario');
+    if (!labId || !horarioId || labSel || horarioSel) return;
+    laboratorioService.getLaboratorios(tiposPermitidos)
+      .then(labs => {
+        const lab = labs.find(l => String(l.id_laboratorio) === labId);
+        if (!lab) return;
+        setLabSel(lab);
+        reservaService.getHorariosPorLab(lab.id_laboratorio).then(slots => {
+          const slot = slots.find(h => String(h.id_horario) === horarioId);
+          if (slot && slot.es_reservable) { setHorarioSel(slot); setPaso(3); }
+          else setPaso(2);
+        }).catch(() => setPaso(2));
+      })
+      .catch(() => {});
+  // run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load labs on step 1
   useEffect(() => {
@@ -114,7 +138,7 @@ function EstudianteReservar() {
 
     setActivos([]);
     cargarEquipos(true);
-    intervalId = setInterval(() => cargarEquipos(false), 15000);
+    intervalId = setInterval(() => cargarEquipos(false), 5000);
     return () => { if (intervalId) clearInterval(intervalId); abortCtrl.abort(); };
   }, [paso, labSel, horarioSel, showToast]);
 
@@ -128,9 +152,9 @@ function EstudianteReservar() {
         id_activo: activoSel.id_activo,
         acepto_declaracion_jurada: true,
       });
-      showToast('ok', '¡Reserva registrada! Tienes 5 minutos para que se unan 10 alumnos o será cancelada.');
-      setPaso(1);
-      navigate('/estudiante/mis-reservas');
+      const url = `${window.location.origin}/estudiante/reservar?lab=${labSel.id_laboratorio}&horario=${horarioSel.id_horario}`;
+      setInviteUrl(url);
+      setPaso(5);
     } catch (err) {
       showToast('error', err.response?.data?.error || 'Error al reservar.');
     } finally {
@@ -247,6 +271,68 @@ function EstudianteReservar() {
             </div>
           )}
           <button className="est-btn-primary" onClick={() => setPaso(4)} disabled={!activoSel}>Continuar</button>
+        </div>
+      )}
+
+      {/* PASO 5 — Sala de espera / Invite link */}
+      {paso === 5 && (
+        <div className="est-section est-confirm">
+          <div className="est-waitroom">
+            <div className="est-waitroom-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="40" height="40">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <h2 className="est-waitroom-title">¡Reserva registrada!</h2>
+            <p className="est-waitroom-sub">
+              Tu reserva está en estado <strong>Pendiente</strong>.<br/>
+              Necesitás que <strong>10 alumnos reserven el mismo horario</strong> en los próximos <strong>5 minutos</strong> para que quede confirmada.
+            </p>
+
+            <div className="est-waitroom-info">
+              <div className="est-waitroom-row"><span>Laboratorio</span><strong>{labSel?.nombre}</strong></div>
+              <div className="est-waitroom-row"><span>Fecha</span><strong>{horarioSel?.fecha}</strong></div>
+              <div className="est-waitroom-row"><span>Horario</span><strong>{horarioSel?.hora_inicio?.slice(0,5)} – {horarioSel?.hora_fin?.slice(0,5)}</strong></div>
+            </div>
+
+            <div className="est-waitroom-invite">
+              <div className="est-waitroom-invite-label">Compartí este link con tus compañeros:</div>
+              <div className="est-waitroom-link-row">
+                <input readOnly value={inviteUrl} className="est-waitroom-link-input" onClick={e => e.target.select()} />
+                <button
+                  className="est-waitroom-copy"
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteUrl).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    });
+                  }}
+                >
+                  {copied ? '✓ Copiado' : 'Copiar'}
+                </button>
+              </div>
+              <a
+                className="est-waitroom-wa"
+                href={`https://wa.me/?text=${encodeURIComponent(`¡Únete a mi reserva en LabSync UNTELS! Lab: ${labSel?.nombre} · ${horarioSel?.fecha} ${horarioSel?.hora_inicio?.slice(0,5)}–${horarioSel?.hora_fin?.slice(0,5)}\n${inviteUrl}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" style={{ flexShrink: 0 }}>
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+                Compartir por WhatsApp
+              </a>
+            </div>
+
+            <button
+              className="est-btn-secondary"
+              style={{ marginTop: 8 }}
+              onClick={() => { setPaso(1); navigate('/estudiante/mis-reservas'); }}
+            >
+              Ver mis reservas
+            </button>
+          </div>
         </div>
       )}
 
