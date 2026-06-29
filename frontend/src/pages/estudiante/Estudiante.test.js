@@ -145,9 +145,10 @@ describe('PBI-14 — Flujo crítico de reservas (Estudiante)', () => {
       })
     );
 
-    await waitFor(() =>
-      expect(mockShowToast).toHaveBeenCalledWith('ok', expect.stringMatching(/Reserva registrada/i))
-    );
+    // Tras confirmar, el wizard avanza a la pantalla de sala de espera (paso 5)
+    // que muestra el encabezado "¡Reserva registrada!" y el link de invitación.
+    await screen.findByRole('heading', { name: /Reserva registrada/i });
+    expect(screen.getByText(/Compartí este link/i)).toBeInTheDocument();
   });
 
   test('(2) estudiante cancela una reserva existente exitosamente', async () => {

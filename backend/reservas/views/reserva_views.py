@@ -89,6 +89,14 @@ def mis_reservas(request, id_usuario):
         return Response(serializer.data)
 
     elif request.method == 'POST':
+        # S-7 (CWE-639 / IDOR): la reserva se crea SIEMPRE para el usuario
+        # autenticado (request.user), nunca para el id_usuario de la URL ni para
+        # un user_id del payload — ambos los controla el cliente. El guard de
+        # arriba ya bloquea el acceso cruzado; vincular aquí a request.user es
+        # defensa en profundidad: aunque ese guard se relajara (p. ej. para que
+        # un admin liste reservas ajenas), la creación nunca podrá suplantar a
+        # otro usuario. El rol que decide el flujo también es el del autenticado.
+        usuario = request.user
         rol = usuario.id_rol.nombre
         if rol == 'docente':
             serializer = CrearReservaSerializer(data=request.data)
