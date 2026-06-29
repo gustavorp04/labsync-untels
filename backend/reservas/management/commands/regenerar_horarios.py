@@ -90,7 +90,9 @@ class Command(BaseCommand):
                     if (lab.codigo_patrimonio in bloqueados
                             and dia_sem in bloqueados[lab.codigo_patrimonio]
                             and inicio in bloqueados[lab.codigo_patrimonio][dia_sem]):
-                        estado = 'Bloqueado'
+                        # 'Bloqueado' viola el check constraint (solo Disponible/
+                        # Completo/Inhabilitado). Slot ocupado por clase -> Inhabilitado.
+                        estado = 'Inhabilitado'
                         cap_ocupada = lab.aforo_maximo
                     else:
                         estado = 'Disponible'

@@ -159,7 +159,11 @@ def generar_horarios_maestros():
                 
                 if lab.codigo_patrimonio in bloqueados and dia_sem in bloqueados[lab.codigo_patrimonio]:
                     if inicio in bloqueados[lab.codigo_patrimonio][dia_sem]:
-                        estado = 'Bloqueado'
+                        # 'Bloqueado' ya no es válido por el check constraint del modelo
+                        # (solo Disponible/Completo/Inhabilitado). Un slot ocupado por
+                        # clase se marca Inhabilitado: el endpoint de horarios solo
+                        # devuelve los 'Disponible', así que queda oculto igual.
+                        estado = 'Inhabilitado'
                         cap_ocupada = lab.aforo_maximo
 
                 HorarioDisponible.objects.create(
@@ -171,7 +175,11 @@ def generar_horarios_maestros():
 
 def main():
     print("=== MASTER SEED: LABSYNC UNTELS ===")
-    ejecutar_sql_archivo('labsync_schema.sql')
+    # NO cargamos el DDL (labsync_schema.sql): el esquema lo construye Django con
+    # `migrate` y trae todas las columnas/tablas de las migraciones. Cargar el DDL
+    # antiguo dejaría la BD sin columnas que el código espera (imágenes, etc.) y
+    # rompería /laboratorios. Solo cargamos los datos de referencia.
+    ejecutar_sql_archivo('seed_referencia.sql')
     ejecutar_sql_archivo('seed_demo.sql')
     ejecutar_sql_archivo('seed_laboratorios.sql')
     
