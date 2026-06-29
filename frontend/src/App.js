@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Auth Pages
-import LoginSelector from "./pages/auth/LoginSelector";
 import LoginEstudiante from "./pages/auth/estudiante/LoginEstudiante";
 import LoginDocente from "./pages/auth/docente/LoginDocente";
 import LoginAdmin from "./pages/auth/admin/LoginAdmin";
@@ -14,6 +13,7 @@ import EstudianteLayout from "./pages/estudiante/EstudianteLayout";
 import EstudianteInicio from "./pages/estudiante/Inicio";
 import EstudianteReservar from "./pages/estudiante/Reservar";
 import EstudianteMisReservas from "./pages/estudiante/MisReservas";
+import EstudiantePerfil from "./pages/estudiante/Perfil";
 
 // Docente
 import DocenteLayout from "./pages/docente/DocenteLayout";
@@ -48,7 +48,10 @@ function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/" element={<LoginSelector />} />
+        {/* El inicio entra directo al portal del estudiante. Desde ahí se puede
+            cambiar a Docente. Admin y Jefatura se acceden manualmente por
+            /login/admin y /login/jefatura. */}
+        <Route path="/" element={<Navigate to="/login/estudiante" replace />} />
 
         {/* Auth */}
         <Route path="/login/estudiante" element={<LoginEstudiante />} />
@@ -65,6 +68,7 @@ function App() {
           <Route path="inicio"       element={<EstudianteInicio />} />
           <Route path="reservar"     element={<EstudianteReservar />} />
           <Route path="mis-reservas" element={<EstudianteMisReservas />} />
+          <Route path="perfil"       element={<EstudiantePerfil />} />
         </Route>
 
         {/* Docente */}

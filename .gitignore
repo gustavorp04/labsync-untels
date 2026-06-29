@@ -38,3 +38,9 @@ Thumbs.db
 
 # ===== Logs =====
 *.log
+
+# ===== Pruebas de carga (Locust) =====
+# Tokens de sesión generados por `manage.py seed_carga` — no commitear
+backend/loadtest_tokens.json
+loadtest/tokens.json
+loadtest/*.csv

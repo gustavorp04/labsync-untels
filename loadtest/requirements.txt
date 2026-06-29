@@ -1,0 +1,4 @@
+# Dependencias solo para las pruebas de carga (no son parte de la app).
+# Instalar en cualquier entorno con Python 3.10+:
+#   pip install -r loadtest/requirements.txt
+locust==2.31.8

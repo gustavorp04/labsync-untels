@@ -42,6 +42,7 @@ function EstudianteReservar() {
   const [horarioSel, setHorarioSel] = useState(() => JSON.parse(sessionStorage.getItem("est_horarioSel")) || null);
   const [activoSel, setActivoSel]   = useState(() => JSON.parse(sessionStorage.getItem("est_activoSel")) || null);
   const [labSearchTerm, setLabSearchTerm] = useState("");
+  const [diasVisibles, setDiasVisibles] = useState(5);
 
   const activoSelRef = useRef(activoSel);
   useEffect(() => { activoSelRef.current = activoSel; }, [activoSel]);
@@ -99,6 +100,7 @@ function EstudianteReservar() {
   useEffect(() => {
     if (paso === 2 && labSel) {
       setHorarios([]);
+      setDiasVisibles(5);
       setLoading(true);
       reservaService.getHorariosPorLab(labSel.id_laboratorio)
         .then(data => setHorarios(data))
@@ -201,25 +203,44 @@ function EstudianteReservar() {
         <div className="est-section">
           <button className="est-back" onClick={() => setPaso(1)} style={{ marginBottom:16 }}><Icon.ChevronLeft /> Volver</button>
           <h2>Horarios Disponibles</h2>
-          <div className="est-calendar">
-            {Object.entries(horariosByDate).map(([fecha, slots]) => (
-              <div key={fecha} className="est-cal-day">
-                <div className="est-cal-date">{fecha}</div>
-                {slots.map(h => (
-                  <button
-                    key={h.id_horario}
-                    className={`est-cal-slot ${!h.es_reservable ? 'blocked' : ''}`}
-                    onClick={() => { if (!h.es_reservable) return; setHorarioSel(h); setActivoSel(null); setPaso(3); }}
-                    disabled={!h.es_reservable}
-                    title={!h.es_reservable ? "Bloqueado por límite de 24h" : ""}
-                  >
-                    {h.hora_inicio.slice(0,5)} - {h.hora_fin.slice(0,5)}
-                    {!h.es_reservable && <span style={{display:'block',fontSize:10,opacity:0.6}}>Bloqueado</span>}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
+          {(() => {
+            const dias = Object.entries(horariosByDate);
+            const visibles = dias.slice(0, diasVisibles);
+            const restantes = dias.length - visibles.length;
+            return (
+            <>
+            <div className="est-calendar est-calendar-scroll">
+              {visibles.map(([fecha, slots]) => (
+                <div key={fecha} className="est-cal-day">
+                  <div className="est-cal-date">{fecha}</div>
+                  <div className="est-cal-slots">
+                    {slots.map(h => (
+                      <button
+                        key={h.id_horario}
+                        className={`est-cal-slot ${!h.es_reservable ? 'blocked' : ''}`}
+                        onClick={() => { if (!h.es_reservable) return; setHorarioSel(h); setActivoSel(null); setPaso(3); }}
+                        disabled={!h.es_reservable}
+                        title={!h.es_reservable ? "Bloqueado por límite de 24h" : ""}
+                      >
+                        {h.hora_inicio.slice(0,5)} - {h.hora_fin.slice(0,5)}
+                        {!h.es_reservable && <span style={{display:'block',fontSize:10,opacity:0.6}}>Bloqueado</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {!loading && dias.length === 0 && (
+                <p className="est-empty">No hay horarios disponibles para este laboratorio.</p>
+              )}
+            </div>
+            {restantes > 0 && (
+              <button className="est-btn-secondary" style={{ marginTop: 12 }} onClick={() => setDiasVisibles(v => v + 5)}>
+                Ver más días ({restantes})
+              </button>
+            )}
+            </>
+            );
+          })()}
         </div>
       )}
 

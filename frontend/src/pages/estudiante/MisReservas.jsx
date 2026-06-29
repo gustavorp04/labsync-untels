@@ -18,12 +18,15 @@ function StatusBadge({ estado }) {
   );
 }
 
+const ESTADOS_ACTIVOS = ['Programada', 'Pendiente'];
+
 function EstudianteMisReservas() {
   const { showToast } = useOutletContext();
   const userId = localStorage.getItem("id_usuario") || "";
 
   const [misReservas, setMisReservas] = useState([]);
   const [reservaDetalle, setReservaDetalle] = useState(null);
+  const [tab, setTab] = useState('activas');
 
   const fetchMisReservas = useCallback(async (signal) => {
     if (!userId) return;
@@ -136,9 +139,34 @@ function EstudianteMisReservas() {
       )}
 
       <h2>Mis Reservas</h2>
-      <div className="est-reservas-list">
-        {misReservas.length === 0 && <p className="est-empty">No tienes reservas aún.</p>}
-        {misReservas.map(r => (
+
+      {(() => {
+        const activas = misReservas.filter(r => ESTADOS_ACTIVOS.includes(r.estado));
+        const historial = misReservas.filter(r => !ESTADOS_ACTIVOS.includes(r.estado));
+        const lista = tab === 'activas' ? activas : historial;
+        const vacioMsg = tab === 'activas'
+          ? 'No tienes reservas activas.'
+          : 'Aún no tienes reservas en tu historial.';
+        return (
+      <>
+      <div className="est-tabs">
+        <button
+          className={`est-tab ${tab === 'activas' ? 'active' : ''}`}
+          onClick={() => setTab('activas')}
+        >
+          Activas <span className="est-tab-count">{activas.length}</span>
+        </button>
+        <button
+          className={`est-tab ${tab === 'historial' ? 'active' : ''}`}
+          onClick={() => setTab('historial')}
+        >
+          Historial <span className="est-tab-count">{historial.length}</span>
+        </button>
+      </div>
+
+      <div className="est-reservas-list est-reservas-scroll">
+        {lista.length === 0 && <p className="est-empty">{vacioMsg}</p>}
+        {lista.map(r => (
           <div key={r.id_reserva} className="est-reserva-card">
             <div className="est-reserva-info">
               <div style={{ fontWeight: 600 }}>{r.laboratorio_nombre}</div>
@@ -152,7 +180,7 @@ function EstudianteMisReservas() {
               >
                 Ver detalle
               </button>
-              {(r.estado === 'Programada' || r.estado === 'Pendiente') && (
+              {ESTADOS_ACTIVOS.includes(r.estado) && (
                 <button
                   className="est-btn-cancel"
                   style={{ padding: '4px 12px', fontSize: 12 }}
@@ -165,6 +193,9 @@ function EstudianteMisReservas() {
           </div>
         ))}
       </div>
+      </>
+        );
+      })()}
     </div>
   );
 }
