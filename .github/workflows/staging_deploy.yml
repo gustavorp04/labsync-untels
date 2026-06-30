@@ -94,7 +94,7 @@ jobs:
             --region us-central1 \
             --platform managed \
             --allow-unauthenticated \
-            --max-instances=2 \
+            --max-instances=1 \
             --concurrency=250 \
             --update-env-vars DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             --update-env-vars SECRET_KEY="${{ secrets.SECRET_KEY }}" \
