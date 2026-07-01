@@ -197,6 +197,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
       : ({ fill }) => <Monitor size={16} strokeWidth={1.5} fill={fill || "none"} />;
 
   return (
+    <div className="lm-outer-scroll">
     <div className={`lm-wrapper${isSpecialLab ? " lm-wrapper--mesa-lab" : ""}`}>
       {!isSpecialLab && (
         <div className="lm-front-bar">PANTALLA / PIZARRA</div>
@@ -240,6 +241,7 @@ export default function LabMap({ activos = [], activoSel, onSelect, columnas = 6
         <div className="lm-legend-item"><span className="maintenance"><LegendIcon fill="currentColor" /></span> Mantenimiento</div>
         <div className="lm-legend-item"><span className="broken"><LegendIcon fill="currentColor" /></span> Dado de baja</div>
       </div>
+    </div>
     </div>
   );
 }
