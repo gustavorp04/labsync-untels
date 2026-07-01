@@ -90,7 +90,8 @@ function AdminLabDetalle() {
 
   useEffect(() => {
     if (labSeleccionado) cargarDetalle(labSeleccionado);
-  }, [labId, labSeleccionado?.id_laboratorio, cargarDetalle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labId, cargarDetalle]);
 
   const abrirModalActivo = (activo) => {
     setActivoModal(activo);
