@@ -7,6 +7,8 @@ function AdminProgramadas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [labSeleccionado, setLabSeleccionado] = useState(null);
   const [horarioSeleccionado, setHorarioSeleccionado] = useState(null);
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin]       = useState('');
 
   const hoyStr = new Date().toLocaleDateString('en-CA');
 
@@ -17,7 +19,13 @@ function AdminProgramadas() {
   );
 
   // ── Vista 1 helpers ───────────────────────────────────────────────────────
-  const porLab = reservasFuturas.reduce((acc, r) => {
+  const reservasFiltradas = reservasFuturas.filter(r => {
+    if (fechaInicio && r.fecha_reserva < fechaInicio) return false;
+    if (fechaFin   && r.fecha_reserva > fechaFin)   return false;
+    return true;
+  });
+
+  const porLab = reservasFiltradas.reduce((acc, r) => {
     const key = r.laboratorio_nombre;
     if (!acc[key]) acc[key] = [];
     acc[key].push(r);
@@ -191,6 +199,20 @@ function AdminProgramadas() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        <div className="date-range">
+          <div>
+            <label>Fecha Inicio</label>
+            <input type="date" className="search-input"
+                   value={fechaInicio}
+                   onChange={e => setFechaInicio(e.target.value)} />
+          </div>
+          <div>
+            <label>Fecha Fin</label>
+            <input type="date" className="search-input"
+                   value={fechaFin}
+                   onChange={e => setFechaFin(e.target.value)} />
+          </div>
+        </div>
       </div>
       <table>
         <thead>

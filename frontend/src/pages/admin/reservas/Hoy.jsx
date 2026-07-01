@@ -48,17 +48,22 @@ function AdminHoy() {
   }
 
   async function guardarAsistencia() {
+    if (guardando) return;
     setGuardando(true);
     try {
-      await Promise.all(
-        labSeleccionado.reservas.map((r) =>
-          handleAsistencia(r.id_reserva, asistencia[r.id_reserva] ?? true)
-        )
-      );
-      await fetchReservas();
-      volver();
+      for (const r of labSeleccionado.reservas) {
+        await handleAsistencia(
+          r.id_reserva,
+          asistencia[r.id_reserva] ?? true
+        );
+      }
+    } catch (err) {
+      console.error('Error guardando asistencia:', err);
     } finally {
       setGuardando(false);
+      await fetchReservas();
+      setLabSeleccionado(null);
+      setAsistencia({});
     }
   }
 
