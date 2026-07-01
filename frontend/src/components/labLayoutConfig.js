@@ -7,43 +7,48 @@
  *                   null = sin pasillo.
  */
 const LAB_LAYOUTS = {
-  // ── Bloque A — Cómputo (5 PCs por fila, sin pasillo) ──────────────
+
+  // ── Cómputo Bloque A (30 CPUs c/u → 6 filas × 5) ─────────────────
   'A1-1':  { columnas: 5, gapAfterColumn: null },
   'A1-2':  { columnas: 5, gapAfterColumn: null },
   'A1-3':  { columnas: 5, gapAfterColumn: null },
   'A2-3':  { columnas: 5, gapAfterColumn: null },
   'A2-4':  { columnas: 5, gapAfterColumn: null },
 
-  // ── Bloque B — Cómputo ────────────────────────────────────────────
-  // ⚠️ Filas mixtas A,B=3+3 / C=4+4 — aprox. 7 cols gap@4 (7+7+6=20)
-  'B1-4':  { columnas: 7, gapAfterColumn: 4 },
-  // 6 filas × (3+3) con pasillo central
-  'B2-4':  { columnas: 6, gapAfterColumn: 3 },
-  'B3-9':  { columnas: 6, gapAfterColumn: 3 },
-
-  // ── Bloque C — Cómputo ────────────────────────────────────────────
-  // ⚠️ Filas mixtas — aprox. 7 cols gap@4
-  'C1-2B': { columnas: 7, gapAfterColumn: 4 },
-  // 3 filas × (3+3) con pasillo
+  // ── Cómputo Bloque C (24 CPUs → 4 filas × 6 con pasillo) ──────────
   'C2-2A': { columnas: 6, gapAfterColumn: 3 },
   'C2-2B': { columnas: 6, gapAfterColumn: 3 },
-  // ⚠️ Filas mixtas — aprox. 7 cols gap@4
-  'C2-3':  { columnas: 7, gapAfterColumn: 4 },
-  'C2-4':  { columnas: 7, gapAfterColumn: 4 },
-  'C3-3':  { columnas: 7, gapAfterColumn: 4 },
 
-  // ── Laboratorios de Física (puestos/sillas alrededor de mesas) ───────
-  // labType:'silla' fuerza el icóno de silla independiente del tipo_activo en BD
-  'FIS-G1': { columnas: 6, gapAfterColumn: null, labType: 'silla' },
-  'FIS-G2': { columnas: 6, gapAfterColumn: null, labType: 'silla' },
+  // ── Cómputo Georeferenciados (20 CPUs → 4 filas × 5) ──────────────
+  'C3-3':  { columnas: 5, gapAfterColumn: null },
 
-  // ── Laboratorios de Electrónica (puestos/sillas alrededor de mesas) ──
-  'ELE-AD': { columnas: 5, gapAfterColumn: null, labType: 'silla' },
-  'ELE-CA': { columnas: 5, gapAfterColumn: null, labType: 'silla' },
+  // ── Física (12 mesas c/u → 3 filas × 4) ───────────────────────────
+  'FIS-G1': { columnas: 4, gapAfterColumn: null, labType: 'mesa' },
+  'FIS-G2': { columnas: 4, gapAfterColumn: null, labType: 'mesa' },
+
+  // ── Electrónica — mesas ────────────────────────────────────────────
+  // ELE-AD: 12 mesas → 3 filas × 4
+  'ELE-AD': { columnas: 4, gapAfterColumn: null, labType: 'mesa' },
+  // ELE-CA: 10 mesas → 2 filas × 5
+  'ELE-CA': { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
+  // B1-4: 10 mesas → 2 filas × 5
+  'B1-4':  { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
+  // B2-4: 15 mesas → 3 filas × 5
+  'B2-4':  { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
+  // B3-9: 15 mesas → 3 filas × 5
+  'B3-9':  { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
+
+  // ── Ambiental / Química — mesas ────────────────────────────────────
+  // C2-4 (Biología): 10 mesas → 2 filas × 5
+  'C2-4':  { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
+  // C1-2B (Química): 9 mesas → 3 filas × 3
+  'C1-2B': { columnas: 3, gapAfterColumn: null, labType: 'mesa' },
+  // C2-3 (Química Ambiental): 10 mesas → 2 filas × 5
+  'C2-3':  { columnas: 5, gapAfterColumn: null, labType: 'mesa' },
 };
 
-/** Valor por defecto para labs no configurados aún */
-const DEFAULT_LAYOUT = { columnas: 6, gapAfterColumn: 3 };
+const DEFAULT_LAYOUT = { columnas: 5, gapAfterColumn: null };
+
 
 /**
  * Retorna { columnas, gapAfterColumn } para el código de patrimonio dado.
