@@ -40,7 +40,7 @@ class Command(BaseCommand):
         ids_con_reserva = Reserva.objects.values_list('id_horario_id', flat=True)
         qs = HorarioDisponible.objects.filter(
             fecha__lt=hoy,
-            estado__in=['Disponible', 'Bloqueado'],
+            estado__in=['Disponible', 'Inhabilitado'],
         ).exclude(id_horario__in=ids_con_reserva)
         count = qs.count()
         qs.delete()
