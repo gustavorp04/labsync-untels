@@ -10,10 +10,7 @@
   align-items: center;
   gap: 20px;
   width: 100%;
-  max-width: 100%;
   padding: 20px 0;
-  overflow-x: auto;
-  box-sizing: border-box;
 }
 
 /* ── Cabecera (pantalla/pizarra o lab especializado) ── */
@@ -41,18 +38,6 @@
   display: flex;
   flex-direction: column;
   gap: 15px;
-  max-width: 100%;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.lm-scroll-container {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.15) transparent;
-  padding-bottom: 4px;
 }
 
 .lm-grid-area--mesa {
@@ -294,27 +279,38 @@
 
 /* ── Responsivo ───────────────────────────────────── */
 @media (max-width: 768px) {
-  .lm-wrapper      { padding: 10px 0; }
-  .lm-front-bar    { width: 95%; font-size: 10px; 
-                     padding: 8px; margin-bottom: 12px; }
-  .lm-grid-area    { padding: 8px 4px; }
-  .lm-pc           { min-width: 46px !important; 
-                     width: 46px !important;
-                     max-width: 46px !important;
-                     padding: 5px !important; }
-  .lm-pc-icon-wrapper svg { width: 22px !important; 
-                            height: 22px !important; }
-  .lm-pc-number    { font-size: 8px !important; 
-                     margin-top: 2px !important; }
-  .lm-row          { gap: 6px !important; }
-  .lm-row-pcs      { gap: 5px !important; }
-  .lm-row-label    { width: 15px; font-size: 10px; }
-  .lm-mesa         { min-width: 90px; min-height: 80px; 
-                     padding: 10px 12px; }
-  .lm-mesa-icon    { width: 40px; height: 40px; }
-  .lm-row-pcs--mesa { gap: 14px; }
-  .lm-legend       { gap: 8px; font-size: 11px; 
-                     margin-top: 12px; }
+  .lm-wrapper      { padding: 10px 0; width: 100%; }
+  .lm-front-bar    { width: 95%; font-size: 10px; padding: 8px; margin-bottom: 12px; }
+
+  .lm-grid-area {
+    width: 100%;
+    overflow-x: auto;
+    padding: 15px 5px;
+    background: rgba(0,0,0,0.08);
+    border-radius: 10px;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.15);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .lm-pc              { min-width: 46px !important; padding: 5px !important; }
+  .lm-pc-icon-wrapper svg { width: 22px !important; height: 22px !important; }
+  .lm-pc-number       { font-size: 8px !important; margin-top: 2px !important; }
+  .lm-row             { gap: 8px !important; }
+  .lm-row-pcs         { gap: 6px !important; }
+  .lm-row-label       { width: 15px; font-size: 10px; }
+  .lm-mesa            { min-width: 100px; min-height: 90px; padding: 14px 16px 12px; }
+  .lm-mesa-icon       { width: 44px; height: 44px; }
+  .lm-row-pcs--mesa   { gap: 20px; }
+  .lm-legend          { gap: 10px; font-size: 11px; margin-top: 15px; }
+}
+
+.lm-outer-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
 
 /* ── Dark mode ────────────────────────────────────── */
