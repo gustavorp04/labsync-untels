@@ -13,7 +13,7 @@ const Icon = {
 
 function EstudianteReservar() {
   const navigate = useNavigate();
-  const { showToast } = useOutletContext();
+  const { showToast, reservarKey } = useOutletContext() || {};
   const [searchParams] = useSearchParams();
 
   const userId  = localStorage.getItem("id_usuario") || "";
@@ -63,6 +63,20 @@ function EstudianteReservar() {
     if (paso === 3 && (!labSel || !horarioSel)) setPaso(1);
     if (paso === 4 && (!labSel || !horarioSel || !activoSel)) setPaso(1);
   }, [paso, labSel, horarioSel, activoSel]);
+
+  // Reiniciar al paso 1 cuando el usuario navega a /reservar desde el menú (misma ruta)
+  useEffect(() => {
+    if (!reservarKey) return;
+    sessionStorage.removeItem('est_paso');
+    sessionStorage.removeItem('est_labSel');
+    sessionStorage.removeItem('est_horarioSel');
+    sessionStorage.removeItem('est_activoSel');
+    setPaso(1);
+    setLabSel(null);
+    setHorarioSel(null);
+    setActivoSel(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservarKey]);
 
   // Auto-fill from invite link (?lab=ID&horario=ID)
   useEffect(() => {

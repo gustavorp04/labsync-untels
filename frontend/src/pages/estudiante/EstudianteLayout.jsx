@@ -82,6 +82,7 @@ function EstudianteLayout() {
   const toastTimerRef = useRef(null);
   const [toast, setToast] = useState(null);
   const [penalizacionFin, setPenalizacionFin] = useState(() => localStorage.getItem('penalizacion_fin') || null);
+  const [reservarKey, setReservarKey] = useState(0);
 
   const nombre  = localStorage.getItem("nombre")  || localStorage.getItem("username") || "Estudiante";
   const carrera = localStorage.getItem("carrera") || "";
@@ -153,7 +154,7 @@ function EstudianteLayout() {
           <button className={`est-nav-btn ${isActive('/estudiante/inicio') ? 'active' : ''}`} onClick={() => navigate('/estudiante/inicio')}>
             <Icon.Home /><span>Inicio</span>
           </button>
-          <button className={`est-nav-btn ${isActive('/estudiante/reservar') ? 'active' : ''}`} onClick={() => { sessionStorage.removeItem('est_paso'); sessionStorage.removeItem('est_lab'); sessionStorage.removeItem('est_horario'); sessionStorage.removeItem('est_activo'); navigate('/estudiante/reservar'); }}>
+          <button className={`est-nav-btn ${isActive('/estudiante/reservar') ? 'active' : ''}`} onClick={() => { sessionStorage.removeItem('est_paso'); sessionStorage.removeItem('est_labSel'); sessionStorage.removeItem('est_horarioSel'); sessionStorage.removeItem('est_activoSel'); setReservarKey(k => k + 1); navigate('/estudiante/reservar'); }}>
             <Icon.Book /><span>Reservar</span>
           </button>
           <button className={`est-nav-btn ${isActive('/estudiante/mis-reservas') ? 'active' : ''}`} onClick={() => navigate('/estudiante/mis-reservas')}>
@@ -172,7 +173,7 @@ function EstudianteLayout() {
       </aside>
 
       <main className="est-main">
-        <Outlet context={{ showToast }} />
+        <Outlet context={{ showToast, reservarKey }} />
       </main>
     </div>
   );
