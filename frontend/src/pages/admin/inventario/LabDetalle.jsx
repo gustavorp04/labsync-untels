@@ -50,6 +50,7 @@ function AdminLabDetalle() {
   const [inhabilitarLabModal, setInhabilitarLabModal]   = useState(false);
   const [inhabilitarLabMotivo, setInhabilitarLabMotivo] = useState('');
   const [inhabilitarLabImagen, setInhabilitarLabImagen] = useState(null);
+  const [perifericosEdit, setPerifericosEdit] = useState({});
   const currentLabIdRef = useRef(null);
 
   useEffect(() => { if (!incidenciaModal) setIncidenciaImagen(null); }, [incidenciaModal]);
@@ -95,7 +96,11 @@ function AdminLabDetalle() {
 
   const abrirModalActivo = (activo) => {
     setActivoModal(activo);
-    if (activo) setCambioEstado({ estado: activo.estado, motivo: '' });
+    if (activo) {
+      setCambioEstado({ estado: activo.estado, motivo: '' });
+      // Inicializar edición de periféricos vacía
+      setPerifericosEdit({});
+    }
   };
 
   const guardarCambioEstado = async () => {
@@ -146,6 +151,40 @@ function AdminLabDetalle() {
       await fetchLaboratorios();
     } catch (err) {
       setFeedbackMsg({ tipo:'error', texto: err.response?.data?.error || 'Error al habilitar el laboratorio.' });
+    }
+  };
+
+  const guardarCambioPeriferico = async (periferico, edit) => {
+    if (!edit.motivo.trim()) {
+      setFeedbackMsg({ tipo:'error', texto:'El motivo es obligatorio.' });
+      return;
+    }
+    try {
+      await laboratorioService.actualizarEstadoActivo(
+        labSeleccionado.id_laboratorio,
+        periferico.id_activo,
+        edit.estado,
+        edit.motivo,
+        null
+      );
+      setFeedbackMsg({
+        tipo:'ok',
+        texto:`${periferico.tipo_activo_nombre} actualizado a "${edit.estado}".`
+      });
+      // Limpiar edición de este periférico
+      setPerifericosEdit(prev => {
+        const n = {...prev};
+        delete n[periferico.id_activo];
+        return n;
+      });
+      // Recargar activos y laboratorios
+      await cargarDetalle(labSeleccionado);
+      await fetchLaboratorios();
+    } catch {
+      setFeedbackMsg({
+        tipo:'error',
+        texto:`Error al actualizar ${periferico.tipo_activo_nombre}.`
+      });
     }
   };
 
@@ -301,15 +340,137 @@ function AdminLabDetalle() {
                 if (!hermanos.length) return null;
                 return (
                   <div style={{ marginBottom:16 }}>
-                    <div className="activo-drawer-divider">Periféricos del Puesto #{puestoNum}</div>
-                    <div className="activo-perifericos-list">
-                      {hermanos.map(h => (
-                        <div key={h.id_activo} className="activo-periferico-row">
-                          <div className="activo-periferico-icon" style={{ color:colorActivo(h.estado) }}>{getActivoIcon(h.tipo_activo_nombre)}</div>
-                          <div className="activo-periferico-info"><span className="activo-periferico-tipo">{h.tipo_activo_nombre}</span><span className="activo-periferico-serie">{h.num_serie}</span></div>
-                          <span className="activo-periferico-estado" style={{ color:colorActivo(h.estado) }}><span style={{ width:7,height:7,borderRadius:'50%',background:colorActivo(h.estado),display:'inline-block',marginRight:5 }}/>{h.estado}</span>
-                        </div>
-                      ))}
+                    <div className="activo-drawer-divider">
+                      Periféricos del Puesto #{puestoNum}
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                      {hermanos.map(h => {
+                        const edit = perifericosEdit[h.id_activo];
+                        const estadoActual = edit?.estado ?? h.estado;
+                        return (
+                          <div key={h.id_activo} style={{
+                            background:'var(--bg-main)',
+                            border:'1px solid var(--border-color)',
+                            borderRadius:8, padding:10
+                          }}>
+                            {/* Cabecera del periférico */}
+                            <div style={{ display:'flex', justifyContent:'space-between',
+                                          alignItems:'center', marginBottom: edit ? 8 : 0 }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                <span style={{ color:colorActivo(estadoActual) }}>
+                                  {getActivoIcon(h.tipo_activo_nombre)}
+                                </span>
+                                <span style={{ fontWeight:600, fontSize:13 }}>
+                                  {h.tipo_activo_nombre}
+                                </span>
+                                <span style={{ fontSize:11, opacity:0.6 }}>
+                                  {h.num_serie}
+                                </span>
+                              </div>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <span style={{
+                                  fontSize:11, fontWeight:700,
+                                  color:colorActivo(estadoActual)
+                                }}>
+                                  {estadoActual}
+                                </span>
+                                {!edit ? (
+                                  <button
+                                    onClick={() => setPerifericosEdit(prev => ({
+                                      ...prev,
+                                      [h.id_activo]: { estado: h.estado, motivo: '' }
+                                    }))}
+                                    style={{
+                                      fontSize:11, padding:'2px 8px', borderRadius:6,
+                                      border:'1px solid var(--border-color)',
+                                      background:'var(--bg-input)',
+                                      color:'var(--text-main)', cursor:'pointer'
+                                    }}
+                                  >
+                                    Editar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setPerifericosEdit(prev => {
+                                      const n = {...prev}; delete n[h.id_activo]; return n;
+                                    })}
+                                    style={{
+                                      fontSize:11, padding:'2px 8px', borderRadius:6,
+                                      border:'none', background:'transparent',
+                                      color:'var(--text-muted)', cursor:'pointer'
+                                    }}
+                                  >
+                                    ✕ Cancelar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Formulario inline de edición */}
+                            {edit && (
+                              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                                <div style={{ display:'flex', gap:6 }}>
+                                  {['Operativo','Mantenimiento','Dado de baja'].map(est => (
+                                    <button key={est}
+                                      onClick={() => setPerifericosEdit(prev => ({
+                                        ...prev,
+                                        [h.id_activo]: { ...prev[h.id_activo], estado: est }
+                                      }))}
+                                      style={{
+                                        flex:1, fontSize:10, padding:'4px 2px',
+                                        borderRadius:6, border:`1px solid ${
+                                          edit.estado === est
+                                            ? colorActivo(est)
+                                            : 'var(--border-color)'
+                                        }`,
+                                        background: edit.estado === est
+                                          ? `${colorActivo(est)}22`
+                                          : 'var(--bg-input)',
+                                        color: edit.estado === est
+                                          ? colorActivo(est)
+                                          : 'var(--text-muted)',
+                                        cursor:'pointer', fontWeight:600
+                                      }}
+                                    >
+                                      {est}
+                                    </button>
+                                  ))}
+                                </div>
+                                <textarea
+                                  placeholder="Motivo del cambio (obligatorio)..."
+                                  value={edit.motivo}
+                                  onChange={e => setPerifericosEdit(prev => ({
+                                    ...prev,
+                                    [h.id_activo]: { ...prev[h.id_activo], motivo: e.target.value }
+                                  }))}
+                                  style={{
+                                    width:'100%', padding:'6px 10px', borderRadius:6,
+                                    border:'1px solid var(--border-color)',
+                                    background:'var(--bg-input)', color:'var(--text-main)',
+                                    fontSize:12, resize:'vertical', minHeight:50,
+                                    boxSizing:'border-box'
+                                  }}
+                                />
+                                <button
+                                  disabled={!edit.motivo.trim()}
+                                  onClick={() => guardarCambioPeriferico(h, edit)}
+                                  style={{
+                                    padding:'6px 12px', borderRadius:6, border:'none',
+                                    background: !edit.motivo.trim()
+                                      ? 'rgba(99,102,241,0.3)'
+                                      : colorActivo(edit.estado),
+                                    color:'#fff', fontWeight:600, fontSize:12,
+                                    cursor: !edit.motivo.trim() ? 'not-allowed' : 'pointer',
+                                    opacity: !edit.motivo.trim() ? 0.6 : 1
+                                  }}
+                                >
+                                  Guardar cambio
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
