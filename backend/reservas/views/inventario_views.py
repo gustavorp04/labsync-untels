@@ -74,25 +74,30 @@ class ActivosPorLaboratorioView(generics.ListAPIView):
         id_horario = request.query_params.get('id_horario')
 
         if id_horario:
+            # Caché de 20s para vista de reserva (cambia con reservas activas)
             cache_key = f"activos_lab_{id_lab}_{id_horario}"
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return Response(cached)
+        else:
+            # Caché de 60s para vista de inventario admin (cambia solo al editar activos)
+            cache_key = f"activos_lab_{id_lab}_inventario"
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
 
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         data = serializer.data
 
-        # Inyectar el campo estado_reserva e id_reserva en la respuesta JSON
         if id_horario:
             estado_map = {a.id_activo: getattr(a, 'estado_reserva', None) for a in queryset}
             reserva_id_map = {a.id_activo: getattr(a, 'reserva_id', None) for a in queryset}
             for item in data:
                 item['estado_reserva'] = estado_map.get(item['id_activo'], None)
                 item['id_reserva'] = reserva_id_map.get(item['id_activo'], None)
-                # Mantenemos 'reservado' por compatibilidad temporal
                 item['reservado'] = bool(item['estado_reserva'])
             cache.set(cache_key, data, 20)
+        else:
+            cache.set(cache_key, data, 60)
 
         return Response(data)
 
@@ -146,6 +151,9 @@ class ActivoUpdateView(generics.UpdateAPIView):
 
         if error:
             return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Invalidar caché de inventario para este laboratorio
+        cache.delete(f"activos_lab_{id_laboratorio}_inventario")
 
         return Response({
             "ok": True,
@@ -304,6 +312,9 @@ def registrar_incidencia_view(request, id_laboratorio, id_activo):
 
     if error:
         return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Invalidar caché de inventario para este laboratorio
+    cache.delete(f"activos_lab_{id_laboratorio}_inventario")
 
     # Retornar respuesta exitosa
     from ..serializers.incidencia_serializers import IncidenciaSerializer
