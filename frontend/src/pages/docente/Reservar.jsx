@@ -32,7 +32,7 @@ const DEPTO_MAP = {
 
 function DocenteReservar() {
   const navigate = useNavigate();
-  const { showToast } = useOutletContext();
+  const { showToast, reservarKey } = useOutletContext();
 
   const userId = localStorage.getItem("id_usuario") || "";
   const nombre = localStorage.getItem("nombre") || "Docente";
@@ -141,6 +141,12 @@ function DocenteReservar() {
     intervalId = setInterval(() => cargarEquipos(false), 15000);
     return () => { if (intervalId) clearInterval(intervalId); abortCtrl.abort(); };
   }, [paso, labSel, horarioSel, showToast]);
+
+  useEffect(() => {
+    if (!reservarKey) return;
+    resetFlujo();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservarKey]);
 
   const toggleActivo = (id) => {
     setActivosSel(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

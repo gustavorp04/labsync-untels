@@ -24,6 +24,7 @@ function DocenteLayout() {
   const toastTimerRef = useRef(null);
 
   const [toast, setToast] = useState(null);
+  const [reservarKey, setReservarKey] = useState(0);
 
   const nombre = localStorage.getItem("nombre") || "Docente";
   const depto  = localStorage.getItem("departamento") || "";
@@ -87,7 +88,12 @@ function DocenteLayout() {
             <button
               key={path}
               className={`doc-nav-btn ${isActive(path) ? 'active' : ''}`}
-              onClick={() => navigate(path)}
+              onClick={() => {
+                if (path === '/docente/reservar') {
+                  setReservarKey(k => k + 1);
+                }
+                navigate(path);
+              }}
             >
               <NavIcon /><span>{label}</span>
             </button>
@@ -103,7 +109,7 @@ function DocenteLayout() {
       </aside>
 
       <main className="doc-main">
-        <Outlet context={{ showToast }} />
+        <Outlet context={{ showToast, reservarKey }} />
       </main>
     </div>
   );
