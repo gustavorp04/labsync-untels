@@ -69,6 +69,9 @@ function DocenteReservar() {
   const activosSelRef = useRef(activosSel);
   useEffect(() => { activosSelRef.current = activosSel; }, [activosSel]);
 
+  const activosPrecargadosRef = useRef(null);
+  const precargandoHorarioRef = useRef(null);
+
   const resetFlujo = () => {
     setPaso(1); setCategoriaSel(null); setLabSel(null);
     setHorarioSel(null); setActivosSel([]); setAceptaDJ(false);
@@ -112,9 +115,21 @@ function DocenteReservar() {
     let isLoading = false;
     const abortCtrl = new AbortController();
 
+    const hayPrecarga = () => activosPrecargadosRef.current && precargandoHorarioRef.current === horarioSel.id_horario;
+
     const cargarEquipos = async (showLoading = false) => {
       if (!showLoading && isLoading) return;
       isLoading = true;
+
+      // Usar datos precargados en la primera carga
+      if (showLoading && hayPrecarga()) {
+        const CPUoMesa = activosPrecargadosRef.current.filter(a => a.tipo_activo_nombre === 'CPU' || a.tipo_activo_nombre === 'Mesa');
+        setActivos(CPUoMesa);
+        activosPrecargadosRef.current = null;
+        isLoading = false;
+        return;
+      }
+
       if (showLoading) setLoading(true);
       try {
         const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario, { signal: abortCtrl.signal });
@@ -136,7 +151,7 @@ function DocenteReservar() {
       }
     };
 
-    setActivos([]);
+    if (!hayPrecarga()) setActivos([]);
     cargarEquipos(true);
     intervalId = setInterval(() => cargarEquipos(false), 15000);
     return () => { if (intervalId) clearInterval(intervalId); abortCtrl.abort(); };
@@ -180,6 +195,21 @@ function DocenteReservar() {
   };
 
   const STEP_LABELS = ['Categoría', 'Laboratorio', 'Horario', 'Equipos', 'Confirmar'];
+
+  const precargarActivos = useCallback((horario) => {
+    if (!horario || !labSel) return;
+    if (precargandoHorarioRef.current === horario.id_horario) return;
+    precargandoHorarioRef.current = horario.id_horario;
+    activosPrecargadosRef.current = null;
+    laboratorioService.getActivosPorLab(
+      labSel.id_laboratorio,
+      horario.id_horario
+    ).then(data => {
+      if (precargandoHorarioRef.current === horario.id_horario) {
+        activosPrecargadosRef.current = data;
+      }
+    }).catch(() => {});
+  }, [labSel]);
 
   return (
     <div className="doc-flow">
@@ -256,6 +286,7 @@ function DocenteReservar() {
             <div className="doc-slots-grid">
               {horarios.map(h => (
                 <button key={h.id_horario} className={`doc-slot ${horarioSel?.id_horario === h.id_horario ? 'selected' : ''}`}
+                  onMouseEnter={() => precargarActivos(h)}
                   onClick={() => { setHorarioSel(h); setActivosSel([]); setPaso(4); }}>
                   <div className="doc-slot-date">{new Date(h.fecha + 'T00:00:00').toLocaleDateString('es-PE', { weekday:'short',day:'numeric',month:'short' })}</div>
                   <div className="doc-slot-time">{h.hora_inicio.slice(0,5)} – {h.hora_fin.slice(0,5)}</div>
