@@ -44,6 +44,9 @@ function EstudianteReservar() {
   const [labSearchTerm, setLabSearchTerm] = useState("");
   const [diasVisibles, setDiasVisibles] = useState(5);
 
+  const activosPrecargadosRef = useRef(null);
+  const precargandoHorarioRef = useRef(null);
+
   const activoSelRef = useRef(activoSel);
   useEffect(() => { activoSelRef.current = activoSel; }, [activoSel]);
 
@@ -130,9 +133,20 @@ function EstudianteReservar() {
     let isLoading = false;
     const abortCtrl = new AbortController();
 
+    const hayPrecarga = () => activosPrecargadosRef.current && precargandoHorarioRef.current === horarioSel.id_horario;
+
     const cargarEquipos = async (showLoading = false) => {
       if (!showLoading && isLoading) return;
       isLoading = true;
+
+      // Usar datos precargados en la primera carga
+      if (showLoading && hayPrecarga()) {
+        setActivos(activosPrecargadosRef.current);
+        activosPrecargadosRef.current = null;
+        isLoading = false;
+        return;
+      }
+
       if (showLoading) setLoading(true);
       try {
         const data = await laboratorioService.getActivosPorLab(labSel.id_laboratorio, horarioSel.id_horario, { signal: abortCtrl.signal });
@@ -152,7 +166,7 @@ function EstudianteReservar() {
       }
     };
 
-    setActivos([]);
+    if (!hayPrecarga()) setActivos([]);
     cargarEquipos(true);
     intervalId = setInterval(() => cargarEquipos(false), 5000);
     return () => { if (intervalId) clearInterval(intervalId); abortCtrl.abort(); };
@@ -183,6 +197,21 @@ function EstudianteReservar() {
     acc[h.fecha].push(h);
     return acc;
   }, {});
+
+  const precargarActivos = useCallback((horario) => {
+    if (!horario || !labSel) return;
+    if (precargandoHorarioRef.current === horario.id_horario) return;
+    precargandoHorarioRef.current = horario.id_horario;
+    activosPrecargadosRef.current = null;
+    laboratorioService.getActivosPorLab(
+      labSel.id_laboratorio,
+      horario.id_horario
+    ).then(data => {
+      if (precargandoHorarioRef.current === horario.id_horario) {
+        activosPrecargadosRef.current = data;
+      }
+    }).catch(() => {});
+  }, [labSel]);
 
   return (
     <div className="est-wizard">
@@ -232,6 +261,7 @@ function EstudianteReservar() {
                       <button
                         key={h.id_horario}
                         className={`est-cal-slot ${!h.es_reservable ? 'blocked' : ''}`}
+                        onMouseEnter={() => { if (h.es_reservable) precargarActivos(h); }}
                         onClick={() => { if (!h.es_reservable) return; setHorarioSel(h); setActivoSel(null); setPaso(3); }}
                         disabled={!h.es_reservable}
                         title={!h.es_reservable ? "Bloqueado por límite de 24h" : ""}
