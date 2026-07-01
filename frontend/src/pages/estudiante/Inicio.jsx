@@ -100,7 +100,7 @@ function EstudianteInicio() {
         </div>
       )}
 
-      <button className="est-cta" onClick={() => navigate('/estudiante/reservar')}>
+      <button className="est-cta" onClick={() => { sessionStorage.removeItem('est_paso'); sessionStorage.removeItem('est_lab'); sessionStorage.removeItem('est_horario'); sessionStorage.removeItem('est_activo'); navigate('/estudiante/reservar'); }}>
         + Reservar laboratorio
       </button>
     </div>
