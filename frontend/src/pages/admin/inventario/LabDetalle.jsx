@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import laboratorioService from "../../../services/laboratorioService";
 import LabMap from "../../../components/LabMap";
@@ -50,33 +50,47 @@ function AdminLabDetalle() {
   const [inhabilitarLabModal, setInhabilitarLabModal]   = useState(false);
   const [inhabilitarLabMotivo, setInhabilitarLabMotivo] = useState('');
   const [inhabilitarLabImagen, setInhabilitarLabImagen] = useState(null);
+  const currentLabIdRef = useRef(null);
 
   useEffect(() => { if (!incidenciaModal) setIncidenciaImagen(null); }, [incidenciaModal]);
   useEffect(() => { if (!inhabilitarLabModal) setInhabilitarLabImagen(null); }, [inhabilitarLabModal]);
   useEffect(() => { if (!activoModal) setCambioEstadoImagen(null); }, [activoModal]);
 
-  const cargarDetalle = async (lab) => {
-    setActivos([]); setHistorial([]); setActivoModal(null);
-    setHistorialSearch(''); setHistorialFiltro('todos');
+  const cargarDetalle = useCallback(async (lab) => {
+    const thisLabId = lab.id_laboratorio;
+    currentLabIdRef.current = thisLabId;
+
+    setActivos([]);
+    setHistorial([]);
+    setActivoModal(null);
+    setHistorialSearch('');
+    setHistorialFiltro('todos');
     setLoadingActivos(true);
+
     try {
       const [activosData, historialData] = await Promise.all([
         laboratorioService.getActivosPorLab(lab.id_laboratorio),
         laboratorioService.getHistorialLab(lab.id_laboratorio),
       ]);
+
+      // Si el usuario ya cambió a otro lab, descartar esta respuesta
+      if (currentLabIdRef.current !== thisLabId) return;
+
       setActivos(activosData);
       setHistorial(historialData);
     } catch (err) {
+      if (currentLabIdRef.current !== thisLabId) return;
       console.error(err);
     } finally {
-      setLoadingActivos(false);
+      if (currentLabIdRef.current === thisLabId) {
+        setLoadingActivos(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (labSeleccionado) cargarDetalle(labSeleccionado);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labId, labSeleccionado?.id_laboratorio]);
+  }, [labId, labSeleccionado?.id_laboratorio, cargarDetalle]);
 
   const abrirModalActivo = (activo) => {
     setActivoModal(activo);
