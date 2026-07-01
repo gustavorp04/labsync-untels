@@ -150,6 +150,60 @@ def actualizar_estado_activo(id_activo, nuevo_estado, motivo='Cambio manual', us
                     imagen=imagen,
                 )
 
+                # Propagación de estado al CPU del mismo puesto
+                # Solo aplica si el activo modificado NO es un CPU ni una Mesa
+                tipo_nombre = activo.id_tipo_activo.nombre
+                TIPOS_PERIFERICO = ['Monitor', 'Mouse', 'Teclado']
+
+                if tipo_nombre in TIPOS_PERIFERICO:
+                    # Extraer número de puesto del num_serie (último segmento)
+                    puesto_num = activo.num_serie.rsplit('-', 1)[-1]
+                    laboratorio_id = activo.id_laboratorio_id
+
+                    # Buscar el CPU del mismo puesto en el mismo laboratorio
+                    cpu_hermano = ActivoLaboratorio.objects.filter(
+                        id_laboratorio_id=laboratorio_id,
+                        id_tipo_activo__nombre='CPU',
+                        num_serie__endswith=f'-{puesto_num}'
+                    ).first()
+
+                    if cpu_hermano:
+                        # Obtener todos los periféricos del mismo puesto
+                        perifericos = ActivoLaboratorio.objects.filter(
+                            id_laboratorio_id=laboratorio_id,
+                            id_tipo_activo__nombre__in=TIPOS_PERIFERICO,
+                            num_serie__endswith=f'-{puesto_num}'
+                        )
+
+                        estados_periferico = list(
+                            perifericos.values_list('estado', flat=True)
+                        )
+
+                        # Determinar nuevo estado del CPU según reglas
+                        if 'Dado de baja' in estados_periferico:
+                            nuevo_estado_cpu = 'Dado de baja'
+                        elif 'Mantenimiento' in estados_periferico:
+                            nuevo_estado_cpu = 'Mantenimiento'
+                        else:
+                            nuevo_estado_cpu = 'Operativo'
+
+                        # Solo actualizar si el estado del CPU cambia
+                        if cpu_hermano.estado != nuevo_estado_cpu:
+                            estado_anterior_cpu = cpu_hermano.estado
+                            cpu_hermano.estado = nuevo_estado_cpu
+                            cpu_hermano.save()
+
+                            # Registrar historial del cambio automático en el CPU
+                            HistorialMantenimiento.objects.create(
+                                id_activo=cpu_hermano,
+                                estado_anterior=estado_anterior_cpu,
+                                estado_nuevo=nuevo_estado_cpu,
+                                motivo=f'Cambio automático por periférico {tipo_nombre} '
+                                       f'({activo.num_serie}) → {nuevo_estado}',
+                                fecha_cambio=timezone.now(),
+                                registrado_por=usuario_registrador,
+                            )
+
                 mensajes = []
 
                 # PBI-12: Si el laboratorio se inhabilitó automáticamente debido a esta falla de equipo
